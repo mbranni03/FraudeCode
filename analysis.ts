@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import { Parser, Language, Node } from "web-tree-sitter";
-import { ChromaClient, type Collection } from "chromadb";
+import QdrantCli from "./src/utils/qdrantcli";
 import path from "path";
 import ignore from "ignore";
 
@@ -12,10 +12,11 @@ const MODEL = "snowflake-arctic-embed:latest";
 
 interface GitRepo {
   path: string;
+  subPath?: string;
   name: string;
 }
 
-async function indexAllFiles(repo: GitRepo, client: ChromaClient) {
+async function indexAllFiles(repo: GitRepo, client: QdrantCli) {
   const ig = ignore();
   ig.add(".gitignore");
 
@@ -25,42 +26,15 @@ async function indexAllFiles(repo: GitRepo, client: ChromaClient) {
     ig.add(content);
   }
 
-  const embeddingFunction = async (texts: string[]) => {
-    const results = [];
+  let chunks: Chunk[] = [];
 
-    for (const text of texts) {
-      const res = await fetch("http://localhost:11434/api/embed", {
-        method: "POST",
-        body: JSON.stringify({
-          model: "snowflake-arctic-embed",
-          input: text,
-        }),
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const data: any = await res.json();
-      results.push(data.embedding);
-    }
-
-    return results;
-  };
-
-  const collection = await client.getOrCreateCollection({
-    name: repo.name,
-    embeddingFunction: {
-      generate: embeddingFunction,
-    },
-  });
-
-  let chunks = [];
-
-  const walkRepo = async (dir: string) => {
+  const walkRepo = async (dir: string, subPath: string = "") => {
     const entries = await fs.promises
-      .readdir(dir, { withFileTypes: true })
+      .readdir(path.join(dir, subPath), { withFileTypes: true })
       .catch(() => []);
 
     for (const entry of entries) {
-      const absPath = path.join(dir, entry.name);
+      const absPath = path.join(dir, subPath, entry.name);
       const filePath = path.relative(repo.path, absPath);
 
       if (ig.ignores(filePath)) continue;
@@ -71,33 +45,40 @@ async function indexAllFiles(repo: GitRepo, client: ChromaClient) {
         const fileChunks = await analyzeCode(filePath);
         chunks.push(...fileChunks);
         if (chunks.length > 100) {
-          await addBatch(collection, chunks);
+          chunks = await addBatch(client, repo.name, chunks);
         }
       }
     }
-
-    await walkRepo(repo.path);
-    while (chunks.length > 0) {
-      await addBatch(collection, chunks);
-    }
   };
+
+  await walkRepo(repo.path, repo?.subPath || "");
+  while (chunks.length > 0) {
+    chunks = await addBatch(client, repo.name, chunks);
+  }
 }
 
 async function addBatch(
-  collection: Collection,
+  qdrantCli: QdrantCli,
+  collectionName: string,
   chunks: Chunk[],
   batchSize: number = 100
 ) {
+  console.log("Adding batch");
   const batch = chunks.slice(0, batchSize);
-  await collection.add({
-    ids: batch.map((chunk) => chunk.id),
-    documents: batch.map((chunk) => chunk.document),
-    metadatas: batch.map((chunk) => {
+  console.log(batch.length);
+  console.log(batch[0]);
+  const points = await Promise.all(
+    batch.map(async (chunk) => {
       const { id, document, ...metadata } = chunk;
-      return metadata;
-    }),
-  });
-  return batch.slice(batchSize);
+      return {
+        id,
+        vector: await embed(document),
+        payload: { ...metadata, rawDocument: document },
+      };
+    })
+  );
+  await qdrantCli.upsertCollections(collectionName, points);
+  return chunks.slice(batchSize);
 }
 
 async function embed(text: string): Promise<number[]> {
@@ -131,6 +112,7 @@ const pyConfig = {
 };
 
 async function analyzeCode(filePath: string) {
+  console.log("Analyzing file: ", filePath);
   // --- 1. Initialize the Wasm Parser ---
   await Parser.init();
 
@@ -192,7 +174,7 @@ async function analyzeCode(filePath: string) {
   return chunks.map((chunk, i) => {
     return {
       ...chunk,
-      filePath: CODE_FILE,
+      filePath: filePath,
       language: pyConfig.name,
     };
   });
@@ -210,7 +192,7 @@ function collectTreeNodes(node: Node, wantedNodes: Set<string>): Node[] {
   return treeNodes;
 }
 
-const MAX_TOKENS = 24576;
+const MAX_TOKENS = 8192;
 
 type Chunk = {
   id: string;
@@ -223,7 +205,7 @@ async function split(src: string, startLine: number): Promise<Chunk[]> {
   if (!src.trim()) return [];
 
   const lines = src.split("\n");
-  const NEW_LINE_TOKEN = await embed("\n");
+  const NEW_LINE_TOKEN = "\n";
 
   let currentLines: string[] = [];
   let currentTokens = 0;
@@ -241,8 +223,8 @@ async function split(src: string, startLine: number): Promise<Chunk[]> {
   };
 
   for (const line of lines) {
-    const encodedLine = await embed(line);
-    const lineTokens = encodedLine.length + NEW_LINE_TOKEN.length;
+    // const encodedLine = await tokenize(LLM_MODEL, line);
+    const lineTokens = line.length + NEW_LINE_TOKEN.length;
     if (currentTokens + lineTokens > MAX_TOKENS && currentLines.length > 0) {
       flush();
       splitStart += currentLines.length;
@@ -266,9 +248,16 @@ async function split(src: string, startLine: number): Promise<Chunk[]> {
   //   console.log(analysis);
   //   console.log(await embed("test"));
   let repo = {
-    path: "/Users/mbranni03/Documents/GitHub/FraudeCode/sample",
+    path: "/Users/mbranni03/Documents/GitHub/FraudeCode",
+    subPath: "sample",
     name: "sample",
   };
-  let client = new ChromaClient();
+  let client = new QdrantCli();
+  await client.getOrCreateCollection(repo.name);
   await indexAllFiles(repo, client);
+  //   const res = await client.searchCollections(
+  //     repo.name,
+  //     await embed("calculate")
+  //   );
+  //   console.log(res.points);
 })();
