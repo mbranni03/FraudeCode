@@ -14,6 +14,21 @@ services:
       - "6333:6333" # Qdrant API port
     volumes:
       - ./qdrant_storage:/qdrant/storage
+  fraude-graphdb:
+    image: neo4j:5.15-community
+    container_name: fraude_graphdb
+    ports:
+      - "7474:7474" # HTTP Browser
+      - "7687:7687" # Bolt Protocol
+    environment:
+      - NEO4J_AUTH=neo4j/password123
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_PLUGINS=["apoc"]
+    volumes:
+      - ./neo4j_data/data:/data
+      - ./neo4j_data/plugins:/plugins
 volumes:
   ollama_data:
   qdrant_storage:
+  neo4j_data:
