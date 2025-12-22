@@ -196,6 +196,27 @@ class Neo4jClient {
       await session.close();
     }
   }
+
+  async getContextBySymbol(symbolName: string) {
+    const session = this.driver.session();
+    try {
+      const result = await session.run(
+        `
+        MATCH (s {name: $symbolName})
+        WHERE s:Function OR s:Class
+        OPTIONAL MATCH (s)<-[:DEFINES]-(parent)
+        OPTIONAL MATCH (s)-[:CALLS]->(target)
+        RETURN s.name as name, s.filePath as filePath, s.startLine as startLine, labels(s)[0] as type, 
+               parent.path as parentFile, labels(parent)[0] as parentType, parent.name as parentName,
+               collect(target.name) as calls
+        `,
+        { symbolName }
+      );
+      return result.records.map((r) => r.toObject());
+    } finally {
+      await session.close();
+    }
+  }
 }
 
 export default Neo4jClient;

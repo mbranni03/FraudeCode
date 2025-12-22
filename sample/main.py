@@ -1,15 +1,20 @@
-# main.py
 import utils
 
 def calculate():
     x = utils.add(2, 3)
     y = utils.multiply(x, utils.CONSTANT_VALUE)
-    return y
+    z = utils.subtract(y, x)  
+    w = utils.divide(y, x)  # new line added to use the divide function
+    return w
+
+def power(base, exponent):
+    result = base ** exponent
+    return result
 
 def run():
     result = calculate()
     greeter = utils.Greeter("AST Explorer")
-    message = greeter.greet()
+    message = greeter.greet() + "."
     print(message)
     print("Result:", result)
 
