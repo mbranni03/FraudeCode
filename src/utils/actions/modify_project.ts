@@ -1,5 +1,5 @@
-import Neo4jClient from "./src/utils/neo4jcli";
-import QdrantCli from "./src/utils/qdrantcli";
+import Neo4jClient from "../neo4jcli";
+import QdrantCli from "../qdrantcli";
 import * as fs from "fs";
 import * as path from "path";
 import * as diff from "diff";

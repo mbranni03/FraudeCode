@@ -1,4 +1,15 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import summarizeProject from "./actions/summarize_project";
+import Neo4jClient from "./neo4jcli";
+import QdrantCli from "./qdrantcli";
+
+const neo4j = new Neo4jClient();
+const qdrant = new QdrantCli();
+
+// Initialize Qdrant reranker once
+qdrant
+  .init()
+  .catch((err) => console.error("Failed to initialize Qdrant:", err));
 
 const OLLAMA_URL = "http://localhost:11434";
 
@@ -12,9 +23,11 @@ export interface OllamaCLI {
   streamedText: string;
   status: number; // 0 = idle, 1 = loading, 2 = done, -1 = interrupted
   tokenUsage: TokenUsage;
-  completionQuery: (query: string) => Promise<void>;
+  handleQuery: (query: string) => Promise<void>;
   interrupt: () => void;
   embedString: (query: string) => Promise<number[]>;
+  neo4j: Neo4jClient;
+  qdrant: QdrantCli;
 }
 
 export function useOllamaClient(model: string): OllamaCLI {
@@ -27,6 +40,32 @@ export function useOllamaClient(model: string): OllamaCLI {
   });
 
   const abortRef = useRef<AbortController | null>(null);
+
+  const handleQuery = useCallback(
+    async (query: string) => {
+      if (abortRef.current) {
+        abortRef.current.abort();
+      }
+      abortRef.current = new AbortController();
+
+      setStatus(1);
+      setStreamedText("");
+
+      if (query.trim() == "/summarize") {
+        const prompt = await summarizeProject(neo4j, qdrant);
+        const payload = {
+          model,
+          stream: true,
+          messages: [{ role: "user", content: prompt }],
+          options: { temperature: 0.6 },
+        };
+        await ollamaQuery(payload, abortRef);
+      } else {
+        notFoundError();
+      }
+    },
+    [model]
+  );
 
   const completionQuery = useCallback(
     async (query: string) => {
@@ -45,7 +84,12 @@ export function useOllamaClient(model: string): OllamaCLI {
         messages: [{ role: "user", content: query }],
         options: { temperature: 0.6 },
       };
+    },
+    [model]
+  );
 
+  const ollamaQuery = useCallback(
+    async (payload: any, abortRef: any) => {
       try {
         const response = await fetch(`${OLLAMA_URL}/api/chat`, {
           method: "POST",
@@ -109,6 +153,11 @@ export function useOllamaClient(model: string): OllamaCLI {
     [model]
   );
 
+  const notFoundError = useCallback(() => {
+    setStatus(2);
+    setStreamedText("Command not found");
+  }, []);
+
   const interrupt = useCallback(() => {
     if (abortRef.current) {
       abortRef.current.abort();
@@ -140,10 +189,12 @@ export function useOllamaClient(model: string): OllamaCLI {
   return {
     streamedText,
     status,
-    completionQuery,
+    handleQuery,
     tokenUsage,
     interrupt,
     embedString,
+    neo4j,
+    qdrant,
   };
 }
 

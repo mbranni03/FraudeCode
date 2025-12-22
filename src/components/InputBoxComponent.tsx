@@ -25,7 +25,7 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
                 return;
               }
               setValue("");
-              OllamaClient.completionQuery(v);
+              OllamaClient.handleQuery(v);
             }}
           />
         </Box>

@@ -1,35 +1,11 @@
-import Neo4jClient from "./src/utils/neo4jcli";
-import QdrantCli from "./src/utils/qdrantcli";
+import type Neo4jClient from "../neo4jcli";
+import type QdrantCli from "../qdrantcli";
 
-const OLLAMA_URL = "http://localhost:11434";
-
-async function queryOllama(model: string, prompt: string) {
-  const payload = {
-    model,
-    messages: [{ role: "user", content: prompt }],
-    stream: false,
-  };
-
-  const res = await fetch(`${OLLAMA_URL}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Ollama error: ${res.status} ${await res.text()}`);
-  }
-
-  const data: any = await res.json();
-  return data.message.content;
-}
-
-(async () => {
+export default async function summarizeProject(
+  neo4j: Neo4jClient,
+  qdrant: QdrantCli
+) {
   console.log("Starting Project Summary extraction...");
-
-  const neo4j = new Neo4jClient();
-  const qdrant = new QdrantCli();
-  await qdrant.init();
 
   const repoName = "sample";
 
@@ -97,14 +73,16 @@ ${codeContext}
 Full Response:
 `;
 
-  try {
-    const summary = await queryOllama("llama3.1:latest", prompt);
-    console.log("\n================ PROJECT SUMMARY ================");
-    console.log(summary);
-    console.log("==================================================");
-  } catch (err) {
-    console.error("Failed to generate summary with Ollama:", err);
-  } finally {
-    await neo4j.driver.close();
-  }
-})();
+  return prompt;
+
+  // try {
+  //   const summary = await queryOllama("llama3.1:latest", prompt);
+  //   console.log("\n================ PROJECT SUMMARY ================");
+  //   console.log(summary);
+  //   console.log("==================================================");
+  // } catch (err) {
+  //   console.error("Failed to generate summary with Ollama:", err);
+  // } finally {
+  //   await neo4j.driver.close();
+  // }
+}
