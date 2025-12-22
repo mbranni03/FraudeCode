@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import summarizeProject from "./actions/summarize_project";
 import Neo4jClient from "./neo4jcli";
 import QdrantCli from "./qdrantcli";
+import modifyProject from "./actions/modify_project";
 
 const neo4j = new Neo4jClient();
 const qdrant = new QdrantCli();
@@ -54,15 +55,30 @@ export function useOllamaClient(model: string): OllamaCLI {
       setStreamedText("");
 
       if (query.trim() == "/summarize") {
-        const prompt = await summarizeProject(neo4j, qdrant, ollamaQuery);
+        await summarizeProject(neo4j, qdrant, ollamaStreamQuery);
+      } else if (query.trim().startsWith("/modify")) {
+        let prompt = query.trim().split(" ").slice(1).join(" ") || "";
+        if (prompt.length == 0) {
+          invalidPromptError("No prompt provided");
+          return;
+        } else {
+          await modifyProject(
+            prompt,
+            neo4j,
+            qdrant,
+            ollamaReturnQuery,
+            setStreamedText
+          );
+          setStatus(2);
+        }
       } else {
-        notFoundError();
+        invalidPromptError("Command not found");
       }
     },
     [model]
   );
 
-  const ollamaQuery = useCallback(
+  const ollamaStreamQuery = useCallback(
     async (payload: any) => {
       try {
         if (abortRef.current) {
@@ -71,14 +87,14 @@ export function useOllamaClient(model: string): OllamaCLI {
         abortRef.current = new AbortController();
 
         let modifiedPayload = payload;
+        // DEFAULTS
         modifiedPayload.stream = true;
-        if (!payload.model) {
-          modifiedPayload.model = model;
-        }
+        if (!payload.model) modifiedPayload.model = model;
+
         const response = await fetch(`${OLLAMA_URL}/api/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(modifiedPayload),
           signal: abortRef.current.signal,
         });
 
@@ -137,9 +153,55 @@ export function useOllamaClient(model: string): OllamaCLI {
     [model]
   );
 
-  const notFoundError = useCallback(() => {
+  const ollamaReturnQuery = useCallback(
+    async (payload: any) => {
+      try {
+        if (abortRef.current) {
+          abortRef.current.abort();
+        }
+        abortRef.current = new AbortController();
+
+        let modifiedPayload = payload;
+        // DEFAULTS
+        modifiedPayload.stream = false;
+        if (!payload.model) modifiedPayload.model = model;
+
+        const response = await fetch(`${OLLAMA_URL}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(modifiedPayload),
+          signal: abortRef.current.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.statusText}`);
+        }
+
+        const data = (await response.json()) as any;
+        const content = data.message?.content || "";
+        let prompt = data?.prompt_eval_count || 0;
+        let completion = data?.eval_count || 0;
+        let total = prompt + completion;
+        setTokenUsage({
+          total,
+          prompt,
+          completion,
+        });
+        return content;
+      } catch (error: any) {
+        if (error.name === "AbortError") {
+          return;
+        }
+        console.error("Failed to query Ollama:", error);
+        setStatus(2);
+      }
+    },
+    [model]
+  );
+
+  const invalidPromptError = useCallback((message?: string) => {
     setStatus(2);
-    setStreamedText("Command not found");
+    setStreamedText(message || "Command not found");
   }, []);
 
   const interrupt = useCallback(() => {

@@ -7,17 +7,19 @@ import * as diff from "diff";
 export default async function modifyProject(
   query: string,
   neo4j: Neo4jClient,
-  qdrant: QdrantCli
+  qdrant: QdrantCli,
+  action: (payload: any) => Promise<string>,
+  setStreamedText: (text: string) => void
 ) {
   const repoName = "sample";
   const repoPath = "/Users/mbranni03/Documents/GitHub/FraudeCode/sample";
 
   // 1. Semantic Search in Qdrant
-  console.log("Searching Qdrant for semantic context...");
+  setStreamedText("Searching Qdrant for semantic context...");
   const searchResults = await qdrant.hybridSearch(repoName, query);
 
   // 2. Structural Context from Neo4j (if symbols found)
-  console.log("Searching Neo4j for structural context...");
+  setStreamedText("Searching Neo4j for structural context...");
   // Extract potential symbols from query (very simple heuristic)
   const words = query.split(/\W+/);
   let structuralContext = "";
@@ -82,11 +84,14 @@ FILE: sample/utils.py
 Only output the file sections as specified above. Do not include any other text.
 `;
 
-  console.log("Generating modifications with Ollama...");
-  const modificationResponse = await queryOllama(prompt);
+  setStreamedText("Generating modifications with Ollama...");
+  const modificationResponse = await action({
+    messages: [{ role: "user", content: prompt }],
+    stream: false,
+  });
 
+  setStreamedText("Applying changes...");
   // 5. Apply Changes
-  console.log("\nApplying changes...");
   const fileBlocks = modificationResponse
     .split(/FILE: /)
     .filter((b: string) => b.trim().length > 0);
@@ -95,7 +100,7 @@ Only output the file sections as specified above. Do not include any other text.
 
   for (const block of fileBlocks) {
     const lines = block.split("\n");
-    const filePath = lines[0].trim();
+    const filePath = lines[0]?.trim();
     const codeMatch = block.match(/```(?:\w+)?\n([\s\S]*?)```/);
 
     if (filePath && codeMatch) {
@@ -137,9 +142,9 @@ Only output the file sections as specified above. Do not include any other text.
       });
 
       allDiffs += fileDiff;
-
+      setStreamedText(allDiffs);
       console.log(`Updating ${absPath}...`);
-      fs.writeFileSync(absPath, newContent);
+      // fs.writeFileSync(absPath, newContent);
     } else {
       console.warn("Could not parse file block:", block.substring(0, 100));
     }
@@ -151,5 +156,3 @@ Only output the file sections as specified above. Do not include any other text.
   console.log("Finished applying modifications.");
   await neo4j.driver.close();
 }
-
-main().catch(console.error);

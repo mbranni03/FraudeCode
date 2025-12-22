@@ -4,14 +4,14 @@ import type QdrantCli from "../qdrantcli";
 export default async function summarizeProject(
   neo4j: Neo4jClient,
   qdrant: QdrantCli,
-  action: (payload: any) => void
+  action: (payload: any) => Promise<void>
 ) {
-  console.log("Starting Project Summary extraction...");
+  // console.log("Starting Project Summary extraction...");
 
   const repoName = "sample";
 
   // 1. Fetch Structure from Neo4j
-  console.log("Querying Neo4j for project structure...");
+  // console.log("Querying Neo4j for project structure...");
   const session = neo4j.driver.session();
   let structureData = "";
   try {
@@ -57,7 +57,7 @@ export default async function summarizeProject(
   }
 
   // 3. Synthesize with Ollama
-  console.log("Synthesizing summary with Ollama (llama3.1:latest)...");
+  // console.log("Synthesizing summary with Ollama (llama3.1:latest)...");
   const prompt = `
 You are a senior software architect. Analyze the follow project structure and code snippets from the "${repoName}" project.
 Then provide:
