@@ -14,6 +14,164 @@ export interface PendingChange {
   newContent: string;
 }
 
+// Helper to parse targeted modifications and apply them to files
+export const applyTargetedChanges = (
+  modifications: string,
+  repoPath: string,
+  updateOutput?: (type: "log", content: string) => void
+): PendingChange[] => {
+  const pendingChanges: PendingChange[] = [];
+  const log = (msg: string) => {
+    console.log(msg);
+    if (updateOutput) updateOutput("log", msg);
+  };
+
+  // Split by "FILE:" regardless of markdown bolding
+  const fileBlocks = modifications
+    .split(/\bFILE:\s*/i)
+    .filter((b) => b.trim().length > 0);
+
+  log(
+    `[applyTargetedChanges] Found ${fileBlocks.length} potential file blocks`
+  );
+
+  for (const block of fileBlocks) {
+    const blockLines = block.split(/\r?\n/);
+    let filePath = blockLines[0]
+      ?.trim()
+      .replace(/\*+$/, "")
+      .replace(/^\*+/, "")
+      .trim();
+
+    log(`[applyTargetedChanges] Parsed filePath: "${filePath}"`);
+
+    if (!filePath || (!filePath.includes("/") && !filePath.match(/\.\w+$/))) {
+      log(`[applyTargetedChanges] Skipped invalid filePath: "${filePath}"`);
+      continue;
+    }
+
+    let relativePath = filePath;
+    if (filePath.startsWith("sample/")) {
+      relativePath = filePath.substring(7);
+    }
+    const absPath = path.join(repoPath, relativePath);
+
+    log(`[applyTargetedChanges] Resolving: ${filePath} -> ${absPath}`);
+
+    let oldContent = "";
+    if (fs.existsSync(absPath)) {
+      oldContent = fs.readFileSync(absPath, "utf8");
+    } else {
+      log(`[applyTargetedChanges] WARNING: File does not exist: ${absPath}`);
+    }
+
+    let newContent = oldContent;
+
+    // Segment the block into "AT LINE" chunks
+    const atLineSections = block.split(/\bAT LINE\s+/i);
+    const changes: { line: number; remove?: string; add?: string }[] = [];
+
+    // The first segment (index 0) is usually the filename/intro, so start from 1
+    for (let i = 1; i < atLineSections.length; i++) {
+      const section = atLineSections[i];
+      if (!section) continue;
+
+      // Match the line number at the start of the section
+      const lineMatch = section.match(/^(\d+)/);
+      if (!lineMatch) continue;
+
+      const lineNum = parseInt(lineMatch[1]!, 10);
+
+      // Look for REMOVE and ADD blocks in this section
+      const removeMatch = section.match(
+        /REMOVE:\s*```(?:\w+)?\r?\n([\s\S]*?)```/i
+      );
+      const addMatch = section.match(/ADD:\s*```(?:\w+)?\r?\n([\s\S]*?)```/i);
+
+      if (removeMatch || addMatch) {
+        log(
+          `[applyTargetedChanges] Found AT LINE ${lineNum}, remove=${!!removeMatch}, add=${!!addMatch}`
+        );
+        changes.push({
+          line: lineNum,
+          remove:
+            removeMatch && removeMatch[1]
+              ? removeMatch[1].trimEnd()
+              : undefined,
+          add: addMatch && addMatch[1] ? addMatch[1].trimEnd() : undefined,
+        });
+      }
+    }
+
+    if (changes.length === 0) {
+      log(
+        `[applyTargetedChanges] No valid AT LINE changes found for ${filePath}`
+      );
+    }
+
+    // Apply changes in reverse order to preserve line numbers
+    changes.sort((a, b) => b.line - a.line);
+
+    let contentLines = newContent.split(/\r?\n/);
+
+    for (const change of changes) {
+      const startIdx = change.line - 1;
+
+      if (change.remove) {
+        const removeLines = change.remove.split(/\r?\n/);
+        log(
+          `[applyTargetedChanges] Attempting removal at line ${change.line} (${removeLines.length} lines)`
+        );
+
+        let matchFound = true;
+        for (let i = 0; i < removeLines.length; i++) {
+          const contentLine = contentLines[startIdx + i];
+          const removeLine = removeLines[i];
+          if (contentLine?.trim() !== removeLine?.trim()) {
+            log(
+              `[applyTargetedChanges] Mismatch at line ${
+                startIdx + i + 1
+              }: expected "${removeLine?.trim()}", found "${contentLine?.trim()}"`
+            );
+            matchFound = false;
+            break;
+          }
+        }
+
+        if (matchFound) {
+          contentLines.splice(startIdx, removeLines.length);
+          log(
+            `[applyTargetedChanges] Successfully removed ${removeLines.length} lines`
+          );
+        } else {
+          log(
+            `[applyTargetedChanges] FAILED to remove lines at ${change.line} due to mismatch`
+          );
+        }
+      }
+
+      if (change.add) {
+        const addLines = change.add.split(/\r?\n/);
+        log(
+          `[applyTargetedChanges] Adding ${addLines.length} lines at position ${change.line}`
+        );
+        contentLines.splice(startIdx, 0, ...addLines);
+      }
+    }
+
+    newContent = contentLines.join("\n");
+
+    pendingChanges.push({
+      filePath,
+      absPath,
+      oldContent,
+      newContent,
+    });
+  }
+
+  return pendingChanges;
+};
+
 // Define the state of our graph
 const AgentState = Annotation.Root({
   query: Annotation<string>(),
@@ -309,137 +467,21 @@ IMPORTANT:
     };
   };
 
-  // Helper to parse targeted modifications and apply them to files
-  const applyTargetedChanges = (
-    modifications: string,
-    repoPath: string
-  ): PendingChange[] => {
-    const pendingChanges: PendingChange[] = [];
-
-    // Handle markdown formatting: **FILE: path** or FILE: path
-    const fileBlocks = modifications
-      .split(/\*{0,2}FILE:\s*/)
-      .filter((b) => b.trim().length > 0);
-
-    console.log(
-      `[applyTargetedChanges] Found ${fileBlocks.length} file blocks`
-    );
-
-    for (const block of fileBlocks) {
-      const lines = block.split("");
-      // Clean up the filePath: remove trailing ** and whitespace
-      let filePath = lines[0]?.trim().replace(/\*+$/, "").trim();
-
-      console.log(`[applyTargetedChanges] Parsed filePath: "${filePath}"`);
-
-      // Skip if filePath doesn't look like an actual file path
-      // (must contain a / or have a file extension like .py, .ts, etc.)
-      if (!filePath || (!filePath.includes("/") && !filePath.match(/\.\w+$/))) {
-        console.log(
-          `[applyTargetedChanges] Skipped invalid filePath: "${filePath}"`
-        );
-        continue;
-      }
-
-      // Build absolute path
-      // Handle cases where the path might already start with "sample/" or be relative to it
-      let relativePath = filePath;
-      if (filePath.startsWith("sample/")) {
-        relativePath = filePath.substring(7);
-      }
-      const absPath = path.join(repoPath, relativePath);
-
-      console.log(
-        `[applyTargetedChanges] Resolving: ${filePath} -> ${absPath}`
-      );
-
-      let oldContent = "";
-      if (fs.existsSync(absPath)) {
-        oldContent = fs.readFileSync(absPath, "utf8");
-      }
-
-      let newContent = oldContent;
-
-      // Parse AT LINE sections - more flexible regex to handle variations
-      // Handles: "AT LINE 1:" or "AT LINE 10 (after something):" etc.
-      const atLineRegex =
-        /AT LINE (\d+)[^:]*:\s*(?:REMOVE:\s*```(?:\w+)?([\s\S]*?)```)?[\s\S]*?(?:ADD:\s*```(?:\w+)?([\s\S]*?)```)?/gi;
-      let match;
-      const changes: { line: number; remove?: string; add?: string }[] = [];
-
-      console.log(
-        `[applyTargetedChanges] Parsing AT LINE sections for ${filePath}`
-      );
-
-      while ((match = atLineRegex.exec(block)) !== null) {
-        const lineNum = match[1];
-        console.log(
-          `[applyTargetedChanges] Found AT LINE ${lineNum}, remove=${!!match[2]}, add=${!!match[3]}`
-        );
-        if (lineNum) {
-          changes.push({
-            line: parseInt(lineNum, 10),
-            remove: match[2]?.trimEnd(),
-            add: match[3]?.trimEnd(),
-          });
-        }
-      }
-
-      // Apply changes in reverse order to preserve line numbers
-      changes.sort((a, b) => b.line - a.line);
-
-      const contentLines = newContent.split("");
-      for (const change of changes) {
-        if (change.remove) {
-          const removeLines = change.remove.split("");
-          // Find and remove the matching lines
-          const startIdx = change.line - 1;
-          let matchFound = true;
-          for (let i = 0; i < removeLines.length; i++) {
-            const contentLine = contentLines[startIdx + i];
-            const removeLine = removeLines[i];
-            if (contentLine?.trim() !== removeLine?.trim()) {
-              matchFound = false;
-              break;
-            }
-          }
-          if (matchFound) {
-            contentLines.splice(startIdx, removeLines.length);
-          }
-        }
-        if (change.add) {
-          const addLines = change.add.split("");
-          const insertIdx = change.line - 1;
-          contentLines.splice(insertIdx, 0, ...addLines);
-        }
-      }
-
-      newContent = contentLines.join("");
-
-      pendingChanges.push({
-        filePath,
-        absPath,
-        oldContent,
-        newContent,
-      });
-    }
-
-    return pendingChanges;
-  };
-
   const verifyNode = async (state: typeof AgentState.State) => {
     updateOutput("log", "📉 [DIFF] Computing changes...");
 
     const pendingChanges = applyTargetedChanges(
       state.modifications,
-      state.repoPath
+      state.repoPath,
+      updateOutput as any
     );
 
-    console.log(
+    updateOutput(
+      "log",
       `[verifyNode] Computed ${pendingChanges.length} pending changes:`
     );
     for (const change of pendingChanges) {
-      console.log(`  - ${change.filePath} -> ${change.absPath}`);
+      updateOutput("log", `  - ${change.filePath} -> ${change.absPath}`);
     }
 
     setPendingChanges(pendingChanges);
@@ -462,7 +504,8 @@ IMPORTANT:
 
     if (confirmed) {
       const changesToSave = state.pendingChanges || [];
-      console.log(
+      updateOutput(
+        "log",
         `[saveChangesNode] confirmed=true, changesToSave.length=${changesToSave.length}`
       );
 
@@ -472,8 +515,9 @@ IMPORTANT:
       );
 
       for (const change of changesToSave) {
-        console.log(`[saveChanges] Writing to: ${change.absPath}`);
-        console.log(
+        updateOutput("log", `[saveChanges] Writing to: ${change.absPath}`);
+        updateOutput(
+          "log",
           `[saveChanges] newContent length: ${change.newContent?.length}`
         );
         try {
