@@ -1,30 +1,16 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import summarizeProject from "./actions/summarize_project";
-import Neo4jClient from "./neo4jcli";
-import QdrantCli from "./qdrantcli";
-import type { PendingChange } from "./actions/langgraph_modify";
-import langgraphModify from "./actions/langgraph_modify";
-import { ChatOllama } from "@langchain/ollama";
+import summarizeProject from "../core/actions/summarize_project";
+import Neo4jClient from "../services/neo4j";
+import QdrantCli from "../services/qdrant";
+import type { PendingChange } from "../types/state";
+import langgraphModify from "../core/actions/langgraph_modify";
+import { thinkerModel, coderModel, OLLAMA_BASE_URL } from "../services/llm";
 
 const neo4j = new Neo4jClient();
 const qdrant = new QdrantCli();
-// Initialize Qdrant reranker once
 qdrant
   .init()
   .catch((err) => console.error("Failed to initialize Qdrant:", err));
-
-const OLLAMA_URL = "http://localhost:11434";
-const thinkerModel = new ChatOllama({
-  model: "qwen3:8b",
-  baseUrl: OLLAMA_URL,
-  temperature: 0,
-});
-
-const coderModel = new ChatOllama({
-  model: "llama3.1:latest",
-  baseUrl: OLLAMA_URL,
-  temperature: 0,
-});
 
 export type TokenUsage = {
   total: number;
@@ -69,9 +55,8 @@ export interface OllamaCLI {
 
 export function useOllamaClient(model: string): OllamaCLI {
   const [outputItems, setOutputItems] = useState<OutputItem[]>([]);
-  const itemsRef = useRef<OutputItem[]>([]);
   const [status, setStatus] = useState(0);
-  const [tokenUsage, setTokenUsage] = useState<TokenUsage>({
+  const [tokenUsage] = useState<TokenUsage>({
     total: 0,
     prompt: 0,
     completion: 0,
@@ -83,9 +68,6 @@ export function useOllamaClient(model: string): OllamaCLI {
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
 
-  const lastUpdateRef = useRef<number>(0);
-
-  // Helper to add a new output item
   const updateOutput = useCallback(
     (
       type: OutputItemType,
@@ -95,10 +77,12 @@ export function useOllamaClient(model: string): OllamaCLI {
     ) => {
       setOutputItems((prev) => {
         const last = prev[prev.length - 1];
-        // If we have a title, and it matches the last item's title and type,
-        // we replace the content (useful for streaming or updating specific sections).
-        // If no title is provided, we treat it as a new log entry.
-        if (last && last.type === type && last.type !== "log") {
+        if (
+          last &&
+          last.type === type &&
+          last.type !== "log" &&
+          last.title === title
+        ) {
           return [...prev.slice(0, -1), { ...last, content, changes }];
         } else {
           return [
@@ -107,17 +91,15 @@ export function useOllamaClient(model: string): OllamaCLI {
           ];
         }
       });
-      lastUpdateRef.current = Date.now();
     },
     []
   );
 
-  // Create a promise that will be resolved when user confirms/rejects
   const promptUserConfirmation = (): Promise<boolean> => {
     return new Promise((resolve) => {
       confirmationResolverRef.current = resolve;
       setPendingConfirmation(true);
-      setStatus(3); // awaiting confirmation
+      setStatus(3);
     });
   };
 
@@ -133,17 +115,17 @@ export function useOllamaClient(model: string): OllamaCLI {
     async (query: string) => {
       try {
         setStatus(1);
-        itemsRef.current = []; // Clear previous output
         setOutputItems([]);
         updateOutput("command", query);
 
-        if (query.trim() == "/summarize") {
-          // await summarizeProject(neo4j, qdrant, ollamaStreamQuery);
+        if (query.trim() === "/summarize") {
+          // await summarizeProject(neo4j, qdrant, updateOutput);
           setStatus(2);
         } else if (query.trim().startsWith("/modify")) {
-          let prompt = query.trim().split(" ").slice(1).join(" ") || "";
-          if (prompt.length == 0) {
-            invalidPromptError("No prompt provided");
+          const prompt = query.trim().split(" ").slice(1).join(" ") || "";
+          if (prompt.length === 0) {
+            setStatus(2);
+            updateOutput("log", "No prompt provided");
             return;
           } else {
             if (abortRef.current) {
@@ -166,21 +148,14 @@ export function useOllamaClient(model: string): OllamaCLI {
             setStatus(2);
           }
         } else {
-          invalidPromptError("Command not found");
+          setStatus(2);
+          updateOutput("log", "Command not found");
         }
       } catch (error: any) {
         if (error.name !== "AbortError") {
           console.error("[ERROR] ", error);
         }
       }
-    },
-    [model, updateOutput]
-  );
-
-  const invalidPromptError = useCallback(
-    (message?: string) => {
-      setStatus(2);
-      updateOutput("log", message || "Command not found");
     },
     [updateOutput]
   );
@@ -194,30 +169,7 @@ export function useOllamaClient(model: string): OllamaCLI {
   }, []);
 
   const embedString = useCallback(async (query: string) => {
-    if (abortRef.current) {
-      abortRef.current.abort();
-    }
-    abortRef.current = new AbortController();
-
-    const res = await fetch(`${OLLAMA_URL}/api/embeddings`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "snowflake-arctic-embed:latest",
-        prompt: query,
-      }),
-      signal: abortRef.current.signal,
-    });
-
-    if (!res.ok) {
-      throw new Error(`Ollama error: ${res.status} ${await res.text()}`);
-    }
-
-    const data: any = await res.json();
-    console.log(data);
-    return data.embedding;
+    return await qdrant.embed(query);
   }, []);
 
   const confirmModification = useCallback((confirmed: boolean) => {

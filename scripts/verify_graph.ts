@@ -1,4 +1,4 @@
-import Neo4jClient from "./src/utils/neo4jcli";
+import Neo4jClient from "../src/services/neo4j";
 
 (async () => {
   const client = new Neo4jClient();
