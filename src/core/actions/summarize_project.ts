@@ -1,17 +1,14 @@
-import type Neo4jClient from "../neo4jcli";
-import type QdrantCli from "../qdrantcli";
+import type Neo4jClient from "../../services/neo4j";
+import type QdrantCli from "../../services/qdrant";
 
 export default async function summarizeProject(
   neo4j: Neo4jClient,
   qdrant: QdrantCli,
   action: (payload: any) => Promise<void>
 ) {
-  // console.log("Starting Project Summary extraction...");
-
   const repoName = "sample";
 
   // 1. Fetch Structure from Neo4j
-  // console.log("Querying Neo4j for project structure...");
   const session = neo4j.driver.session();
   let structureData = "";
   try {
@@ -42,7 +39,7 @@ export default async function summarizeProject(
     await session.close();
   }
 
-  // 2. Fetch some context from Qdrant to understand "purpose" better
+  // 2. Fetch some context from Qdrant
   console.log("Querying Qdrant for project context...");
   const searchResults = await qdrant.hybridSearch(
     repoName,
@@ -56,8 +53,7 @@ export default async function summarizeProject(
     });
   }
 
-  // 3. Synthesize with Ollama
-  // console.log("Synthesizing summary with Ollama (llama3.1:latest)...");
+  // 3. Synthesize summary
   const prompt = `
 You are a senior software architect. Analyze the follow project structure and code snippets from the "${repoName}" project.
 Then provide:
@@ -80,15 +76,4 @@ Full Response:
   };
 
   await action(payload);
-
-  // try {
-  //   const summary = await queryOllama("llama3.1:latest", prompt);
-  //   console.log("\n================ PROJECT SUMMARY ================");
-  //   console.log(summary);
-  //   console.log("==================================================");
-  // } catch (err) {
-  //   console.error("Failed to generate summary with Ollama:", err);
-  // } finally {
-  //   await neo4j.driver.close();
-  // }
 }

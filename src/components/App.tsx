@@ -1,13 +1,11 @@
-import IntroComponent from "./components/IntroComponent";
-import { Box } from "ink";
-import useOllamaClient from "./utils/ollamacli";
-import OllamaClientComponent from "./components/OllamaClientComponent";
+import IntroComponent from "./IntroComponent";
+import { Box, useInput } from "ink";
+import useOllamaClient from "../hooks/useOllamaClient";
+import OllamaClientComponent from "./OllamaClientComponent";
 import { useState, useEffect } from "react";
-import { useInput } from "ink";
-import log from "./utils/logger";
+import log from "../utils/logger";
 
 const Session = ({ onDone }: { onDone: () => void }) => {
-  // const OllamaClient = useOllamaClient("tinyllama:latest");
   const OllamaClient = useOllamaClient("llama3.1:latest");
 
   useInput((input, key) => {

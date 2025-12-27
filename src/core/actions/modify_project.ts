@@ -1,5 +1,5 @@
-import Neo4jClient from "../neo4jcli";
-import QdrantCli from "../qdrantcli";
+import Neo4jClient from "../../services/neo4j";
+import QdrantCli from "../../services/qdrant";
 import * as fs from "fs";
 import * as path from "path";
 import * as diff from "diff";
@@ -18,9 +18,8 @@ export default async function modifyProject(
   setStreamedText("Searching Qdrant for semantic context...");
   const searchResults = await qdrant.hybridSearch(repoName, query);
 
-  // 2. Structural Context from Neo4j (if symbols found)
+  // 2. Structural Context from Neo4j
   setStreamedText("Searching Neo4j for structural context...");
-  // Extract potential symbols from query (very simple heuristic)
   const words = query.split(/\W+/);
   let structuralContext = "";
   for (const word of words) {
@@ -134,9 +133,6 @@ Only output the file sections as specified above. Do not include any other text.
             fileDiff += `[${oldLine.toString().padStart(3)}]       - ${line}\n`;
             oldLine++;
           } else {
-            // Show context lines without numbers or with both?
-            // Let's show them with both to be extremely clear, but maybe dim them?
-            // For now, just show them.
             fileDiff += `[${oldLine.toString().padStart(3)}][${newLine
               .toString()
               .padStart(3)}]   ${line}\n`;
@@ -159,5 +155,4 @@ Only output the file sections as specified above. Do not include any other text.
   console.log(allDiffs);
 
   console.log("Finished applying modifications.");
-  // await neo4j.driver.close();
 }

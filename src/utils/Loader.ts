@@ -1,4 +1,9 @@
-class loader {
+function m(text: string) {
+  // Basic formatting helper if needed, or just return text
+  return text;
+}
+
+export default class Loader {
   private frames: string[];
   private interval: NodeJS.Timeout | null;
   private i: number;

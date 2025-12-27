@@ -1,9 +1,9 @@
 import neo4j, { type Driver } from "neo4j-driver";
 
-// Neo4j connection details
-const uri = "bolt://localhost:7687";
-const user = "neo4j";
-const password = "password123"; // Match the password from docker-compose
+// Neo4j connection details from environment variables
+const uri = process.env.NEO4J_URI || "bolt://localhost:7687";
+const user = process.env.NEO4J_USER || "neo4j";
+const password = process.env.NEO4J_PASSWORD || "password123";
 
 class Neo4jClient {
   driver: Driver;
@@ -216,6 +216,10 @@ class Neo4jClient {
     } finally {
       await session.close();
     }
+  }
+
+  async close() {
+    await this.driver.close();
   }
 }
 
