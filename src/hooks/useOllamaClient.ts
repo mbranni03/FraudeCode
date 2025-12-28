@@ -4,7 +4,7 @@ import Neo4jClient from "../services/neo4j";
 import QdrantCli from "../services/qdrant";
 import type { PendingChange } from "../types/state";
 import langgraphModify from "../core/actions/langgraph_modify";
-import { thinkerModel, coderModel, OLLAMA_BASE_URL } from "../services/llm";
+import { thinkerModel, coderModel } from "../services/llm";
 
 const neo4j = new Neo4jClient();
 const qdrant = new QdrantCli();
@@ -119,7 +119,7 @@ export function useOllamaClient(model: string): OllamaCLI {
         updateOutput("command", query);
 
         if (query.trim() === "/summarize") {
-          // await summarizeProject(neo4j, qdrant, updateOutput);
+          await summarizeProject(neo4j, qdrant, coderModel, updateOutput);
           setStatus(2);
         } else if (query.trim().startsWith("/modify")) {
           const prompt = query.trim().split(" ").slice(1).join(" ") || "";

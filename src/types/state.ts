@@ -24,6 +24,7 @@ export const AgentState = Annotation.Root({
     thinkerPromptSize: number;
     coderPromptSize: number;
   }>(),
+  summary: Annotation<string>(),
   error: Annotation<string | undefined>(),
   status: Annotation<string>(),
 });

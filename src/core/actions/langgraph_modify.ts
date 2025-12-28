@@ -9,8 +9,8 @@ import { createSearchQdrantNode } from "../nodes/searchQdrant";
 import { createSearchNeo4jNode } from "../nodes/searchNeo4j";
 import { createGatherFilesNode } from "../nodes/gatherFiles";
 import { createCombineContextNode } from "../nodes/combineContext";
-import { createThinkNode } from "../nodes/think";
-import { createCodeNode } from "../nodes/code";
+import { createThinkNode } from "../nodes/thinkModifications";
+import { createCodeNode } from "../nodes/codeModifications";
 import { createVerifyNode } from "../nodes/verify";
 import { createSaveChangesNode } from "../nodes/saveChanges";
 
