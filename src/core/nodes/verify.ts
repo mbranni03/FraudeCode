@@ -1,13 +1,9 @@
 import type { AgentStateType, PendingChange } from "../../types/state";
 import { applyTargetedChanges } from "../modification/CodeModifier";
+import { useFraudeStore } from "../../store/useFraudeStore";
 
+const { updateOutput } = useFraudeStore();
 export const createVerifyNode = (
-  updateOutput: (
-    type: "log" | "diff",
-    content: string,
-    title?: string,
-    changes?: PendingChange[]
-  ) => void,
   setPendingChanges: (changes: PendingChange[]) => void
 ) => {
   return async (state: AgentStateType) => {

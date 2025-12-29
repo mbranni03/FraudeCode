@@ -34,29 +34,26 @@ export interface InteractionState {
 
 interface FraudeStore {
   started: boolean;
-  interactions: InteractionState[];
+  interactions: Record<string, InteractionState>;
+  interactionOrder: string[];
   currentInteractionId: string | null;
   // Actions
   addInteraction: () => string;
   updateInteraction: (id: string, updates: Partial<InteractionState>) => void;
-  addOutputItem: (
-    id: string,
+  updateOutput: (
     type: OutputItemType,
     content: string,
     title?: string,
-    changes?: PendingChange[]
-  ) => void;
-  updateLastOutputItem: (
-    id: string,
-    content: string,
-    changes?: PendingChange[]
+    changes?: PendingChange[],
+    id?: string
   ) => void;
   setCurrentInteraction: (id: string | null) => void;
 }
 
 export const useFraudeStore = create<FraudeStore>((set) => ({
   started: false,
-  interactions: [],
+  interactions: {},
+  interactionOrder: [],
   currentInteractionId: null,
 
   addInteraction: () => {
@@ -71,70 +68,73 @@ export const useFraudeStore = create<FraudeStore>((set) => ({
       pendingChanges: [],
     };
     set((state) => ({
-      interactions: [...state.interactions, newInteraction],
+      interactions: { ...state.interactions, [id]: newInteraction },
+      interactionOrder: [...state.interactionOrder, id],
       currentInteractionId: id,
     }));
     return id;
   },
 
   updateInteraction: (id, updates) => {
-    set((state) => ({
-      interactions: state.interactions.map((i) =>
-        i.interactionId === id ? { ...i, ...updates } : i
-      ),
-    }));
+    set((state) => {
+      const interaction = state.interactions[id];
+      if (!interaction) return state;
+      return {
+        interactions: {
+          ...state.interactions,
+          [id]: { ...interaction, ...updates },
+        },
+      };
+    });
   },
 
-  addOutputItem: (id, type, content, title, changes) => {
-    set((state) => ({
-      interactions: state.interactions.map((i) => {
-        if (i.interactionId === id) {
-          return {
-            ...i,
-            outputItems: [
-              ...i.outputItems,
-              { id: crypto.randomUUID(), type, content, title, changes },
-            ],
-          };
-        }
-        return i;
-      }),
-    }));
-  },
-
-  updateLastOutputItem: (id, content, changes) => {
-    set((state) => ({
-      interactions: state.interactions.map((i) => {
-        if (i.interactionId === id && i.outputItems.length > 0) {
-          const updatedOutputItems = [...i.outputItems];
-          const lastItem = updatedOutputItems[updatedOutputItems.length - 1]!;
-          updatedOutputItems[updatedOutputItems.length - 1] = {
-            ...lastItem,
-            content,
-            changes: changes ?? lastItem.changes,
-          };
-          return { ...i, outputItems: updatedOutputItems };
-        }
-        return i;
-      }),
-    }));
+  updateOutput: (type, content, title, changes, id?: string) => {
+    set((state) => {
+      const interactionId = id || state.currentInteractionId;
+      if (!interactionId) return state;
+      const interaction = state.interactions[interactionId];
+      if (!interaction) return state;
+      const outputItems = [...interaction.outputItems];
+      const latestOutput = outputItems[outputItems.length - 1];
+      if (latestOutput && latestOutput.type === type && type !== "log") {
+        outputItems[outputItems.length - 1] = {
+          ...latestOutput,
+          content,
+          changes: [...(latestOutput.changes || []), ...(changes || [])],
+        };
+      } else {
+        outputItems.push({
+          id: crypto.randomUUID(),
+          type,
+          content,
+          title,
+          changes,
+        });
+      }
+      return {
+        interactions: {
+          ...state.interactions,
+          [interactionId]: {
+            ...interaction,
+            outputItems,
+          },
+        },
+      };
+    });
   },
 
   setCurrentInteraction: (id) => set({ currentInteractionId: id }),
 }));
 
 export const getInteraction = (id: string | null) => {
-  return useFraudeStore
-    .getState()
-    .interactions.find((i) => i.interactionId === id);
+  if (!id) return undefined;
+  return useFraudeStore.getState().interactions[id];
 };
 
 export const useInteraction = (id: string | null) => {
   if (!id)
     return useFraudeStore(
-      (state) => state.interactions[state.interactions.length - 1]
+      (state) => state.interactions[state.interactionOrder.length - 1]
     );
-  return useFraudeStore((state) =>
-    id ? state.interactions.find((i) => i.interactionId === id) : undefined
-  );
+  return useFraudeStore((state) => (id ? state.interactions[id] : undefined));
 };

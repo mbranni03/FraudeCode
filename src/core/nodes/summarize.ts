@@ -2,13 +2,11 @@ import { HumanMessage } from "@langchain/core/messages";
 import type { ChatOllama } from "@langchain/ollama";
 import type { AgentStateType } from "../../types/state";
 import summarizePrompt from "../../types/prompts/Summarize";
+import { useFraudeStore } from "../../store/useFraudeStore";
+
+const { updateOutput } = useFraudeStore();
 export const createSummarizeNode = (
   coderModel: ChatOllama,
-  updateOutput: (
-    type: "log" | "markdown",
-    content: string,
-    title?: string
-  ) => void,
   signal?: AbortSignal
 ) => {
   return async (state: AgentStateType) => {

@@ -1,10 +1,10 @@
 import type { AgentStateType } from "../../types/state";
 import QdrantCli from "../../services/qdrant";
+import { useFraudeStore } from "../../store/useFraudeStore";
 
-export const createSearchQdrantNode = (
-  qdrant: QdrantCli,
-  updateOutput: (type: "log", content: string) => void
-) => {
+const { updateOutput } = useFraudeStore();
+
+export const createSearchQdrantNode = (qdrant: QdrantCli) => {
   return async (state: AgentStateType) => {
     updateOutput("log", "🔍 [STEP 1/4] Searching Qdrant vector database...");
 

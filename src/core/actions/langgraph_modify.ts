@@ -20,12 +20,6 @@ export default async function langgraphModify(
   qdrant: QdrantCli,
   thinkerModel: ChatOllama,
   coderModel: ChatOllama,
-  updateOutput: (
-    type: "log" | "diff" | "confirmation" | "markdown",
-    content: string,
-    title?: string,
-    changes?: PendingChange[]
-  ) => void,
   promptUserConfirmation: () => Promise<boolean>,
   setPendingChanges: (changes: PendingChange[]) => void,
   signal?: AbortSignal
@@ -34,17 +28,14 @@ export default async function langgraphModify(
   const repoPath = "/Users/mbranni03/Documents/GitHub/FraudeCode/sample";
 
   const workflow = new StateGraph(AgentState)
-    .addNode("searchQdrant", createSearchQdrantNode(qdrant, updateOutput))
-    .addNode("searchNeo4j", createSearchNeo4jNode(neo4j, updateOutput))
-    .addNode("gatherFiles", createGatherFilesNode(updateOutput))
-    .addNode("combineContext", createCombineContextNode(updateOutput))
-    .addNode("think", createThinkNode(thinkerModel, updateOutput, signal))
-    .addNode("code", createCodeNode(coderModel, updateOutput, signal))
-    .addNode("verify", createVerifyNode(updateOutput, setPendingChanges))
-    .addNode(
-      "saveChanges",
-      createSaveChangesNode(updateOutput, promptUserConfirmation)
-    );
+    .addNode("searchQdrant", createSearchQdrantNode(qdrant))
+    .addNode("searchNeo4j", createSearchNeo4jNode(neo4j))
+    .addNode("gatherFiles", createGatherFilesNode())
+    .addNode("combineContext", createCombineContextNode())
+    .addNode("think", createThinkNode(thinkerModel, signal))
+    .addNode("code", createCodeNode(coderModel, signal))
+    .addNode("verify", createVerifyNode(setPendingChanges))
+    .addNode("saveChanges", createSaveChangesNode(promptUserConfirmation));
 
   workflow.addEdge(START, "searchQdrant");
   workflow.addEdge("searchQdrant", "searchNeo4j");

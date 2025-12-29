@@ -2,14 +2,12 @@ import { HumanMessage } from "@langchain/core/messages";
 import type { ChatOllama } from "@langchain/ollama";
 import type { AgentStateType } from "../../types/state";
 import ModificationCodeChangesPrompt from "../../types/prompts/modify/CodeChanges";
+import { useFraudeStore } from "../../store/useFraudeStore";
+
+const { updateOutput } = useFraudeStore();
 
 export const createCodeNode = (
   coderModel: ChatOllama,
-  updateOutput: (
-    type: "log" | "markdown",
-    content: string,
-    title?: string
-  ) => void,
   signal?: AbortSignal
 ) => {
   return async (state: AgentStateType) => {

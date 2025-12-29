@@ -11,27 +11,15 @@ export default async function summarizeProject(
   neo4j: Neo4jClient,
   qdrant: QdrantCli,
   coderModel: ChatOllama,
-  updateOutput: (
-    type: "log" | "diff" | "confirmation" | "markdown",
-    content: string,
-    title?: string,
-    changes?: PendingChange[]
-  ) => void,
   signal?: AbortSignal
 ) {
   const repoName = "sample";
   const repoPath = "/Users/mbranni03/Documents/GitHub/FraudeCode/sample";
 
   const workflow = new StateGraph(AgentState)
-    .addNode(
-      "getProjectStructure",
-      createGetProjectStructureNode(neo4j, updateOutput)
-    )
-    .addNode("searchQdrant", createSearchQdrantNode(qdrant, updateOutput))
-    .addNode(
-      "summarize",
-      createSummarizeNode(coderModel, updateOutput, signal)
-    );
+    .addNode("getProjectStructure", createGetProjectStructureNode(neo4j))
+    .addNode("searchQdrant", createSearchQdrantNode(qdrant))
+    .addNode("summarize", createSummarizeNode(coderModel, signal));
 
   workflow.addEdge(START, "getProjectStructure");
   workflow.addEdge("getProjectStructure", "searchQdrant");

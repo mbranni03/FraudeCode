@@ -33,13 +33,7 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
     null
   );
 
-  const {
-    interactions,
-    addInteraction,
-    updateInteraction,
-    addOutputItem,
-    updateLastOutputItem,
-  } = useFraudeStore();
+  const { addInteraction, updateInteraction, updateOutput } = useFraudeStore();
 
   const interaction = useInteraction(interactionId);
 
@@ -72,7 +66,7 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
         if (!id) {
           throw new Error("No interaction ID");
         }
-        addOutputItem(id, "command", query);
+        updateOutput("command", query);
 
         updateInteraction(id, { status: 1 });
 
@@ -83,44 +77,13 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
         const signal = abortRef.current.signal;
 
         if (query.trim() === "/summarize") {
-          await summarizeProject(
-            neo4j,
-            qdrant,
-            coderModel,
-            (type, content, title, changes) => {
-              // We need a fresh check of interactionId or use the local 'id'
-              const currentInteraction = useFraudeStore
-                .getState()
-                .interactions.find((i) => i.interactionId === id);
-              const last =
-                currentInteraction?.outputItems[
-                  currentInteraction.outputItems.length - 1
-                ];
-              if (
-                last &&
-                last.type === type &&
-                last.type !== "log" &&
-                last.title === title
-              ) {
-                useFraudeStore
-                  .getState()
-                  .updateLastOutputItem(id, content, changes);
-              } else {
-                useFraudeStore
-                  .getState()
-                  .addOutputItem(id, type, content, title, changes);
-              }
-            },
-            signal
-          );
+          await summarizeProject(neo4j, qdrant, coderModel, signal);
           updateInteraction(id, { status: 2 });
         } else if (query.trim().startsWith("/modify")) {
           const prompt = query.trim().split(" ").slice(1).join(" ") || "";
           if (prompt.length === 0) {
             updateInteraction(id, { status: 2 });
-            useFraudeStore
-              .getState()
-              .addOutputItem(id, "log", "No prompt provided");
+            updateOutput("log", "No prompt provided");
             return;
           } else {
             await langgraphModify(
@@ -129,29 +92,6 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
               qdrant,
               thinkerModel,
               coderModel,
-              (type, content, title, changes) => {
-                const currentInteraction = useFraudeStore
-                  .getState()
-                  .interactions.find((i) => i.interactionId === id);
-                const last =
-                  currentInteraction?.outputItems[
-                    currentInteraction.outputItems.length - 1
-                  ];
-                if (
-                  last &&
-                  last.type === type &&
-                  last.type !== "log" &&
-                  last.title === title
-                ) {
-                  useFraudeStore
-                    .getState()
-                    .updateLastOutputItem(id, content, changes);
-                } else {
-                  useFraudeStore
-                    .getState()
-                    .addOutputItem(id, type, content, title, changes);
-                }
-              },
               promptUserConfirmation,
               (changes) => {
                 useFraudeStore
@@ -164,9 +104,7 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
           }
         } else {
           updateInteraction(id, { status: 2 });
-          useFraudeStore
-            .getState()
-            .addOutputItem(id, "log", "Command not found");
+          updateOutput("log", "Command not found");
         }
       } catch (error: any) {
         if (error.name !== "AbortError") {
