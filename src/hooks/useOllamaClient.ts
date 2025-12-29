@@ -152,15 +152,7 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
                     .addOutputItem(id, type, content, title, changes);
                 }
               },
-              async () => {
-                return new Promise((resolve) => {
-                  confirmationResolverRef.current = resolve;
-                  useFraudeStore.getState().updateInteraction(id, {
-                    pendingConfirmation: true,
-                    status: 3,
-                  });
-                });
-              },
+              promptUserConfirmation,
               (changes) => {
                 useFraudeStore
                   .getState()
