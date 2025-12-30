@@ -5,7 +5,7 @@ import type { PendingChange } from "../types/state";
 import { createModifyProjectTool } from "../core/tools/ModifyProjectTool";
 import { createSummarizeProjectTool } from "../core/tools/SummarizeProjectTool";
 import { createRouterGraph } from "../core/agent/router";
-import { HumanMessage, AIMessage } from "@langchain/core/messages";
+import { HumanMessage } from "@langchain/core/messages";
 import {
   useFraudeStore,
   useInteraction,
@@ -28,8 +28,7 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
     null
   );
 
-  const { addInteraction, updateInteraction, updateOutput, setStatus } =
-    useFraudeStore();
+  const { addInteraction, updateInteraction, updateOutput } = useFraudeStore();
 
   const interaction = useInteraction(interactionId);
 
@@ -59,8 +58,6 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
         updateInteraction(id, { status: 1 });
 
         initSignal();
-
-        setStatus("Pondering");
 
         const tools = [
           createModifyProjectTool(promptUserConfirmation),

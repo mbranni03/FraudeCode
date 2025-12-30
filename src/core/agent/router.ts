@@ -5,13 +5,16 @@ import {
   SystemMessage,
 } from "@langchain/core/messages";
 import { type DynamicStructuredTool } from "@langchain/core/tools";
-import { generalModel } from "../../services/llm";
+import { generalModel, scoutModel } from "../../services/llm";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { useFraudeStore } from "../../store/useFraudeStore";
+import log from "../../utils/logger";
 
 interface RouterState {
   messages: BaseMessage[];
 }
+
+const { setStatus } = useFraudeStore.getState();
 
 // const SYSTEM_PROMPT = `You are a helpful coding assistant.
 // Your goal is to help the user with their codebase.
@@ -27,20 +30,24 @@ export const createRouterGraph = (tools: DynamicStructuredTool[]) => {
   const toolNode = new ToolNode<RouterState>(tools);
 
   const classifyIntent = async (state: RouterState) => {
+    setStatus("Analyzing request");
     const lastMessage = state.messages[state.messages.length - 1];
+    log("Last message: ", lastMessage);
     if (!lastMessage) return "general";
 
-    const response = await generalModel.invoke([
+    const response = await scoutModel.invoke([
       new SystemMessage(
-        "Classify the user query into 'project' if it's about coding, files, or project structure, or 'general' if it's unrelated conversation. Respond with exactly one word: 'project' or 'general'."
+        "Classify the user query into 'project' if it's about coding, files, or project structure, or 'general' if it's unrelated conversation. IMPORTANT: Respond with exactly one word: 'project' or 'general'."
       ),
       lastMessage,
     ]);
     const decision = response.content.toString().toLowerCase().trim();
+    log("Decision: ", decision);
     return decision.includes("project") ? "agent" : "general";
   };
 
   const callModel = async (state: RouterState, config?: any) => {
+    setStatus("Thinking");
     const { messages } = state;
     let fullResponse: any = null;
     const stream = await modelWithTools.stream(messages, {
@@ -62,6 +69,7 @@ export const createRouterGraph = (tools: DynamicStructuredTool[]) => {
   };
 
   const callGeneralModel = async (state: RouterState, config?: any) => {
+    setStatus("Pondering");
     const { messages } = state;
     let fullResponse: any = null;
     const stream = await generalModel.stream(messages, {
