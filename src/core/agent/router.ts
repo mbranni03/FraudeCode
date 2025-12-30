@@ -33,6 +33,14 @@ export const createRouterGraph = (tools: DynamicStructuredTool[]) => {
       ),
       lastMessage,
     ]);
+    const usage = response.usage_metadata;
+    if (usage) {
+      useFraudeStore.getState().updateTokenUsage({
+        total: usage.total_tokens,
+        prompt: usage.input_tokens,
+        completion: usage.output_tokens,
+      });
+    }
     const decision = response.content.toString().toLowerCase().trim();
     log("Scout Decision: ", decision);
     return decision.includes("project") ? "project" : "general";
@@ -46,6 +54,14 @@ export const createRouterGraph = (tools: DynamicStructuredTool[]) => {
     const response = await modelWithTools.invoke(messages, {
       signal: config?.signal,
     });
+    const usage = response.usage_metadata;
+    if (usage) {
+      useFraudeStore.getState().updateTokenUsage({
+        total: usage.total_tokens,
+        prompt: usage.input_tokens,
+        completion: usage.output_tokens,
+      });
+    }
 
     if (
       response.content &&
@@ -75,14 +91,23 @@ export const createRouterGraph = (tools: DynamicStructuredTool[]) => {
     const stream = await generalModel.stream(messages, {
       signal: config?.signal,
     });
-
+    let lastChunk = null;
     for await (const chunk of stream) {
       fullResponse = fullResponse ? fullResponse.concat(chunk) : chunk;
+      lastChunk = chunk;
       if (fullResponse.content) {
         useFraudeStore
           .getState()
           .updateOutput("markdown", fullResponse.content.toString());
       }
+    }
+    if (lastChunk?.usage_metadata) {
+      const usage = lastChunk.usage_metadata;
+      useFraudeStore.getState().updateTokenUsage({
+        total: usage.total_tokens,
+        prompt: usage.input_tokens,
+        completion: usage.output_tokens,
+      });
     }
     return { messages: [fullResponse] };
   };

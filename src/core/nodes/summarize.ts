@@ -31,13 +31,23 @@ export const createSummarizeNode = () => {
     const stream = await generalModel.stream([new HumanMessage(prompt)], {
       signal,
     });
+    let lastChunk = null;
     for await (const chunk of stream) {
       if (signal?.aborted) break;
       const content = chunk.content as string;
       summary += content;
+      lastChunk = chunk;
       updateOutput("markdown", summary, "Implementation Details");
     }
+    if (lastChunk?.usage_metadata) {
+      const usage = lastChunk.usage_metadata;
 
+      useFraudeStore.getState().updateTokenUsage({
+        total: usage.total_tokens,
+        prompt: usage.input_tokens,
+        completion: usage.output_tokens,
+      });
+    }
     // setStatus("Implementation complete.");
 
     return {

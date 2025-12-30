@@ -42,6 +42,7 @@ interface FraudeStore {
   // Actions
   addInteraction: () => string;
   updateInteraction: (id: string, updates: Partial<InteractionState>) => void;
+  updateTokenUsage: (usage: TokenUsage, id?: string) => void;
   updateOutput: (
     type: OutputItemType,
     content: string,
@@ -89,6 +90,27 @@ export const useFraudeStore = create<FraudeStore>((set) => ({
         interactions: {
           ...state.interactions,
           [id]: { ...interaction, ...updates },
+        },
+      };
+    });
+  },
+  updateTokenUsage: (usage: TokenUsage, id?: string) => {
+    set((state) => {
+      const interactionId = id || state.currentInteractionId;
+      if (!interactionId) return state;
+      const interaction = state.interactions[interactionId];
+      if (!interaction) return state;
+      let currentUsage = interaction.tokenUsage;
+      currentUsage.total += usage.total;
+      currentUsage.prompt += usage.prompt;
+      currentUsage.completion += usage.completion;
+      return {
+        interactions: {
+          ...state.interactions,
+          [interactionId]: {
+            ...interaction,
+            tokenUsage: currentUsage,
+          },
         },
       };
     });
