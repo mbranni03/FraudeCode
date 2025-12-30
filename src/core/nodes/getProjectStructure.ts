@@ -1,13 +1,13 @@
-import type Neo4jClient from "../../services/neo4j";
 import type { AgentStateType } from "../../types/state";
 import { useFraudeStore } from "../../store/useFraudeStore";
+import neo4jClient from "../../services/neo4j";
 
 const { updateOutput } = useFraudeStore();
 
-export const createGetProjectStructureNode = (neo4j: Neo4jClient) => {
+export const createGetProjectStructureNode = () => {
   return async (state: AgentStateType) => {
     updateOutput("log", "Fetching project structure...");
-    const session = neo4j.driver.session();
+    const session = neo4jClient.driver.session();
     let structureData = "";
     try {
       const result = await session.run(

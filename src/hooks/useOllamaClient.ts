@@ -1,18 +1,11 @@
 import { useCallback, useRef, useEffect, useState } from "react";
 import summarizeProject from "../core/actions/summarize_project";
-import Neo4jClient from "../services/neo4j";
-import QdrantCli from "../services/qdrant";
+import qdrant from "../services/qdrant";
 import type { PendingChange } from "../types/state";
 import langgraphModify from "../core/actions/langgraph_modify";
 import { thinkerModel, coderModel } from "../services/llm";
 import { useFraudeStore, useInteraction } from "../store/useFraudeStore";
 import log from "../utils/logger";
-
-const neo4j = new Neo4jClient();
-const qdrant = new QdrantCli();
-qdrant
-  .init()
-  .catch((err) => console.error("Failed to initialize Qdrant:", err));
 
 export interface OllamaCLI {
   handleQuery: (query: string) => Promise<void>;
@@ -21,8 +14,6 @@ export interface OllamaCLI {
   confirmModification: (confirmed: boolean) => void;
   pendingConfirmation: boolean;
   pendingChanges: PendingChange[];
-  neo4j: Neo4jClient;
-  qdrant: QdrantCli;
   interactionId: string | null;
 }
 
@@ -51,14 +42,6 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
     });
   };
 
-  // No automatic abort on unmount to allow queries to survive session transitions in the UI.
-  // Manual interruption via the 'interrupt' action is still supported.
-  useEffect(() => {
-    return () => {
-      // Logic for cleanup if needed, but we keep the query alive.
-    };
-  }, []);
-
   const handleQuery = useCallback(
     async (query: string) => {
       try {
@@ -77,7 +60,7 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
         const signal = abortRef.current.signal;
 
         if (query.trim() === "/summarize") {
-          await summarizeProject(neo4j, qdrant, coderModel, signal);
+          await summarizeProject(coderModel, signal);
           updateInteraction(id, { status: 2 });
         } else if (query.trim().startsWith("/modify")) {
           const prompt = query.trim().split(" ").slice(1).join(" ") || "";
@@ -88,8 +71,6 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
           } else {
             await langgraphModify(
               prompt,
-              neo4j,
-              qdrant,
               thinkerModel,
               coderModel,
               promptUserConfirmation,
@@ -144,8 +125,6 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
     confirmModification,
     pendingConfirmation: interaction?.pendingConfirmation || false,
     pendingChanges: interaction?.pendingChanges || [],
-    neo4j,
-    qdrant,
     interactionId,
   };
 }

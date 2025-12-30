@@ -8,8 +8,6 @@ import { createSummarizeNode } from "../nodes/summarize";
 import type { ChatOllama } from "@langchain/ollama";
 
 export default async function summarizeProject(
-  neo4j: Neo4jClient,
-  qdrant: QdrantCli,
   coderModel: ChatOllama,
   signal?: AbortSignal
 ) {
@@ -17,8 +15,8 @@ export default async function summarizeProject(
   const repoPath = "/Users/mbranni03/Documents/GitHub/FraudeCode/sample";
 
   const workflow = new StateGraph(AgentState)
-    .addNode("getProjectStructure", createGetProjectStructureNode(neo4j))
-    .addNode("searchQdrant", createSearchQdrantNode(qdrant))
+    .addNode("getProjectStructure", createGetProjectStructureNode())
+    .addNode("searchQdrant", createSearchQdrantNode())
     .addNode("summarize", createSummarizeNode(coderModel, signal));
 
   workflow.addEdge(START, "getProjectStructure");

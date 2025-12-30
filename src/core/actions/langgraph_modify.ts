@@ -1,7 +1,5 @@
 import { StateGraph, END, START } from "@langchain/langgraph";
 import type { ChatOllama } from "@langchain/ollama";
-import Neo4jClient from "../../services/neo4j";
-import QdrantCli from "../../services/qdrant";
 import { AgentState, type PendingChange } from "../../types/state";
 
 // Nodes
@@ -17,8 +15,6 @@ import { useFraudeStore } from "../../store/useFraudeStore";
 
 export default async function langgraphModify(
   query: string,
-  neo4j: Neo4jClient,
-  qdrant: QdrantCli,
   thinkerModel: ChatOllama,
   coderModel: ChatOllama,
   promptUserConfirmation: () => Promise<boolean>,
@@ -28,8 +24,8 @@ export default async function langgraphModify(
   const repoPath = "/Users/mbranni03/Documents/GitHub/FraudeCode/sample";
 
   const workflow = new StateGraph(AgentState)
-    .addNode("searchQdrant", createSearchQdrantNode(qdrant))
-    .addNode("searchNeo4j", createSearchNeo4jNode(neo4j))
+    .addNode("searchQdrant", createSearchQdrantNode())
+    .addNode("searchNeo4j", createSearchNeo4jNode())
     .addNode("gatherFiles", createGatherFilesNode())
     .addNode("combineContext", createCombineContextNode())
     .addNode("think", createThinkNode(thinkerModel, signal))
