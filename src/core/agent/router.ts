@@ -7,6 +7,7 @@ import {
 import { type DynamicStructuredTool } from "@langchain/core/tools";
 import { generalModel } from "../../services/llm";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
+import { useFraudeStore } from "../../store/useFraudeStore";
 
 interface RouterState {
   messages: BaseMessage[];
@@ -41,18 +42,41 @@ export const createRouterGraph = (tools: DynamicStructuredTool[]) => {
 
   const callModel = async (state: RouterState, config?: any) => {
     const { messages } = state;
-    const response = await modelWithTools.invoke(messages, {
+    let fullResponse: any = null;
+    const stream = await modelWithTools.stream(messages, {
       signal: config?.signal,
     });
-    return { messages: [response] };
+
+    for await (const chunk of stream) {
+      fullResponse = fullResponse ? fullResponse.concat(chunk) : chunk;
+      if (
+        fullResponse.content &&
+        (!chunk.tool_call_chunks || chunk.tool_call_chunks.length === 0)
+      ) {
+        useFraudeStore
+          .getState()
+          .updateOutput("markdown", fullResponse.content.toString());
+      }
+    }
+    return { messages: [fullResponse] };
   };
 
   const callGeneralModel = async (state: RouterState, config?: any) => {
     const { messages } = state;
-    const response = await generalModel.invoke(messages, {
+    let fullResponse: any = null;
+    const stream = await generalModel.stream(messages, {
       signal: config?.signal,
     });
-    return { messages: [response] };
+
+    for await (const chunk of stream) {
+      fullResponse = fullResponse ? fullResponse.concat(chunk) : chunk;
+      if (fullResponse.content) {
+        useFraudeStore
+          .getState()
+          .updateOutput("markdown", fullResponse.content.toString());
+      }
+    }
+    return { messages: [fullResponse] };
   };
 
   const shouldContinue = (state: RouterState) => {

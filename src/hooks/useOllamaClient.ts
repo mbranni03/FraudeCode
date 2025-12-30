@@ -69,18 +69,13 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
 
         const router = createRouterGraph(tools);
 
-        const result = (await router.invoke(
+        await router.invoke(
           { messages: [new HumanMessage(query)] },
           {
             configurable: { thread_id: id },
             signal: getSignal(),
           }
-        )) as any;
-
-        const lastMessage = result.messages[result.messages.length - 1];
-        if (lastMessage instanceof AIMessage && lastMessage.content) {
-          updateOutput("markdown", lastMessage.content.toString());
-        }
+        );
 
         updateInteraction(id, { status: 2 });
       } catch (error: any) {
