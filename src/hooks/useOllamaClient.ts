@@ -10,6 +10,7 @@ import {
   useFraudeStore,
   useInteraction,
   initSignal,
+  getSignal,
 } from "../store/useFraudeStore";
 import log from "../utils/logger";
 
@@ -67,7 +68,10 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
 
         await router.invoke(
           { messages: [new HumanMessage(query)] },
-          { configurable: { thread_id: id } }
+          {
+            configurable: { thread_id: id },
+            signal: getSignal(),
+          }
         );
 
         updateInteraction(id, { status: 2 });

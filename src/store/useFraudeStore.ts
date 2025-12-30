@@ -149,11 +149,18 @@ export const initSignal = () => {
 };
 
 export const interrupt = () => {
-  useFraudeStore.getState().abortController?.abort();
-  useFraudeStore.setState({ abortController: null });
-  const interactionId = useFraudeStore.getState().currentInteractionId;
-  if (!interactionId) return;
-  useFraudeStore.getState().updateInteraction(interactionId, {
-    status: -1,
-  });
+  const state = useFraudeStore.getState();
+  if (state.abortController) {
+    state.abortController.abort();
+  }
+
+  const interactionId = state.currentInteractionId;
+  if (interactionId) {
+    state.updateInteraction(interactionId, {
+      status: -1,
+    });
+  }
 };
+
+export const getSignal = () =>
+  useFraudeStore.getState().abortController?.signal;

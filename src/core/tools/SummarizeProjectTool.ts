@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import summarizeProject from "../actions/summarize_project";
+import { getSignal } from "../../store/useFraudeStore";
 
 export const createSummarizeProjectTool = () => {
   return new DynamicStructuredTool({
@@ -15,7 +16,7 @@ export const createSummarizeProjectTool = () => {
         ),
     }),
     func: async ({ query }) => {
-      await summarizeProject();
+      await summarizeProject(getSignal());
       return "Summary generation initiated.";
     },
   });

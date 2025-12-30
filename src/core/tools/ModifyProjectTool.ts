@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import langgraphModify from "../actions/langgraph_modify";
+import { getSignal } from "../../store/useFraudeStore";
 
 export const createModifyProjectTool = (
   promptUserConfirmation: () => Promise<boolean>
@@ -17,7 +18,7 @@ export const createModifyProjectTool = (
         ),
     }),
     func: async ({ request }) => {
-      await langgraphModify(request, promptUserConfirmation);
+      await langgraphModify(request, promptUserConfirmation, getSignal());
       return "Modification process initiated.";
     },
   });

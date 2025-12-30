@@ -17,9 +17,11 @@ export const createRouterGraph = (tools: DynamicStructuredTool[]) => {
 
   const toolNode = new ToolNode<RouterState>(tools);
 
-  const callModel = async (state: RouterState) => {
+  const callModel = async (state: RouterState, config?: any) => {
     const { messages } = state;
-    const response = await modelWithTools.invoke(messages);
+    const response = await modelWithTools.invoke(messages, {
+      signal: config?.signal,
+    });
     return { messages: [response] };
   };
 

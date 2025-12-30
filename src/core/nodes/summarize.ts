@@ -6,7 +6,7 @@ import { generalModel } from "../../services/llm";
 
 const { updateOutput } = useFraudeStore.getState();
 export const createSummarizeNode = () => {
-  return async (state: AgentStateType) => {
+  return async (state: AgentStateType, config?: any) => {
     updateOutput("log", "Generating summary (llama3.1:latest)...");
 
     let codeContext = "";
@@ -27,7 +27,7 @@ export const createSummarizeNode = () => {
     // updateOutput("log", `Coder prompt size: ${promptSize} characters`);
 
     let summary = "";
-    const signal = useFraudeStore.getState().abortController?.signal;
+    const signal = config?.signal;
     const stream = await generalModel.stream([new HumanMessage(prompt)], {
       signal,
     });

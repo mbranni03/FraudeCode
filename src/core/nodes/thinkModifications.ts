@@ -7,7 +7,7 @@ import { thinkerModel } from "../../services/llm";
 const { updateOutput } = useFraudeStore.getState();
 
 export const createThinkNode = () => {
-  return async (state: AgentStateType) => {
+  return async (state: AgentStateType, config?: any) => {
     updateOutput("log", "🧠 [THINKING] Analyzing requirements (qwen3:8b)...");
 
     const prompt = ModificationThinkPrompt(
@@ -21,7 +21,7 @@ export const createThinkNode = () => {
 
     updateOutput("markdown", "", "Implementation Plan");
     let thinkingProcess = "";
-    const signal = useFraudeStore.getState().abortController?.signal;
+    const signal = config?.signal;
     const stream = await thinkerModel.stream([new HumanMessage(prompt)], {
       signal,
     });
