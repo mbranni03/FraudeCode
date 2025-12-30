@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import qdrant from "../services/qdrant";
 import type { PendingChange } from "../types/state";
@@ -13,7 +13,6 @@ import log from "../utils/logger";
 export interface OllamaCLI {
   handleQuery: (query: string) => Promise<void>;
   interrupt: () => void;
-  embedString: (query: string) => Promise<number[]>;
   confirmModification: (confirmed: boolean) => void;
   pendingConfirmation: boolean;
   pendingChanges: PendingChange[];
@@ -74,17 +73,6 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
           { configurable: { thread_id: id } }
         );
 
-        // Update status to done after router finishes (if it executes an action)
-        // Note: The actions themselves might need to update status or we might need to listen to events.
-        // For now, let's assume if the router finishes, we are done or waiting for confirmation (handled inside tools).
-        // However, if the tool runs `langgraphModify`, it updates status internally?
-        // `langgraphModify` returns a state, but doesn't strictly update the store status to "done" (2)
-        // except at the end of the manual flow in the original code.
-        // But `langgraphModify` itself calls `updateInteraction`?
-        // Let's check `langgraphModify` again. It returns `finalState`. It does NOT call `updateInteraction` directly to set status to done.
-        // The original `handleQuery` did that: `updateInteraction(id, { pendingConfirmation: false, status: 2 });`
-
-        // So we should probably update status to 2 here after invoke.
         updateInteraction(id, { status: 2 });
       } catch (error: any) {
         if (error.name !== "AbortError") {
@@ -105,10 +93,6 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
     }
   }, [interactionId, updateInteraction]);
 
-  const embedString = useCallback(async (query: string) => {
-    return await qdrant.embed(query);
-  }, []);
-
   const confirmModification = useCallback(
     (confirmed: boolean) => {
       if (confirmationResolverRef.current) {
@@ -125,7 +109,6 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
   return {
     handleQuery,
     interrupt,
-    embedString,
     confirmModification,
     pendingConfirmation: interaction?.pendingConfirmation || false,
     pendingChanges: interaction?.pendingChanges || [],
