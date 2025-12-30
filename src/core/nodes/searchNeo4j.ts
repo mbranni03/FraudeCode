@@ -2,7 +2,7 @@ import type { AgentStateType } from "../../types/state";
 import { useFraudeStore } from "../../store/useFraudeStore";
 import neo4jClient from "../../services/neo4j";
 
-const { updateOutput } = useFraudeStore();
+const { updateOutput } = useFraudeStore.getState();
 export const createSearchNeo4jNode = () => {
   return async (state: AgentStateType) => {
     updateOutput(

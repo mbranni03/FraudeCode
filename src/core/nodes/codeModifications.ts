@@ -4,7 +4,7 @@ import type { AgentStateType } from "../../types/state";
 import ModificationCodeChangesPrompt from "../../types/prompts/modify/CodeChanges";
 import { useFraudeStore } from "../../store/useFraudeStore";
 
-const { updateOutput } = useFraudeStore();
+const { updateOutput } = useFraudeStore.getState();
 
 export const createCodeNode = (
   coderModel: ChatOllama,

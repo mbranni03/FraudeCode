@@ -4,7 +4,7 @@ import type { AgentStateType } from "../../types/state";
 import ModificationThinkPrompt from "../../types/prompts/modify/Think";
 import { useFraudeStore } from "../../store/useFraudeStore";
 
-const { updateOutput } = useFraudeStore();
+const { updateOutput } = useFraudeStore.getState();
 
 export const createThinkNode = (
   thinkerModel: ChatOllama,

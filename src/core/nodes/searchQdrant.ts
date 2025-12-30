@@ -2,7 +2,7 @@ import type { AgentStateType } from "../../types/state";
 import { useFraudeStore } from "../../store/useFraudeStore";
 import qdrant from "../../services/qdrant";
 
-const { updateOutput } = useFraudeStore();
+const { updateOutput } = useFraudeStore.getState();
 
 export const createSearchQdrantNode = () => {
   return async (state: AgentStateType) => {

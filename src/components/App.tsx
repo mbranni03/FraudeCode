@@ -35,7 +35,7 @@ const Session = ({
 
 export default function App() {
   const started = useFraudeStore((state) => state.started);
-  const interactions = useFraudeStore((state) => state.interactions);
+  const interactionOrder = useFraudeStore((state) => state.interactionOrder);
   const lastInteractionId = useFraudeStore(
     (state) => state.currentInteractionId
   );
@@ -60,11 +60,11 @@ export default function App() {
       {!started && <IntroComponent />}
       {started && (
         <>
-          {interactions.map((interaction) => (
+          {interactionOrder.map((id) => (
             <Session
-              key={interaction.interactionId}
-              interactionId={interaction.interactionId}
-              isLast={interaction.interactionId === lastInteractionId}
+              key={id}
+              interactionId={id}
+              isLast={id === lastInteractionId}
               onDone={onDone}
             />
           ))}

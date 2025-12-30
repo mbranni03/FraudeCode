@@ -4,7 +4,7 @@ import type { AgentStateType } from "../../types/state";
 import summarizePrompt from "../../types/prompts/Summarize";
 import { useFraudeStore } from "../../store/useFraudeStore";
 
-const { updateOutput } = useFraudeStore();
+const { updateOutput } = useFraudeStore.getState();
 export const createSummarizeNode = (
   coderModel: ChatOllama,
   signal?: AbortSignal
