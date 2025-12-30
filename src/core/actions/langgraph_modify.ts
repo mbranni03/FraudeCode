@@ -1,5 +1,5 @@
 import { StateGraph, END, START } from "@langchain/langgraph";
-import { AgentState, type PendingChange } from "../../types/state";
+import { AgentState } from "../../types/state";
 
 // Nodes
 import { createSearchQdrantNode } from "../nodes/searchQdrant";

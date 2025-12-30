@@ -5,7 +5,7 @@ import type { PendingChange } from "../types/state";
 import { createModifyProjectTool } from "../core/tools/ModifyProjectTool";
 import { createSummarizeProjectTool } from "../core/tools/SummarizeProjectTool";
 import { createRouterGraph } from "../core/agent/router";
-import { HumanMessage } from "@langchain/core/messages";
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import {
   useFraudeStore,
   useInteraction,
@@ -28,7 +28,8 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
     null
   );
 
-  const { addInteraction, updateInteraction, updateOutput } = useFraudeStore();
+  const { addInteraction, updateInteraction, updateOutput, setStatus } =
+    useFraudeStore();
 
   const interaction = useInteraction(interactionId);
 
@@ -59,6 +60,8 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
 
         initSignal();
 
+        setStatus("Pondering");
+
         const tools = [
           createModifyProjectTool(promptUserConfirmation),
           createSummarizeProjectTool(),
@@ -66,13 +69,18 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
 
         const router = createRouterGraph(tools);
 
-        await router.invoke(
+        const result = (await router.invoke(
           { messages: [new HumanMessage(query)] },
           {
             configurable: { thread_id: id },
             signal: getSignal(),
           }
-        );
+        )) as any;
+
+        const lastMessage = result.messages[result.messages.length - 1];
+        if (lastMessage instanceof AIMessage && lastMessage.content) {
+          updateOutput("markdown", lastMessage.content.toString());
+        }
 
         updateInteraction(id, { status: 2 });
       } catch (error: any) {
