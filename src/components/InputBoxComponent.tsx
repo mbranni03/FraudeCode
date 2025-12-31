@@ -72,6 +72,7 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
                 exit();
                 return;
               }
+              if (v.trim() === "") return;
               addToHistory(v);
               setValue("");
               setHistoryIndex(-1);
