@@ -238,7 +238,11 @@ export const useFraudeStore = create<FraudeStore>((set) => ({
 let confirmationResolver: ((confirmed: boolean) => void) | null = null;
 
 export const getInteraction = (id?: string | null) => {
-  if (!id) return undefined;
+  if (!id) {
+    let interactionId = useFraudeStore.getState().currentInteractionId;
+    if (!interactionId) return undefined;
+    return useFraudeStore.getState().interactions[interactionId];
+  }
   return useFraudeStore.getState().interactions[id];
 };
 
