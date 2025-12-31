@@ -48,7 +48,8 @@ export default function App() {
       log("App Started...");
     } else if (
       (key.escape || input === "\u001b") &&
-      getInteraction()?.status !== 0
+      getInteraction()?.status !== 0 &&
+      getInteraction()?.status !== 4
     ) {
       interrupt();
     }

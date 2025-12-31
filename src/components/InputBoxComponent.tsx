@@ -51,6 +51,26 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
     }
   });
 
+  const handleChanges = (v: string) => {
+    setValue(v);
+    // Reset history index if user types something manual
+    if (historyIndex !== -1 && v !== history[historyIndex]) {
+      setHistoryIndex(-1);
+    }
+  };
+
+  const processSubmit = (v: string) => {
+    if (v.trim().toLowerCase() === "exit") {
+      exit();
+      return;
+    }
+    if (v.trim() === "") return;
+    addToHistory(v);
+    setValue("");
+    setHistoryIndex(-1);
+    OllamaClient.handleQuery(v);
+  };
+
   return (
     <Box flexDirection="column" padding={1}>
       <Text>Type something and press enter or type "exit" to exit:</Text>
@@ -60,24 +80,8 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
           <TextInput
             key={inputKey}
             value={value}
-            onChange={(v) => {
-              setValue(v);
-              // Reset history index if user types something manual
-              if (historyIndex !== -1 && v !== history[historyIndex]) {
-                setHistoryIndex(-1);
-              }
-            }}
-            onSubmit={(v) => {
-              if (v.trim().toLowerCase() === "exit") {
-                exit();
-                return;
-              }
-              if (v.trim() === "") return;
-              addToHistory(v);
-              setValue("");
-              setHistoryIndex(-1);
-              OllamaClient.handleQuery(v);
-            }}
+            onChange={handleChanges}
+            onSubmit={processSubmit}
           />
         </Box>
       </Box>
