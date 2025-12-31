@@ -1,12 +1,12 @@
-const ModificationCodeChangesPrompt = (
+const FastCodeChangesPrompt = (
   codeContext: string,
-  thinkingProcess: string,
+  structuralContext: string,
   query: string
 ) => `
 You are an expert software engineer. Your task is to implement ONLY the necessary modifications to the project.
 
 User Request: "${query}"
-Plan: ${thinkingProcess}
+Structural Context: ${structuralContext}
 File Contents: ${codeContext}
 
 Instructions:
@@ -55,4 +55,4 @@ IMPORTANT:
 - If only removing (no addition), omit the ADD block
 `;
 
-export default ModificationCodeChangesPrompt;
+export default FastCodeChangesPrompt;

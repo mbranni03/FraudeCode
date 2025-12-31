@@ -6,7 +6,7 @@ import { thinkerModel } from "../../services/llm";
 
 const { updateOutput, setStatus } = useFraudeStore.getState();
 
-export const createThinkNode = () => {
+export const createImplementationPlanNode = () => {
   return async (state: AgentStateType, config?: any) => {
     setStatus("Analyzing requirements (qwen3:8b)");
 

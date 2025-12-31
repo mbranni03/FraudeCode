@@ -3,18 +3,28 @@ import type { AgentStateType } from "../../types/state";
 import ModificationCodeChangesPrompt from "../../types/prompts/modify/CodeChanges";
 import { useFraudeStore } from "../../store/useFraudeStore";
 import { generalModel } from "../../services/llm";
+import FastCodeChangesPrompt from "../../types/prompts/modify/FastChanges";
 
 const { updateOutput, setStatus } = useFraudeStore.getState();
 
 export const createCodeNode = () => {
   return async (state: AgentStateType, config?: any) => {
     setStatus("Generating code changes (llama3.1:latest)");
+    let prompt = null;
 
-    const prompt = ModificationCodeChangesPrompt(
-      state.codeContext,
-      state.thinkingProcess,
-      state.query
-    );
+    if (useFraudeStore.getState().executionMode === "Planning") {
+      prompt = ModificationCodeChangesPrompt(
+        state.codeContext,
+        state.thinkingProcess,
+        state.query
+      );
+    } else {
+      prompt = FastCodeChangesPrompt(
+        state.codeContext,
+        state.structuralContext,
+        state.query
+      );
+    }
 
     const promptSize = prompt.length;
     updateOutput("log", `Coder prompt size: ${promptSize} characters`);
