@@ -3,63 +3,39 @@ const FastCodeChangesPrompt = (
   structuralContext: string,
   query: string
 ) => `
-You are an expert software engineer. Your task is to implement ONLY the necessary modifications to the project.
+You are an expert software engineer acting as a PATCH GENERATOR.
+
+Your job is to apply the MINIMAL POSSIBLE PATCH to fulfill the user's request.
+
+HARD CONSTRAINTS (VIOLATION IS A FAILURE):
+1. If the user request does NOT explicitly request modifying or replacing existing logic, you MUST NOT produce any REMOVE blocks.
+2. Existing functions, method calls, and behavior are IMMUTABLE unless explicitly named in the request.
+3. Newly added functionality MUST NOT be wired into existing code unless explicitly requested.
+4. You may ONLY modify files that are strictly required to define the new functionality.
+5. You MUST follow the response format
+
+If the request is satisfied by adding new code only, you MUST NOT modify existing code.
 
 User Request: "${query}"
-Structural Context: ${structuralContext}
+${structuralContext ? "Structural Context: " + structuralContext : ""}
 File Contents:
 ${codeContext}
 
-Instructions:
-1. Provide ONLY the targeted changes needed - do NOT rewrite entire files.
-2. For each file, specify which lines to ADD and which to REMOVE.
-3. The "File Contents" above include line numbers (e.g., "1: code"). Use these to identify the correct "AT LINE" values.
-4. **DO NOT include line numbers in your REMOVE and ADD code blocks.**
-5. Only ADD/REMOVE the lines related to achieving the user's request. **DO NOT REMOVE code unless it is strictly necessary to replace it.**
-6. Changes are applied sequentially. Line numbers refer to the ORIGINAL file content.
-7. Format your response exactly as follows:
+Patch Instructions:
+- Provide ONLY the minimal changes.
+- Use ADD blocks only unless rule #1 explicitly allows REMOVE.
+- Use ONE block per logical change.
+- Do NOT rewrite entire files.
+- Output ONLY the patch. No explanations.
+
+Response format:
 
 FILE: <path/to/file>
 AT LINE <line_number>:
-REMOVE:
+<ADD | REMOVE>:
 \`\`\`<language>
-<lines to remove - exact content>
+<exact code>
 \`\`\`
-ADD:
-\`\`\`<language>
-<lines to add - replacement content>
-\`\`\`
-
-Example for adding a new import and modifying a function:
-
-FILE: sample/utils.py
-AT LINE 1:
-ADD:
-\`\`\`python
-import new_module
-\`\`\`
-
-AT LINE 15:
-REMOVE:
-\`\`\`python
-def old_function():
-    return "old"
-\`\`\`
-ADD:
-\`\`\`python
-def new_function():
-    return "new"
-\`\`\`
-
-IMPORTANT:
-- Only include lines that actually change
-- Use ONE block per logical change (e.g., adding an entire function should be one block, not multiple AT LINE instructions)
-- Include enough context in REMOVE to uniquely identify the location
-- If only adding:
-    - Specify the line number where the addition should start.
-    - The content will be inserted BEFORE the specified line.
-    - Omit the REMOVE block.
-- If only removing (no addition), omit the ADD block
 `;
 
 export default FastCodeChangesPrompt;
