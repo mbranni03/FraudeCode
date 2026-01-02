@@ -55,7 +55,8 @@ export class Neo4jClient {
     name: string,
     filePath: string,
     startLine: number,
-    parentName?: string
+    parentName?: string,
+    signature?: string
   ) {
     const session = this.driver.session();
     try {
@@ -66,10 +67,10 @@ export class Neo4jClient {
           MATCH (parent {name: $parentName, filePath: $filePath})
           WHERE parent:Class OR parent:Function
           MERGE (fn:Function {name: $name, filePath: $filePath})
-          ON CREATE SET fn.startLine = $startLine
+          ON CREATE SET fn.startLine = $startLine, fn.signature = $signature
           MERGE (parent)-[:DEFINES]->(fn)
           `,
-          { name, filePath, startLine, parentName }
+          { name, filePath, startLine, parentName, signature }
         );
       } else {
         // Link to File
@@ -77,10 +78,10 @@ export class Neo4jClient {
           `
           MATCH (f:File {path: $filePath})
           MERGE (fn:Function {name: $name, filePath: $filePath})
-          ON CREATE SET fn.startLine = $startLine
+          ON CREATE SET fn.startLine = $startLine, fn.signature = $signature
           MERGE (f)-[:DEFINES]->(fn)
           `,
-          { name, filePath, startLine }
+          { name, filePath, startLine, signature }
         );
       }
     } catch (error) {
@@ -94,7 +95,8 @@ export class Neo4jClient {
     name: string,
     filePath: string,
     startLine: number,
-    parentName?: string
+    parentName?: string,
+    signature?: string
   ) {
     const session = this.driver.session();
     try {
@@ -104,20 +106,20 @@ export class Neo4jClient {
                 MATCH (parent {name: $parentName, filePath: $filePath})
                 WHERE parent:Class OR parent:Function
                 MERGE (c:Class {name: $name, filePath: $filePath})
-                ON CREATE SET c.startLine = $startLine
+                ON CREATE SET c.startLine = $startLine, c.signature = $signature
                 MERGE (parent)-[:DEFINES]->(c)
                 `,
-          { name, filePath, startLine, parentName }
+          { name, filePath, startLine, parentName, signature }
         );
       } else {
         await session.run(
           `
                 MATCH (f:File {path: $filePath})
                 MERGE (c:Class {name: $name, filePath: $filePath})
-                ON CREATE SET c.startLine = $startLine
+                ON CREATE SET c.startLine = $startLine, c.signature = $signature
                 MERGE (f)-[:DEFINES]->(c)
                 `,
-          { name, filePath, startLine }
+          { name, filePath, startLine, signature }
         );
       }
     } catch (error) {
@@ -218,11 +220,64 @@ export class Neo4jClient {
         WHERE s:Function OR s:Class
         OPTIONAL MATCH (s)<-[:DEFINES]-(parent)
         OPTIONAL MATCH (s)-[:CALLS]->(target)
-        RETURN s.name as name, s.filePath as filePath, s.startLine as startLine, labels(s)[0] as type, 
-               parent.path as parentFile, labels(parent)[0] as parentType, parent.name as parentName,
+        RETURN s.name as name, s.filePath as filePath, s.startLine as startLine, s.signature as signature, labels(s)[0] as type, 
+               labels(parent)[0] as parentType, parent.name as parentName,
                collect(target.name) as calls
         `,
         { symbolName }
+      );
+      return result.records.map((r) => r.toObject());
+    } finally {
+      await session.close();
+    }
+  }
+
+  async getContextBySymbols(symbols: { symbol: string; filePath: string }[]) {
+    const session = this.driver.session();
+    try {
+      const result = await session.run(
+        `
+        MATCH (s)
+        WHERE s.filePath IN $filePaths AND s.name IN $symbolNames AND (s:Function OR s:Class)
+        OPTIONAL MATCH (s)<-[:DEFINES]-(parent)
+        // Get Downstream: What does this function rely on?
+        OPTIONAL MATCH (s)-[:CALLS]->(dep:Function)
+        // Get Upstream: Who will be affected by changes?
+        OPTIONAL MATCH (caller:Function)-[:CALLS]->(s)
+        RETURN s.name as name, 
+              s.filePath as filePath, 
+              s.startLine as startLine, 
+              s.signature as signature,
+              labels(s)[0] as type,
+              parent.name as parentName,
+              collect(DISTINCT {name: dep.name, sig: dep.signature}) as dependencies,
+              collect(DISTINCT {name: caller.name, file: caller.filePath}) as impactedCallers
+        `,
+        {
+          filePaths: symbols.map((s) => s.filePath),
+          symbolNames: symbols.map((s) => s.symbol),
+        }
+      );
+      return result.records.map((r) => r.toObject());
+    } finally {
+      await session.close();
+    }
+  }
+
+  async getGraphForFilePaths(filePaths: string[]) {
+    const session = this.driver.session();
+    try {
+      const result = await session.run(
+        `
+        MATCH (s)
+        WHERE s.filePath IN $filePaths AND (s:Function OR s:Class)
+        OPTIONAL MATCH (s)<-[:DEFINES]-(parent)
+        OPTIONAL MATCH (s)-[:CALLS]->(target)
+        RETURN s.name as name, s.filePath as filePath, s.startLine as startLine, s.signature as signature, labels(s)[0] as type,
+               labels(parent)[0] as parentType, parent.name as parentName,
+               collect(target.name) as calls
+        `,
+        { filePaths }
       );
       return result.records.map((r) => r.toObject());
     } finally {

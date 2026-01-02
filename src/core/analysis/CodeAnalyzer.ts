@@ -76,11 +76,15 @@ export async function analyzeCode(
         ? parentDef.childForFieldName("name")?.text
         : undefined;
 
+      // Extract signature (everything from start to body)
+      const signature = extractSignature(node, code);
+
       definitions.push({
         type: node.type === "class_definition" ? "class" : "function",
         name: name,
         startLine: node.startPosition.row + 1,
         parentName,
+        signature,
       });
     }
 
@@ -173,4 +177,32 @@ function findWantedParent(node: Node, wantedConfigs: Set<string>): Node | null {
     curr = curr.parent;
   }
   return null;
+}
+
+/**
+ * Extracts the signature of a function or class definition.
+ * Returns everything from the start of the definition up to the body.
+ * Similar to Python implementation:
+ * ```python
+ * def extract_signature(node, code_bytes):
+ *     body_node = node.child_by_field_name('body')
+ *     if body_node:
+ *         sig_bytes = code_bytes[node.start_byte : body_node.start_byte]
+ *         return sig_bytes.decode('utf-8').strip()
+ *     return ""
+ * ```
+ */
+function extractSignature(node: Node, code: string): string {
+  // For both function_definition and class_definition,
+  // get the body field which contains the actual implementation
+  const bodyNode = node.childForFieldName("body");
+
+  if (bodyNode) {
+    // Extract from function/class start to the beginning of the body
+    const signature = code.slice(node.startIndex, bodyNode.startIndex);
+    return signature.trim();
+  }
+
+  // Fallback: return the entire node text if no body found
+  return node.text.trim();
 }

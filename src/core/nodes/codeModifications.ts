@@ -10,6 +10,7 @@ const { updateOutput, setStatus } = useFraudeStore.getState();
 
 export const createCodeNode = () => {
   return async (state: AgentStateType, config?: any) => {
+    log("Coder state: ", JSON.stringify(state, null, 2));
     setStatus("Generating code changes (llama3.1:latest)");
     let prompt = null;
 

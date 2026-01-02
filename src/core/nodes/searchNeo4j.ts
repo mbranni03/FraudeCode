@@ -8,33 +8,32 @@ export const createSearchNeo4jNode = () => {
   return async (state: AgentStateType) => {
     setStatus("Searching Neo4j for structural context");
 
-    const funcs: string[] = [];
-    const filePaths: string[] = [];
+    const symbols: { symbol: string; filePath: string }[] = [];
     if (state.qdrantResults) {
       for (const res of state.qdrantResults as any[]) {
-        const func = res.payload.symbol;
+        const symbol = res.payload.symbol;
         const filePath = res.payload.filePath;
-        if (func && !funcs.includes(func)) {
-          funcs.push(func);
-        }
-        if (filePath && !filePaths.includes(filePath)) {
-          filePaths.push(filePath);
+        if (symbol && !symbols.includes(symbol)) {
+          symbols.push({ symbol, filePath });
         }
       }
     }
 
     let structuralContext: any[] = [];
 
-    for (const symbol of funcs) {
-      setStatus(`Inspecting symbol: "${symbol}"`);
-      const symContext = await neo4jClient.getContextBySymbol(symbol);
-      if (symContext.length > 0) {
-        structuralContext.push(symContext);
+    if (symbols.length > 0) {
+      setStatus(`Inspecting dependencies for ${symbols.length} files`);
+      const symbolContext = await neo4jClient.getContextBySymbols(symbols);
+      if (symbolContext.length > 0) {
+        structuralContext = symbolContext;
       }
     }
 
+    structuralContext.forEach((node: any) =>
+      log(JSON.stringify(node, null, 2))
+    );
+
     const foundSymbols = structuralContext.length > 0;
-    if (foundSymbols) structuralContext = structuralContext.flat();
     updateOutput(
       "log",
       `${

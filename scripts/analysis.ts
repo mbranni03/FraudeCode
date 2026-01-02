@@ -30,14 +30,16 @@ async function indexAllFiles(
           def.name,
           filePath,
           def.startLine,
-          def.parentName
+          def.parentName,
+          def.signature
         );
       } else {
         await neo4jClient.addClassNode(
           def.name,
           filePath,
           def.startLine,
-          def.parentName
+          def.parentName,
+          def.signature
         );
       }
     }

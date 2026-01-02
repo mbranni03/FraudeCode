@@ -32,6 +32,7 @@ export interface DefinitionInfo {
   name: string;
   startLine: number;
   parentName?: string;
+  signature?: string;
 }
 
 export interface CallInfo {
