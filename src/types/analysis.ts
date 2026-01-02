@@ -15,6 +15,15 @@ export interface Chunk {
   language?: string;
 }
 
+export interface QdrantPayload {
+  startLine: number;
+  endLine: number;
+  symbol: string;
+  filePath: string;
+  language: string;
+  rawDocument: string;
+}
+
 export interface FileAnalysis {
   chunks: Chunk[];
   imports: ImportInfo[];

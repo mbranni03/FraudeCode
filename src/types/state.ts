@@ -16,6 +16,7 @@ export const AgentState = Annotation.Root({
   filePaths: Annotation<string[]>(),
   funcs: Annotation<string[]>(),
   structuralContext: Annotation<any[]>(),
+  dependencies: Annotation<string>(),
   codeContext: Annotation<string>(),
   thinkingProcess: Annotation<string>(),
   modifications: Annotation<string>(),

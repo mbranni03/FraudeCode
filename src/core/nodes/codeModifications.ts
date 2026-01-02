@@ -3,7 +3,8 @@ import type { AgentStateType } from "../../types/state";
 import ModificationCodeChangesPrompt from "../../types/prompts/modify/CodeChanges";
 import { useFraudeStore } from "../../store/useFraudeStore";
 import { generalModel } from "../../services/llm";
-import FastCodeChangesPrompt from "../../types/prompts/modify/FastChanges";
+// import FastCodeChangesPrompt from "../../types/prompts/modify/FastChanges";
+import FastCodeChangesPrompt2 from "../../types/prompts/modify/FastChanges2";
 import log from "../../utils/logger";
 
 const { updateOutput, setStatus } = useFraudeStore.getState();
@@ -21,9 +22,9 @@ export const createCodeNode = () => {
         state.query
       );
     } else {
-      prompt = FastCodeChangesPrompt(
+      prompt = FastCodeChangesPrompt2(
         state.codeContext,
-        state.structuralContext,
+        state.dependencies,
         state.query
       );
     }
