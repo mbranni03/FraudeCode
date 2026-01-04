@@ -129,6 +129,20 @@ export class QdrantCli {
     return results.points;
   }
 
+  async deleteFileChunks(collectionName: string, filePath: string) {
+    await this.client.delete(collectionName, {
+      filter: {
+        must: [
+          {
+            key: "filePath",
+            match: { value: filePath },
+          },
+        ],
+      },
+    });
+    console.log(`Qdrant chunks for ${filePath} deleted.`);
+  }
+
   async embed(text: string): Promise<number[]> {
     const res = await fetch(OLLAMA_EMBED_URL, {
       method: "POST",

@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import type { PendingChange } from "../../types/state";
+import type { PendingChange } from "../types/state";
 
 export const applyTargetedChanges = (
   modifications: string,

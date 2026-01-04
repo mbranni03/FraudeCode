@@ -1,5 +1,5 @@
 import type { AgentStateType, PendingChange } from "../../types/state";
-import { applyTargetedChanges } from "../modification/CodeModifier";
+import { applyTargetedChanges } from "../../utils/CodeModifier";
 import { useFraudeStore } from "../../store/useFraudeStore";
 
 const { updateOutput, updateInteraction, setStatus } =

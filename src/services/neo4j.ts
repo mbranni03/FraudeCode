@@ -285,6 +285,27 @@ export class Neo4jClient {
     }
   }
 
+  async deleteFileData(filePath: string) {
+    const session = this.driver.session();
+    try {
+      // 1. Delete all nodes defined by the file (Functions/Classes) and their relationships
+      // 2. Delete the File node itself
+      await session.run(
+        `
+        MATCH (f:File {path: $filePath})
+        OPTIONAL MATCH (f)-[:DEFINES*]->(d)
+        DETACH DELETE d, f
+        `,
+        { filePath }
+      );
+      console.log(`Neo4j data for ${filePath} deleted.`);
+    } catch (error) {
+      console.error(`Error deleting Neo4j data for ${filePath}:`, error);
+    } finally {
+      await session.close();
+    }
+  }
+
   async close() {
     await this.driver.close();
   }
