@@ -27,6 +27,7 @@ export const AgentState = Annotation.Root({
   summary: Annotation<string>(),
   error: Annotation<string | undefined>(),
   status: Annotation<string>(),
+  changedFiles: Annotation<string[]>(),
 });
 
 export type AgentStateType = typeof AgentState.State;

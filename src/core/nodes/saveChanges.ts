@@ -32,6 +32,7 @@ export const createSaveChangesNode = (
       updateOutput("log", "🎉 All changes saved successfully!");
 
       return {
+        changedFiles: changesToSave.map((c) => c.filePath),
         userConfirmed: true,
         status: "completed",
       };

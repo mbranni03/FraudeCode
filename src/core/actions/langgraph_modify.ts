@@ -1,5 +1,5 @@
 import { StateGraph, END, START } from "@langchain/langgraph";
-import { AgentState } from "../../types/state";
+import { AgentState, type AgentStateType } from "../../types/state";
 
 // Nodes
 import { createSearchQdrantNode } from "../nodes/searchQdrant";
@@ -9,6 +9,7 @@ import { createImplementationPlanNode } from "../nodes/implementationPlan";
 import { createCodeNode } from "../nodes/codeModifications";
 import { createVerifyNode } from "../nodes/verify";
 import { createSaveChangesNode } from "../nodes/saveChanges";
+import { createUpdateRagNode } from "../nodes/updateRag";
 import { useFraudeStore } from "../../store/useFraudeStore";
 
 export default async function langgraphModify(
@@ -26,7 +27,8 @@ export default async function langgraphModify(
     .addNode("think", createImplementationPlanNode()) // Thinking
     .addNode("code", createCodeNode()) // Thinking skipped if fastChanges
     .addNode("verify", createVerifyNode())
-    .addNode("saveChanges", createSaveChangesNode(promptUserConfirmation));
+    .addNode("saveChanges", createSaveChangesNode(promptUserConfirmation))
+    .addNode("updateRag", createUpdateRagNode());
 
   workflow.addEdge(START, "searchQdrant");
   workflow.addEdge("searchQdrant", "searchNeo4j");
@@ -34,7 +36,20 @@ export default async function langgraphModify(
   workflow.addEdge("think", "code");
   workflow.addEdge("code", "verify");
   workflow.addEdge("verify", "saveChanges");
-  workflow.addEdge("saveChanges", END);
+  workflow.addEdge("updateRag", END);
+  workflow.addConditionalEdges(
+    "saveChanges",
+    (state: AgentStateType) => {
+      if (state.userConfirmed) {
+        return "updateRag";
+      }
+      return END;
+    },
+    {
+      [END]: END,
+      updateRag: "updateRag",
+    }
+  );
   // Execution mode pathing
   workflow.addConditionalEdges(
     "combineContext",
