@@ -1,58 +1,65 @@
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+
+// const ModificationCodeChangesPrompt = (
+//   codeContext: string,
+//   thinkingProcess: string,
+//   query: string
+// ) => `
+// You are a code modification engine. Your job is to provide the ADD OR REMOVE patch needed to complete the provided task
+
+// ONLY DO WHAT THE TASK ASKS YOU TO DO. DO NOT ADD ANYTHING ELSE.
+
+// ONLY OUTPUT THE ADD OR REMOVE PATCH. DO NOT EXPLAIN OR COMMENT ON THE PATCH.
+
+// <TASK>
+// ${thinkingProcess}
+// </TASK>
+
+// <TARGET_CODE>
+// ${codeContext}
+// </TARGET_CODE>
+
+// PATCH FORMAT (EXACT):
+
+// FILE: <path/to/file>
+// AT LINE <line_number>:
+// <PATCH_TYPE>:
+// \`\`\`<language>
+// <exact code to add or remove>
+// \`\`\`
+
+// OUTPUT PATCH HERE:
+// `;
+
 const ModificationCodeChangesPrompt = (
   codeContext: string,
-  thinkingProcess: string,
-  query: string
-) => `
-You are an expert software engineer. Your task is to implement ONLY the necessary modifications to the project.
+  patchTask: string
+) => [
+  new SystemMessage(
+    `You are a code modification engine. Your job is to provide the ADD OR REMOVE patches needed to complete the provided task
 
-User Request: "${query}"
-Plan: ${thinkingProcess}
-File Contents: ${codeContext}
+ONLY DO WHAT THE TASK ASKS YOU TO DO. DO NOT ADD ANYTHING ELSE.
 
-Instructions:
-1. Provide ONLY the targeted changes needed - do NOT rewrite entire files.
-2. For each file, specify which lines to ADD and which to REMOVE.
-3. Make the minimum number of changes possible.
-4. Format your response exactly as follows:
+ONLY OUTPUT THE ADD OR REMOVE PATCHES. ONLY OUTPUT THE PATCHES.
+
+<TARGET_CODE>
+${codeContext}
+</TARGET_CODE>
+
+PATCH FORMAT (EXACT):
 
 FILE: <path/to/file>
 AT LINE <line_number>:
-REMOVE:
+<PATCH_TYPE>:
 \`\`\`<language>
-<lines to remove - exact content>
+<exact code to add or remove>
 \`\`\`
-ADD:
-\`\`\`<language>
-<lines to add - replacement content>
-\`\`\`
-
-Example for adding a new import and modifying a function:
-
-FILE: sample/utils.py
-AT LINE 1:
-ADD:
-\`\`\`python
-import new_module
-\`\`\`
-
-AT LINE 15:
-REMOVE:
-\`\`\`python
-def old_function():
-    return "old"
-\`\`\`
-ADD:
-\`\`\`python
-def new_function():
-    return "new"
-\`\`\`
-
-IMPORTANT:
-- Only include lines that actually change
-- Use ONE block per logical change (e.g., adding an entire function should be one block, not multiple AT LINE instructions)
-- Include enough context in REMOVE to uniquely identify the location
-- If only adding (no removal), specify the line number where the addition should start
-- If only removing (no addition), omit the ADD block
-`;
+...
+`
+  ),
+  new HumanMessage(
+    `Generate patches for the following task: ${patchTask}\n\nOUTPUT PATCHES HERE:`
+  ),
+];
 
 export default ModificationCodeChangesPrompt;

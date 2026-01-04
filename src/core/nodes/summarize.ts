@@ -1,12 +1,11 @@
-import { HumanMessage } from "@langchain/core/messages";
-import type { AgentStateType } from "../../types/state";
 import summarizePrompt from "../../types/prompts/Summarize";
 import { useFraudeStore } from "../../store/useFraudeStore";
 import { generalModel } from "../../services/llm";
+import type { SummaryStateType } from "../../types/state";
 
 const { updateOutput, setStatus } = useFraudeStore.getState();
 export const createSummarizeNode = () => {
-  return async (state: AgentStateType, config?: any) => {
+  return async (state: SummaryStateType, config?: any) => {
     setStatus("Generating summary (llama3.1:latest)");
 
     let codeContext = "";
@@ -28,7 +27,7 @@ export const createSummarizeNode = () => {
 
     let summary = "";
     const signal = config?.signal;
-    const stream = await generalModel.stream([new HumanMessage(prompt)], {
+    const stream = await generalModel.stream(prompt, {
       signal,
     });
     let lastChunk = null;
@@ -51,11 +50,6 @@ export const createSummarizeNode = () => {
     // setStatus("Implementation complete.");
 
     return {
-      summary,
-      llmContext: {
-        ...state.llmContext,
-        coderPromptSize: promptSize,
-      },
       status: "summary_generated",
     };
   };

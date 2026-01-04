@@ -1,5 +1,4 @@
-import { HumanMessage } from "@langchain/core/messages";
-import type { AgentStateType } from "../../types/state";
+import type { ModifierStateType } from "../../types/state";
 import ModificationThinkPrompt from "../../types/prompts/modify/Think";
 import { interrupt, useFraudeStore } from "../../store/useFraudeStore";
 import { thinkerModel } from "../../services/llm";
@@ -11,7 +10,7 @@ const { updateOutput, setStatus, updateInteraction } =
 
 const iterationLoop = async (
   plan: string,
-  state: AgentStateType,
+  state: ModifierStateType,
   config?: any
 ) => {
   let approved = false;
@@ -52,9 +51,9 @@ const iterationLoop = async (
   return { approved: true, plan };
 };
 
-const think = async (prompt: string, signal?: AbortSignal) => {
+const think = async (prompt: any[], signal?: AbortSignal) => {
   let thinkingProcess = "";
-  const stream = await thinkerModel.stream([new HumanMessage(prompt)], {
+  const stream = await thinkerModel.stream(prompt, {
     signal,
   });
   let lastChunk = null;
@@ -79,14 +78,10 @@ const think = async (prompt: string, signal?: AbortSignal) => {
 };
 
 export const createImplementationPlanNode = () => {
-  return async (state: AgentStateType, config?: any) => {
+  return async (state: ModifierStateType, config?: any) => {
     setStatus("Analyzing requirements (qwen3:8b)");
 
-    const prompt = ModificationThinkPrompt(
-      state.structuralContext,
-      state.codeContext,
-      state.query
-    );
+    const prompt = ModificationThinkPrompt(state.codeContext, state.query);
 
     const promptSize = prompt.length;
     updateOutput("log", `Thinker prompt size: ${promptSize} characters`);
@@ -108,10 +103,6 @@ export const createImplementationPlanNode = () => {
     }
     return {
       thinkingProcess: plan,
-      llmContext: {
-        ...state.llmContext,
-        thinkerPromptSize: promptSize,
-      },
       status: "planning_complete",
     };
   };

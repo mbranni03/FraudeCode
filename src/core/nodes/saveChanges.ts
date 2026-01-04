@@ -1,12 +1,12 @@
 import * as fs from "fs";
-import type { AgentStateType } from "../../types/state";
+import type { ModifierStateType } from "../../types/state";
 import { useFraudeStore } from "../../store/useFraudeStore";
 
 const { updateOutput, updateInteraction } = useFraudeStore.getState();
 export const createSaveChangesNode = (
   promptUserConfirmation: () => Promise<boolean>
 ) => {
-  return async (state: AgentStateType) => {
+  return async (state: ModifierStateType) => {
     updateOutput("log", "Waiting for user confirmation");
 
     const confirmed = await promptUserConfirmation();
@@ -32,6 +32,7 @@ export const createSaveChangesNode = (
       updateOutput("log", "🎉 All changes saved successfully!");
 
       return {
+        changedFiles: changesToSave.map((c) => c.filePath),
         userConfirmed: true,
         status: "completed",
       };

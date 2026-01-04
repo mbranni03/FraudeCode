@@ -1,15 +1,15 @@
 import { StateGraph, END, START } from "@langchain/langgraph";
-import { AgentState } from "../../types/state";
+import { ModifierState, type ModifierStateType } from "../../types/state";
 
 // Nodes
 import { createSearchQdrantNode } from "../nodes/searchQdrant";
 import { createSearchNeo4jNode } from "../nodes/searchNeo4j";
-import { createGatherFilesNode } from "../nodes/gatherFiles";
 import { createCombineContextNode } from "../nodes/combineContext";
 import { createImplementationPlanNode } from "../nodes/implementationPlan";
 import { createCodeNode } from "../nodes/codeModifications";
 import { createVerifyNode } from "../nodes/verify";
 import { createSaveChangesNode } from "../nodes/saveChanges";
+import { createUpdateRagNode } from "../nodes/updateRag";
 import { useFraudeStore } from "../../store/useFraudeStore";
 
 export default async function langgraphModify(
@@ -20,24 +20,36 @@ export default async function langgraphModify(
   const repoName = "sample";
   const repoPath = "/Users/mbranni03/Documents/GitHub/FraudeCode/sample";
 
-  const workflow = new StateGraph(AgentState)
+  const workflow = new StateGraph(ModifierState)
     .addNode("searchQdrant", createSearchQdrantNode())
     .addNode("searchNeo4j", createSearchNeo4jNode())
-    .addNode("gatherFiles", createGatherFilesNode())
     .addNode("combineContext", createCombineContextNode())
     .addNode("think", createImplementationPlanNode()) // Thinking
     .addNode("code", createCodeNode()) // Thinking skipped if fastChanges
     .addNode("verify", createVerifyNode())
-    .addNode("saveChanges", createSaveChangesNode(promptUserConfirmation));
+    .addNode("saveChanges", createSaveChangesNode(promptUserConfirmation))
+    .addNode("updateRag", createUpdateRagNode());
 
   workflow.addEdge(START, "searchQdrant");
   workflow.addEdge("searchQdrant", "searchNeo4j");
-  workflow.addEdge("searchNeo4j", "gatherFiles");
-  workflow.addEdge("gatherFiles", "combineContext");
+  workflow.addEdge("searchNeo4j", "combineContext");
   workflow.addEdge("think", "code");
   workflow.addEdge("code", "verify");
   workflow.addEdge("verify", "saveChanges");
-  workflow.addEdge("saveChanges", END);
+  workflow.addEdge("updateRag", END);
+  workflow.addConditionalEdges(
+    "saveChanges",
+    (state: ModifierStateType) => {
+      if (state.userConfirmed) {
+        return "updateRag";
+      }
+      return END;
+    },
+    {
+      [END]: END,
+      updateRag: "updateRag",
+    }
+  );
   // Execution mode pathing
   workflow.addConditionalEdges(
     "combineContext",
@@ -61,7 +73,6 @@ export default async function langgraphModify(
       status: "started",
       pendingChanges: [],
       userConfirmed: false,
-      llmContext: { thinkerPromptSize: 0, coderPromptSize: 0 },
     },
     { signal }
   )) as any;

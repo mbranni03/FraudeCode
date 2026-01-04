@@ -1,27 +1,37 @@
-import type { AgentStateType } from "../../types/state";
+import type { ModifierStateType } from "../../types/state";
 import { useFraudeStore } from "../../store/useFraudeStore";
 import neo4jClient from "../../services/neo4j";
+import log from "../../utils/logger";
 
 const { updateOutput, setStatus } = useFraudeStore.getState();
 export const createSearchNeo4jNode = () => {
-  return async (state: AgentStateType) => {
+  return async (state: ModifierStateType) => {
     setStatus("Searching Neo4j for structural context");
-    // Update search query to maybe use filePaths from qdrant search
 
-    const words = state.query.split(/\W+/);
-    let structuralContext = "";
-
-    for (const word of words) {
-      if (word.length < 3) continue;
-      setStatus(`Inspecting symbol: "${word}"`);
-      const symContext = await neo4jClient.getContextBySymbol(word);
-      if (symContext.length > 0) {
-        structuralContext +=
-          `Symbol info for "${word}":` +
-          JSON.stringify(symContext, null, 2) +
-          "";
+    const symbols: { symbol: string; filePath: string }[] = [];
+    if (state.qdrantResults) {
+      for (const res of state.qdrantResults as any[]) {
+        const symbol = res.payload.symbol;
+        const filePath = res.payload.filePath;
+        if (symbol && !symbols.includes(symbol)) {
+          symbols.push({ symbol, filePath });
+        }
       }
     }
+
+    let structuralContext: any[] = [];
+
+    if (symbols.length > 0) {
+      setStatus(`Inspecting dependencies for ${symbols.length} files`);
+      const symbolContext = await neo4jClient.getContextBySymbols(symbols);
+      if (symbolContext.length > 0) {
+        structuralContext = symbolContext;
+      }
+    }
+
+    structuralContext.forEach((node: any) =>
+      log(JSON.stringify(node, null, 2))
+    );
 
     const foundSymbols = structuralContext.length > 0;
     updateOutput(
