@@ -10,6 +10,7 @@ import {
 } from "../store/useFraudeStore";
 import InputBoxComponent from "./InputBoxComponent";
 import CommentComponent from "./CommentComponent";
+import SettingsComponent from "./SettingsComponent";
 
 const OllamaClientComponent = ({
   OllamaClient,
@@ -31,6 +32,8 @@ const OllamaClientComponent = ({
   if (!interaction) {
     return null;
   }
+
+  const settingsMode = useFraudeStore((state) => state.settingsMode);
 
   return (
     <Box flexDirection="column">
@@ -60,9 +63,12 @@ const OllamaClientComponent = ({
         />
       )}
       {interaction.status === 4 && <CommentComponent />}
-      {interaction.status === 0 && (
-        <InputBoxComponent OllamaClient={OllamaClient} />
-      )}
+      {interaction.status === 0 &&
+        (settingsMode ? (
+          <SettingsComponent />
+        ) : (
+          <InputBoxComponent OllamaClient={OllamaClient} />
+        ))}
       {/* <Text>Status: {interaction.status}</Text> */}
     </Box>
   );

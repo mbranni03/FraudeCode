@@ -49,9 +49,17 @@ export default function App() {
     } else if (
       (key.escape || input === "\u001b") &&
       getInteraction()?.status !== 0 &&
-      getInteraction()?.status !== 4
+      getInteraction()?.status !== 4 &&
+      !useFraudeStore.getState().settingsMode
     ) {
       interrupt();
+    }
+
+    if (
+      (key.escape || input === "\u001b") &&
+      useFraudeStore.getState().settingsMode
+    ) {
+      useFraudeStore.setState({ settingsMode: false });
     }
   });
 

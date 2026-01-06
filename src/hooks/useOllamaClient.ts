@@ -34,6 +34,11 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
   const handleQuery = useCallback(
     async (query: string) => {
       try {
+        if (query.startsWith("/")) {
+          useFraudeStore.setState({ settingsMode: true });
+          commandHandler(query);
+          return;
+        }
         const id = useFraudeStore.getState().currentInteractionId;
         if (!id) {
           throw new Error("No interaction ID");
@@ -68,6 +73,8 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
     },
     [addInteraction, updateInteraction]
   );
+
+  const commandHandler = useCallback((query: string) => {}, []);
 
   return {
     handleQuery,
