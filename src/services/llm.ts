@@ -1,32 +1,41 @@
 import { ChatOllama } from "@langchain/ollama";
 import z from "zod";
+import { useSettingsStore } from "../store/settingsStore";
 
-export const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-export const THINKER_MODEL = process.env.THINKER_MODEL || "qwen3:8b";
-export const GENERAL_MODEL = process.env.GENERAL_MODEL || "llama3.1:latest";
-export const SCOUT_MODEL = process.env.SCOUT_MODEL || "qwen2.5:0.5b";
+// Helper to get state non-reactively (outside components)
+const getSettings = () => useSettingsStore.getState();
 
-export const thinkerModel = new ChatOllama({
-  model: THINKER_MODEL,
-  baseUrl: OLLAMA_URL,
-  temperature: 0,
-});
+export const getThinkerModel = () => {
+  const { thinkerModel, ollamaUrl } = getSettings();
+  return new ChatOllama({
+    model: thinkerModel,
+    baseUrl: ollamaUrl,
+    temperature: 0,
+  });
+};
 
-export const generalModel = new ChatOllama({
-  model: GENERAL_MODEL,
-  baseUrl: OLLAMA_URL,
-  temperature: 0,
-});
+export const getGeneralModel = () => {
+  const { generalModel, ollamaUrl } = getSettings();
+  return new ChatOllama({
+    model: generalModel,
+    baseUrl: ollamaUrl,
+    temperature: 0,
+  });
+};
 
-export const scoutModel = new ChatOllama({
-  model: SCOUT_MODEL,
-  baseUrl: OLLAMA_URL,
-  temperature: 0,
-});
+export const getScoutModel = () => {
+  const { scoutModel, ollamaUrl } = getSettings();
+  return new ChatOllama({
+    model: scoutModel,
+    baseUrl: ollamaUrl,
+    temperature: 0,
+  });
+};
 
 export const isOllamaHealthy = async (): Promise<boolean> => {
   try {
-    const response = await fetch(OLLAMA_URL);
+    const { ollamaUrl } = getSettings();
+    const response = await fetch(ollamaUrl);
     const text = await response.text();
     return response.ok && text === "Ollama is running";
   } catch {
@@ -42,7 +51,7 @@ const OllamaModelSchema = z.object({
   details: z.object({
     format: z.string(),
     family: z.string(),
-    families: z.array(z.string()),
+    families: z.array(z.string()).optional(), // Made optional as sometimes it's missing or null
     parameter_size: z.string(),
     quantization_level: z.string(),
   }),
@@ -51,12 +60,12 @@ const OllamaModelSchema = z.object({
 export type OllamaModel = z.infer<typeof OllamaModelSchema>;
 
 export const getOllamaModels = async (): Promise<OllamaModel[]> => {
-  const response = await fetch(`${OLLAMA_URL}/api/tags`);
+  const { ollamaUrl } = getSettings();
+  const response = await fetch(`${ollamaUrl}/api/tags`);
   if (!response.ok) {
     throw new Error(`Error connecting to Ollama: ${response.status}`);
   }
   const data: any = await response.json();
+  // Safe parsing
   return OllamaModelSchema.array().parse(data.models);
 };
-
-export const OLLAMA_BASE_URL = OLLAMA_URL;

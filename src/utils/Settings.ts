@@ -7,6 +7,10 @@ import log from "./logger";
 const SettingsSchema = z.object({
   lifetimeTokenUsage: z.number().default(0),
   lastOpened: z.iso.datetime().optional(),
+  ollamaUrl: z.string().default("http://localhost:11434"),
+  thinkerModel: z.string().default("qwen3:8b"),
+  generalModel: z.string().default("llama3.1:latest"),
+  scoutModel: z.string().default("qwen2.5:0.5b"),
 });
 
 type Config = z.infer<typeof SettingsSchema>;

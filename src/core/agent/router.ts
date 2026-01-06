@@ -6,7 +6,7 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 import { type DynamicStructuredTool } from "@langchain/core/tools";
-import { generalModel, scoutModel } from "../../services/llm";
+import { getGeneralModel, getScoutModel } from "../../services/llm";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { useFraudeStore } from "../../store/useFraudeStore";
 import { RouterState, type RouterStateType } from "../../types/state";
@@ -15,7 +15,7 @@ import log from "../../utils/logger";
 const { setStatus, updateTokenUsage, updateOutput } = useFraudeStore.getState();
 
 export const createRouterGraph = (tools: DynamicStructuredTool[]) => {
-  const modelWithTools = generalModel.bindTools(tools);
+  const modelWithTools = getGeneralModel().bindTools(tools);
 
   const toolNode = new ToolNode<RouterStateType>(tools);
 
@@ -24,7 +24,7 @@ export const createRouterGraph = (tools: DynamicStructuredTool[]) => {
     const lastMessage = state.messages[state.messages.length - 1];
     if (!lastMessage) return "general";
 
-    const response = await scoutModel.invoke([
+    const response = await getScoutModel().invoke([
       new SystemMessage(
         "Classify the user query into 'project' if it's related to the current codebase, project structure, coding questions, or requested actions. Classify as 'general' ONLY if it's completely unrelated conversation (greetings, off-topic questions, etc.). IMPORTANT: Respond with exactly one word: 'project' or 'general'."
       ),
@@ -83,7 +83,7 @@ export const createRouterGraph = (tools: DynamicStructuredTool[]) => {
     setStatus("Pondering");
     const { messages } = state;
     let fullResponse: any = null;
-    const stream = await generalModel.stream(messages, {
+    const stream = await getGeneralModel().stream(messages, {
       signal: config?.signal,
     });
     let lastChunk = null;

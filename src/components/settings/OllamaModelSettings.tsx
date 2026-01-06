@@ -1,12 +1,7 @@
 import { Box, Text } from "ink";
 import { useEffect, useState } from "react";
-import {
-  getOllamaModels,
-  type OllamaModel,
-  THINKER_MODEL,
-  GENERAL_MODEL,
-  SCOUT_MODEL,
-} from "../../services/llm";
+import { getOllamaModels, type OllamaModel } from "../../services/llm";
+import { useSettingsStore } from "../../store/settingsStore";
 
 const OLLAMA_ACCENT_ORANGE = "#FF8C00"; // rgb(255, 140, 0)
 const OLLAMA_ACCENT_PINK = "#FF69B4"; // rgb(255, 105, 180)
@@ -15,6 +10,8 @@ const OllamaModelSettings = () => {
   const [models, setModels] = useState<OllamaModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const { thinkerModel, generalModel, scoutModel } = useSettingsStore();
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -40,14 +37,19 @@ const OllamaModelSettings = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const getModelRoles = (name: string) => {
+    const roles = [];
+    // Check if name contains the configured model string (handling tags roughly)
+    // Actually, usually the input config might be "llama3" and actual model "llama3:latest"
+    // simplest check is includes
+    if (name.includes(thinkerModel)) roles.push("Reasoning");
+    if (name.includes(generalModel)) roles.push("General");
+    if (name.includes(scoutModel)) roles.push("Light-weight");
+    return roles;
+  };
+
   const isCurrentModel = (name: string) => {
-    // Normalize names to handle :latest implicit tag if needed, but usually strict match
-    // Check if the model name contains the configured model name (basic check)
-    return (
-      name.includes(THINKER_MODEL) ||
-      name.includes(GENERAL_MODEL) ||
-      name.includes(SCOUT_MODEL)
-    );
+    return getModelRoles(name).length > 0;
   };
 
   return (
@@ -72,7 +74,9 @@ const OllamaModelSettings = () => {
           <Text color="gray">No models found in Ollama library.</Text>
         ) : (
           models.map((model) => {
-            const active = isCurrentModel(model.name);
+            const roles = getModelRoles(model.name);
+            const active = roles.length > 0;
+
             return (
               <Box
                 key={model.digest}
@@ -90,16 +94,19 @@ const OllamaModelSettings = () => {
                     wrap="truncate-end"
                   >
                     {model.name}
+                    {active && (
+                      <Text color={OLLAMA_ACCENT_PINK}>
+                        {" "}
+                        ({roles.join(", ")})
+                      </Text>
+                    )}
                   </Text>
                 </Box>
 
                 <Box flexDirection="row" gap={2} flexShrink={0} marginLeft={2}>
+                  <Text color="gray">{formatSize(model.size)}</Text>
                   <Text color="gray" dimColor>
-                    {formatSize(model.size)}
-                  </Text>
-                  <Text color="gray" dimColor>
-                    {" "}
-                    |{" "}
+                    |
                   </Text>
                   <Text color="gray">
                     Usage: {Math.floor(Math.random() * 100)} Tokens
@@ -109,6 +116,15 @@ const OllamaModelSettings = () => {
             );
           })
         )}
+      </Box>
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text>
+          <Text color={OLLAMA_ACCENT_ORANGE}>●</Text>
+          <Text color="gray"> In use</Text>
+        </Text>
+        <Text dimColor>
+          Press <Text bold>Esc</Text> to exit
+        </Text>
       </Box>
     </Box>
   );
