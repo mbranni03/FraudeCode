@@ -4,6 +4,24 @@ import { rename } from "fs/promises";
 import { z } from "zod";
 import log from "./logger";
 
+const ModelSchema = z.object({
+  name: z.string(),
+  modified_at: z.string(),
+  size: z.number(),
+  digest: z.string(),
+  capabilities: z.array(z.string()).optional(),
+  details: z.object({
+    format: z.string(),
+    family: z.string(),
+    families: z.array(z.string()).optional(),
+    parameter_size: z.string(),
+    quantization_level: z.string(),
+    context_length: z.number().optional(),
+  }),
+});
+
+export type Model = z.infer<typeof ModelSchema>;
+
 const SettingsSchema = z.object({
   lifetimeTokenUsage: z.number().default(0),
   lastOpened: z.iso.datetime().optional(),
@@ -11,6 +29,7 @@ const SettingsSchema = z.object({
   thinkerModel: z.string().default("qwen3:8b"),
   generalModel: z.string().default("llama3.1:latest"),
   scoutModel: z.string().default("qwen2.5:0.5b"),
+  models: z.array(ModelSchema).default([]),
 });
 
 type Config = z.infer<typeof SettingsSchema>;
