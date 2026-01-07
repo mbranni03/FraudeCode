@@ -5,6 +5,7 @@ import { z } from "zod";
 import log from "./logger";
 
 const ModelSchema = z.object({
+  type: z.string().default("ollama"),
   name: z.string(),
   modified_at: z.string(),
   size: z.number(),
