@@ -11,6 +11,7 @@ const ModelSchema = z.object({
   size: z.number(),
   digest: z.string(),
   capabilities: z.array(z.string()).optional(),
+  usage: z.number().default(0),
   details: z.object({
     format: z.string(),
     family: z.string(),
