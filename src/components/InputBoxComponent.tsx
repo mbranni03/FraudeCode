@@ -81,15 +81,11 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
       // If suggestions are visible, use Tab to select the current suggestion
       if (suggestions.length > 0 && suggestions[selectedIndex]) {
         const selected = suggestions[selectedIndex];
-        // Determine if we're completing a subcommand or base command
-        const parts = value.slice(1).split(" ");
-        if (parts.length > 1) {
-          // Subcommand completion
-          setValue(`/${parts[0]} ${selected.name} `);
-        } else {
-          // Base command completion
-          setValue(`/${selected.name} `);
-        }
+        // Use fullPath if available, otherwise construct it
+        const completedValue = selected.fullPath
+          ? `${selected.fullPath} `
+          : `/${selected.name} `;
+        setValue(completedValue);
         setInputKey((k) => k + 1);
         setSuggestions([]);
         return;
@@ -149,12 +145,13 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
         >
           <Text dimColor>Commands (↑↓ navigate, Tab complete):</Text>
           {suggestions.map((cmd, i) => (
-            <Box key={cmd.name}>
+            <Box key={cmd.fullPath || cmd.name}>
               <Text
                 color={i === selectedIndex ? "cyan" : "gray"}
                 bold={i === selectedIndex}
               >
-                {i === selectedIndex ? "› " : "  "}/{cmd.name}
+                {i === selectedIndex ? "› " : "  "}
+                {cmd.usage || cmd.fullPath || `/${cmd.name}`}
               </Text>
               <Text color="gray"> - {cmd.description}</Text>
             </Box>

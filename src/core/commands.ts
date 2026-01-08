@@ -8,6 +8,7 @@ export interface CommandDefinition {
   description: string;
   subcommands?: CommandDefinition[];
   usage?: string;
+  fullPath?: string; // Full command path for display (e.g., "/model list")
 }
 
 export const COMMANDS: CommandDefinition[] = [
@@ -97,22 +98,45 @@ export function getMatchingCommands(input: string): CommandDefinition[] {
   const parts = input.slice(1).toLowerCase().split(" ");
   const baseInput = parts[0] || "";
 
-  // If there's a space, we're looking for subcommands
+  // If there's a space, we're looking for subcommands only
   if (parts.length > 1 && parts[0]) {
     const baseCommand = COMMANDS.find(
       (cmd) => cmd.name.toLowerCase() === parts[0]
     );
     if (baseCommand?.subcommands) {
       const subInput = parts[1] || "";
-      return baseCommand.subcommands.filter((sub) =>
-        sub.name.toLowerCase().startsWith(subInput)
-      );
+      return baseCommand.subcommands
+        .filter((sub) => sub.name.toLowerCase().startsWith(subInput))
+        .map((sub) => ({
+          ...sub,
+          fullPath: `/${baseCommand.name} ${sub.name}`,
+        }));
     }
     return [];
   }
 
-  // Match base commands
-  return COMMANDS.filter((cmd) => cmd.name.toLowerCase().startsWith(baseInput));
+  // Match base commands AND their subcommands (main commands first)
+  const mainCommands: CommandDefinition[] = [];
+  const subCommands: CommandDefinition[] = [];
+
+  for (const cmd of COMMANDS) {
+    if (cmd.name.toLowerCase().startsWith(baseInput)) {
+      // Add the base command
+      mainCommands.push({ ...cmd, fullPath: `/${cmd.name}` });
+
+      // Collect subcommands separately
+      if (cmd.subcommands) {
+        for (const sub of cmd.subcommands) {
+          subCommands.push({
+            ...sub,
+            fullPath: `/${cmd.name} ${sub.name}`,
+          });
+        }
+      }
+    }
+  }
+
+  return [...mainCommands, ...subCommands];
 }
 
 /**
