@@ -1,9 +1,14 @@
-import OllamaModelSettings from "./settings/OllamaModelSettings";
+import { Box } from "ink";
+import ModelList from "./settings/ModelList";
 
 const SettingsComponent = ({ query }: { query: string }) => {
   switch (query) {
-    case "/ollama":
-      return <OllamaModelSettings />;
+    case "/models":
+      return (
+        <Box>
+          <ModelList />
+        </Box>
+      );
     default:
       return null;
   }

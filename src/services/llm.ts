@@ -1,6 +1,5 @@
 import { ChatOllama } from "@langchain/ollama";
 import { Settings, UpdateSettings, type Model } from "../utils/Settings";
-export type OllamaModel = Model;
 import { useSettingsStore } from "../store/settingsStore";
 
 // Helper to get state non-reactively (outside components)

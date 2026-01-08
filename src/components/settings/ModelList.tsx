@@ -1,13 +1,16 @@
 import { Box, Text } from "ink";
 import { useEffect, useState } from "react";
-import { getOllamaModels, type OllamaModel } from "../../services/llm";
+import { getOllamaModels } from "../../services/llm";
 import { useSettingsStore } from "../../store/settingsStore";
+import type { Model } from "../../utils/Settings";
 
-const OLLAMA_ACCENT_ORANGE = "#FF8C00"; // rgb(255, 140, 0)
-const OLLAMA_ACCENT_PINK = "#FF69B4"; // rgb(255, 105, 180)
+const ACCENT_ORANGE = "#FF8C00"; // rgb(255, 140, 0)
+const ACCENT_PINK = "#FF69B4"; // rgb(255, 105, 180)
 
-const OllamaModelSettings = () => {
-  const [models, setModels] = useState<OllamaModel[]>([]);
+const ModelItem = () => {};
+
+const ModelList = () => {
+  const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,21 +42,34 @@ const OllamaModelSettings = () => {
 
   const getModelRoles = (name: string) => {
     const roles = [];
-    // Check if name contains the configured model string (handling tags roughly)
-    // Actually, usually the input config might be "llama3" and actual model "llama3:latest"
-    // simplest check is includes
     if (name.includes(thinkerModel)) roles.push("Reasoning");
     if (name.includes(generalModel)) roles.push("General");
     if (name.includes(scoutModel)) roles.push("Light-weight");
     return roles;
   };
 
-  const isCurrentModel = (name: string) => {
-    return getModelRoles(name).length > 0;
-  };
-
   return (
     <Box flexDirection="column" padding={1}>
+      <Text bold>Groq Models</Text>
+      <Box
+        borderStyle="round"
+        borderColor="white"
+        flexDirection="column"
+        paddingX={1}
+        marginBottom={1}
+      >
+        <Text color="gray">No models found in Groq library.</Text>
+      </Box>
+      <Text bold>OpenRouter Models</Text>
+      <Box
+        borderStyle="round"
+        borderColor="white"
+        flexDirection="column"
+        paddingX={1}
+        marginBottom={1}
+      >
+        <Text color="gray">No models found in OpenRouter library.</Text>
+      </Box>
       <Text bold>Ollama Models</Text>
       <Box
         borderStyle="round"
@@ -85,17 +101,17 @@ const OllamaModelSettings = () => {
                 paddingY={0}
               >
                 <Box flexDirection="row" flexGrow={1} flexShrink={1}>
-                  <Text color={active ? OLLAMA_ACCENT_ORANGE : "white"}>
+                  <Text color={active ? ACCENT_ORANGE : "white"}>
                     {active ? "● " : "○ "}
                   </Text>
                   <Text
-                    color={active ? OLLAMA_ACCENT_ORANGE : "white"}
+                    color={active ? ACCENT_ORANGE : "white"}
                     bold={active}
                     wrap="truncate-end"
                   >
                     {model.name}
                     {active && (
-                      <Text color={OLLAMA_ACCENT_PINK}>
+                      <Text color="white" dimColor>
                         {" "}
                         ({roles.join(", ")})
                       </Text>
@@ -104,17 +120,7 @@ const OllamaModelSettings = () => {
                 </Box>
 
                 <Box flexDirection="row" gap={2} flexShrink={0} marginLeft={2}>
-                  {model.size && (
-                    <>
-                      <Text color="gray">{formatSize(model.size)}</Text>
-                      <Text color="gray" dimColor>
-                        |
-                      </Text>
-                    </>
-                  )}
-                  <Text color="gray">
-                    Usage: {Math.floor(Math.random() * 100)} Tokens
-                  </Text>
+                  <Text color="gray">{formatSize(model?.size || 0)}</Text>
                 </Box>
               </Box>
             );
@@ -123,15 +129,18 @@ const OllamaModelSettings = () => {
       </Box>
       <Box flexDirection="row" justifyContent="space-between">
         <Text>
-          <Text color={OLLAMA_ACCENT_ORANGE}>●</Text>
+          <Text color={ACCENT_ORANGE}>●</Text>
           <Text color="gray"> In use</Text>
         </Text>
-        <Text dimColor>
-          Press <Text bold>Esc</Text> to exit
+      </Box>
+      <Box paddingY={1}>
+        <Text>
+          To switch models, use:{" "}
+          <Text color={ACCENT_PINK}>/model &lt;model-name&gt;</Text>
         </Text>
       </Box>
     </Box>
   );
 };
 
-export default OllamaModelSettings;
+export default ModelList;
