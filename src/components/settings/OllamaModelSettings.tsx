@@ -104,10 +104,14 @@ const OllamaModelSettings = () => {
                 </Box>
 
                 <Box flexDirection="row" gap={2} flexShrink={0} marginLeft={2}>
-                  <Text color="gray">{formatSize(model.size)}</Text>
-                  <Text color="gray" dimColor>
-                    |
-                  </Text>
+                  {model.size && (
+                    <>
+                      <Text color="gray">{formatSize(model.size)}</Text>
+                      <Text color="gray" dimColor>
+                        |
+                      </Text>
+                    </>
+                  )}
                   <Text color="gray">
                     Usage: {Math.floor(Math.random() * 100)} Tokens
                   </Text>

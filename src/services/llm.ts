@@ -82,7 +82,9 @@ export const syncOllamaModels = async () => {
     const mergedModels: Model[] = [];
 
     for (const model of availableModels) {
-      const existing = savedModels.find((m) => m.name === model.name);
+      const existing = savedModels.find(
+        (m) => m.name === model.name && m.type === "ollama"
+      );
       if (existing && existing.details?.context_length) {
         mergedModels.push(existing);
         continue;
@@ -120,3 +122,5 @@ export const syncOllamaModels = async () => {
     console.warn("Failed to sync Ollama models:", error);
   }
 };
+
+//https://docs.ollama.com/api/pull

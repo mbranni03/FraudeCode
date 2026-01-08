@@ -13,6 +13,7 @@ import {
   getSignal,
 } from "../store/useFraudeStore";
 import log from "../utils/logger";
+import { openRouterCommandHandler } from "../services/openrouter";
 
 export interface OllamaCLI {
   handleQuery: (query: string) => Promise<void>;
@@ -26,6 +27,7 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
     addInteraction,
     updateInteraction,
     updateOutput,
+    setError,
     promptUserConfirmation,
   } = useFraudeStore();
 
@@ -41,6 +43,7 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
         updateOutput("command", query);
 
         if (query.startsWith("/")) {
+          await commandHandler(query);
           updateOutput("settings", query);
           updateInteraction(id, { status: 2 });
           return;
@@ -68,12 +71,29 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
         updateInteraction(id, { status: 2 });
       } catch (error: any) {
         if (error.name !== "AbortError") {
-          console.error("[ERROR] ", error);
+          setError(error);
         }
       }
     },
     [addInteraction, updateInteraction]
   );
+
+  const commandHandler = (query: string) => {
+    let command = query.slice(1).split(" ");
+    const base = command.shift();
+    switch (base) {
+      case "openrouter":
+        openRouterCommandHandler(command);
+        break;
+      case "ollama":
+        break;
+      case "groq":
+        break;
+
+      default:
+        break;
+    }
+  };
 
   return {
     handleQuery,
