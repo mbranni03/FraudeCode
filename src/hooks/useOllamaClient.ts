@@ -14,6 +14,7 @@ import {
 } from "../store/useFraudeStore";
 import log from "../utils/logger";
 import { openRouterCommandHandler } from "../services/openrouter";
+import { getCommandHelp } from "../core/commands";
 
 export interface OllamaCLI {
   handleQuery: (query: string) => Promise<void>;
@@ -79,9 +80,14 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
   );
 
   const commandHandler = (query: string) => {
+    const { updateOutput } = useFraudeStore.getState();
     let command = query.slice(1).split(" ");
     const base = command.shift();
     switch (base) {
+      case "help":
+        const helpText = getCommandHelp(command[0]);
+        updateOutput("log", helpText);
+        break;
       case "openrouter":
         openRouterCommandHandler(command);
         break;
@@ -91,6 +97,10 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
         break;
 
       default:
+        updateOutput(
+          "log",
+          `Unknown command: /${base}. Type /help for available commands.`
+        );
         break;
     }
   };

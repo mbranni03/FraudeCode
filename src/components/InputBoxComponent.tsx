@@ -4,6 +4,7 @@ import TextInput from "ink-text-input";
 import type { OllamaCLI } from "../hooks/useOllamaClient";
 import { useFraudeStore } from "../store/useFraudeStore";
 import { homedir } from "os";
+import { getMatchingCommands, type CommandDefinition } from "../core/commands";
 
 const shortenPath = (path: string) => {
   const home = homedir();
@@ -21,7 +22,39 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [inputKey, setInputKey] = useState(0);
 
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<CommandDefinition[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // Update suggestions when value changes
+  useEffect(() => {
+    if (value.startsWith("/")) {
+      const matches = getMatchingCommands(value);
+      setSuggestions(matches);
+      setSelectedIndex(0);
+    } else {
+      setSuggestions([]);
+    }
+  }, [value]);
+
   useInput((input, key) => {
+    // Handle suggestion navigation when suggestions are visible
+    if (suggestions.length > 0) {
+      if (key.upArrow) {
+        setSelectedIndex((prev) =>
+          prev > 0 ? prev - 1 : suggestions.length - 1
+        );
+        return;
+      }
+      if (key.downArrow) {
+        setSelectedIndex((prev) =>
+          prev < suggestions.length - 1 ? prev + 1 : 0
+        );
+        return;
+      }
+    }
+
+    // History navigation (only when no suggestions)
     if (key.upArrow) {
       if (historyIndex < history.length - 1) {
         const newIndex = historyIndex + 1;
@@ -45,6 +78,24 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
     }
 
     if (key.tab) {
+      // If suggestions are visible, use Tab to select the current suggestion
+      if (suggestions.length > 0 && suggestions[selectedIndex]) {
+        const selected = suggestions[selectedIndex];
+        // Determine if we're completing a subcommand or base command
+        const parts = value.slice(1).split(" ");
+        if (parts.length > 1) {
+          // Subcommand completion
+          setValue(`/${parts[0]} ${selected.name} `);
+        } else {
+          // Base command completion
+          setValue(`/${selected.name} `);
+        }
+        setInputKey((k) => k + 1);
+        setSuggestions([]);
+        return;
+      }
+
+      // Default Tab behavior: toggle execution mode
       const executionMode = useFraudeStore.getState().executionMode;
       const newMode = executionMode === "Fast" ? "Planning" : "Fast";
       useFraudeStore.setState({ executionMode: newMode });
@@ -85,6 +136,32 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
           />
         </Box>
       </Box>
+
+      {/* Command suggestions dropdown */}
+      {suggestions.length > 0 && (
+        <Box
+          flexDirection="column"
+          paddingX={2}
+          borderStyle="single"
+          borderColor="gray"
+          width={68}
+          marginLeft={1}
+        >
+          <Text dimColor>Commands (↑↓ navigate, Tab complete):</Text>
+          {suggestions.map((cmd, i) => (
+            <Box key={cmd.name}>
+              <Text
+                color={i === selectedIndex ? "cyan" : "gray"}
+                bold={i === selectedIndex}
+              >
+                {i === selectedIndex ? "› " : "  "}/{cmd.name}
+              </Text>
+              <Text color="gray"> - {cmd.description}</Text>
+            </Box>
+          ))}
+        </Box>
+      )}
+
       <Box width={70} justifyContent="space-between" paddingX={1}>
         <Text color="gray">{shortenPath(process.cwd())}</Text>
         <Text color="cyan">
