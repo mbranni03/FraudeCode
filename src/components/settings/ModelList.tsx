@@ -71,7 +71,7 @@ const ModelRow = ({ model, roles, showSize, showContext }: ModelRowProps) => {
     <Box flexDirection="row" gap={1}>
       {/* Status indicator */}
       <Text color={isActive ? COLORS.active : COLORS.dim}>
-        {isActive ? "+" : " "}
+        {isActive ? "✦" : " "}
       </Text>
 
       {/* Model name */}
@@ -199,7 +199,7 @@ const Legend = () => (
   <Box flexDirection="column" paddingX={1}>
     <Box flexDirection="row" gap={2}>
       <Text>
-        <Text color={COLORS.active}>+</Text>
+        <Text color={COLORS.active}>✦</Text>
         <Text color={COLORS.dim}>=In use</Text>
       </Text>
       {Object.entries(ROLE_ABBREV).map(([role, { short, color }]) => (
