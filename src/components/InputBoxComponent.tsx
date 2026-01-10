@@ -5,6 +5,12 @@ import type { OllamaCLI } from "../hooks/useOllamaClient";
 import { useFraudeStore } from "../store/useFraudeStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { homedir } from "os";
+import {
+  getCommandTemplates,
+  getSpecificModelPrefixes,
+  templateExpectsModelName,
+  type CommandTemplate,
+} from "../core/commands";
 
 const shortenPath = (path: string) => {
   const home = homedir();
@@ -14,41 +20,11 @@ const shortenPath = (path: string) => {
   return path;
 };
 
-// Command templates shown in dropdown (with placeholders)
-const COMMAND_TEMPLATES = [
-  { template: "/help", description: "Show available commands" },
-  { template: "/models", description: "List available models" },
-  { template: "/usage", description: "Show usage information" },
-  { template: "/model list", description: "Show current assignments" },
-  { template: "/model <model-name>", description: "Set model for all roles" },
-  {
-    template: "/model all <model-name>",
-    description: "Set model for all roles",
-  },
-  {
-    template: "/model reasoning <model-name>",
-    description: "Set reasoning model",
-  },
-  { template: "/model general <model-name>", description: "Set general model" },
-  {
-    template: "/model light <model-name>",
-    description: "Set light-weight model",
-  },
-];
-
-// More specific prefixes that override the generic /model <model-name>
-const SPECIFIC_MODEL_PREFIXES = [
-  "/model all",
-  "/model reasoning",
-  "/model general",
-  "/model light",
-  "/model list",
-  "/model r",
-  "/model g",
-  "/model l",
-];
-
 const MAX_VISIBLE_SUGGESTIONS = 5;
+
+// Cache these since they don't change at runtime
+const COMMAND_TEMPLATES = getCommandTemplates();
+const SPECIFIC_MODEL_PREFIXES = getSpecificModelPrefixes();
 
 const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
   const { exit } = useApp();
@@ -82,9 +58,11 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
     return suggestions;
   }, [modelNames]);
 
-  // Base command suggestions (without model names)
+  // Base command suggestions (commands without model arguments)
   const baseSuggestions = useMemo(() => {
-    return ["/help", "/models", "/usage", "/model list"];
+    return COMMAND_TEMPLATES.filter(
+      (t) => !templateExpectsModelName(t.template)
+    ).map((t) => t.template);
   }, []);
 
   // All suggestions combined for default ghost text
@@ -101,8 +79,8 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
     return COMMAND_TEMPLATES.filter((cmd) => {
       const lowerTemplate = cmd.template.toLowerCase();
 
-      // Special case: hide "/model <model-name>" if user is typing a specific prefix
-      if (cmd.template === "/model <model-name>") {
+      // Special case: hide generic "/model <model-name>" variants if user is typing a specific prefix
+      if (cmd.template.startsWith("/model <model-name>")) {
         if (
           lowerInput.startsWith("/model ") &&
           SPECIFIC_MODEL_PREFIXES.some((p) =>
@@ -119,12 +97,17 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
       }
 
       // For commands with <model-name>, show if user is typing towards model name
-      if (cmd.template.includes("<model-name>")) {
-        const templatePrefix = cmd.template
-          .replace(" <model-name>", "")
-          .toLowerCase();
-        if (lowerInput.startsWith(templatePrefix + " ")) {
-          return true;
+      if (templateExpectsModelName(cmd.template)) {
+        // Extract the prefix before <model-name>
+        const modelNameIndex = cmd.template.indexOf("<model-name>");
+        if (modelNameIndex > 0) {
+          const templatePrefix = cmd.template
+            .slice(0, modelNameIndex)
+            .trim()
+            .toLowerCase();
+          if (lowerInput.startsWith(templatePrefix + " ")) {
+            return true;
+          }
         }
       }
 
@@ -136,12 +119,15 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
   const getMatchingSuggestion = useCallback(
     (template: string): string | null => {
       // For templates without <model-name>, return the template itself
-      if (!template.includes("<model-name>")) {
+      if (!templateExpectsModelName(template)) {
         return template;
       }
 
       // For templates with <model-name>, find a matching model suggestion
-      const prefix = template.replace("<model-name>", "").trim();
+      const modelNameIndex = template.indexOf("<model-name>");
+      if (modelNameIndex <= 0) return null;
+
+      const prefix = template.slice(0, modelNameIndex).trim();
 
       // Find first model suggestion that matches this prefix
       // Use modelSuggestions, not allSuggestions, to avoid "/model list" matching
@@ -268,6 +254,12 @@ const InputBoxComponent = ({ OllamaClient }: { OllamaClient: OllamaCLI }) => {
               <Text color="gray"> - {cmd.description}</Text>
             </Box>
           ))}
+          {/* Show role hint if selected command has [role] */}
+          {filteredTemplates[selectedIndex]?.template.includes("[role]") && (
+            <Text dimColor italic>
+              {"  "}[role]: reasoning | general | light | all (or r|g|l|a)
+            </Text>
+          )}
         </Box>
       )}
 

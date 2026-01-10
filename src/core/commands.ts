@@ -193,3 +193,67 @@ export function getCommandHelp(commandName?: string): string {
   help += "\nType /help <command> for detailed usage.";
   return help;
 }
+
+/**
+ * Template for autocomplete dropdown display
+ */
+export interface CommandTemplate {
+  template: string;
+  description: string;
+}
+
+/**
+ * Get all command templates for autocomplete dropdown.
+ * Uses the usage field as template, falls back to constructing from name.
+ */
+export function getCommandTemplates(): CommandTemplate[] {
+  const templates: CommandTemplate[] = [];
+
+  for (const cmd of COMMANDS) {
+    // Add the base command
+    templates.push({
+      template: cmd.usage || `/${cmd.name}`,
+      description: cmd.description,
+    });
+
+    // Add subcommands
+    if (cmd.subcommands) {
+      for (const sub of cmd.subcommands) {
+        templates.push({
+          template: sub.usage || `/${cmd.name} ${sub.name}`,
+          description: sub.description,
+        });
+      }
+    }
+  }
+
+  return templates;
+}
+
+/**
+ * Get prefixes that indicate a more specific command is being typed.
+ * Used to hide generic "/model <model-name>" when user types "/model all" etc.
+ */
+export function getSpecificModelPrefixes(): string[] {
+  const prefixes: string[] = [];
+
+  const modelCmd = COMMANDS.find((c) => c.name === "model");
+  if (modelCmd?.subcommands) {
+    for (const sub of modelCmd.subcommands) {
+      prefixes.push(`/model ${sub.name}`);
+      // Add single-letter alias if applicable
+      if (sub.name.length > 1) {
+        prefixes.push(`/model ${sub.name[0]}`);
+      }
+    }
+  }
+
+  return prefixes;
+}
+
+/**
+ * Check if a command template expects a model name argument.
+ */
+export function templateExpectsModelName(template: string): boolean {
+  return template.includes("<model-name>");
+}
