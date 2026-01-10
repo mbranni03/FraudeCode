@@ -1,16 +1,16 @@
 import { HumanMessage } from "@langchain/core/messages";
-import type { ModifierStateType } from "../../types/state";
-import ModificationCodeChangesPrompt from "../../types/prompts/modify/CodeChanges";
-import FastCodeChangesPrompt from "../../types/prompts/modify/FastChanges";
-import { useFraudeStore } from "../../store/useFraudeStore";
-import { llm } from "../../services/llm";
-import log from "../../utils/logger";
-import { useSettingsStore } from "../../store/settingsStore";
+import type { ModifierStateType } from "../../../types/state";
+import ModificationCodeChangesPrompt from "../../../types/prompts/modify/CodeChanges";
+import FastCodeChangesPrompt from "../../../types/prompts/modify/FastChanges";
+import { useFraudeStore } from "../../../store/useFraudeStore";
+import { llm } from "../../llm";
+import log from "../../../utils/logger";
+import { useSettingsStore } from "../../../store/settingsStore";
 import {
   applyChangesToContent,
   mapLogicalToPhysical,
   reindexAndShift,
-} from "../../utils/CodeModifier";
+} from "../../../utils/CodeModifier";
 
 const { updateOutput, setStatus } = useFraudeStore.getState();
 const getSettings = () => useSettingsStore.getState();

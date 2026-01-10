@@ -2,8 +2,8 @@ import { useCallback, useRef, useState } from "react";
 
 import type { PendingChange } from "../types/state";
 
-import { createModifyProjectTool } from "../core/tools/ModifyProjectTool";
-import { createSummarizeProjectTool } from "../core/tools/SummarizeProjectTool";
+import { createModifyProjectTool } from "../core/agent/tools/ModifyProjectTool";
+import { createSummarizeProjectTool } from "../core/agent/tools/SummarizeProjectTool";
 import { createRouterGraph } from "../core/agent/router";
 import { HumanMessage } from "@langchain/core/messages";
 import {

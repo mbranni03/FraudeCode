@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import langgraphModify from "../actions/langgraph_modify";
-import { getSignal } from "../../store/useFraudeStore";
+import langgraphModify from "../../actions/langgraph_modify";
+import { getSignal } from "../../../store/useFraudeStore";
 
 export const createModifyProjectTool = (
   promptUserConfirmation: () => Promise<boolean>

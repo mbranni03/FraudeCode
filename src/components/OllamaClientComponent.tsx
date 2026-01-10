@@ -8,7 +8,7 @@ import {
   useFraudeStore,
   type SelectItem,
 } from "../store/useFraudeStore";
-import InputBoxComponent from "./InputBoxComponent";
+import InputBoxComponent from "./common/InputBox";
 import CommentComponent from "./CommentComponent";
 
 const OllamaClientComponent = ({

@@ -1,6 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { Settings, UpdateSettings, type Model } from "../utils/Settings";
-import { useSettingsStore } from "../store/settingsStore";
+import { Settings, UpdateSettings, type Model } from "../../utils/Settings";
+import { useSettingsStore } from "../../store/settingsStore";
 
 interface ModelConfig {
   provider: "groq" | "openrouter" | "ollama";
