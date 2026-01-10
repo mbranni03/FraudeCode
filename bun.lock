@@ -16,6 +16,7 @@
         "ignore": "^7.0.5",
         "ink-big-text": "^2.0.0",
         "ink-gradient": "^3.0.0",
+        "langchain": "^1.2.7",
         "neo4j-driver": "^6.0.1",
         "web-tree-sitter": "^0.25.10",
         "zod": "^4.3.5",
@@ -301,6 +302,8 @@
     "json-stringify-safe": ["json-stringify-safe@5.0.1", "", {}, "sha512-ZClg6AaYvamvYEE82d3Iyd3vSSIjQ+odgjaTzRuO3s7toCdFKczob2i0zCh7JE8kWn17yvAWhUVxvqGwUalsRA=="],
 
     "kind-of": ["kind-of@3.2.2", "", { "dependencies": { "is-buffer": "^1.1.5" } }, "sha512-NOW9QQXMoZGg/oqnVNoNTTIFEIid1627WCffUBJEdMxYApq7mNE7CpzucIPc+ZQg25Phej7IJSmX3hO+oblOtQ=="],
+
+    "langchain": ["langchain@1.2.7", "", { "dependencies": { "@langchain/langgraph": "^1.0.0", "@langchain/langgraph-checkpoint": "^1.0.0", "langsmith": ">=0.4.0 <1.0.0", "uuid": "^10.0.0", "zod": "^3.25.76 || ^4" }, "peerDependencies": { "@langchain/core": "1.1.12" } }, "sha512-G+3Ftz/08CurJaE7LukQGBf3mCSz7XM8LZeAaFPg391Ru4lT8eLYfG6Fv4ZI0u6EBsPVcOQfaS9ig8nCRmJeqA=="],
 
     "langsmith": ["langsmith@0.4.2", "", { "dependencies": { "@types/uuid": "^10.0.0", "chalk": "^4.1.2", "console-table-printer": "^2.12.1", "p-queue": "^6.6.2", "semver": "^7.6.3", "uuid": "^10.0.0" }, "peerDependencies": { "@opentelemetry/api": "*", "@opentelemetry/exporter-trace-otlp-proto": "*", "@opentelemetry/sdk-trace-base": "*", "openai": "*" }, "optionalPeers": ["@opentelemetry/api", "@opentelemetry/exporter-trace-otlp-proto", "@opentelemetry/sdk-trace-base", "openai"] }, "sha512-BvBeFgSmR9esl8x5wsiDlALiHKKPybw2wE2Hh6x1tgSZki46H9c9KI9/06LARbPhyyDu/TZU7exfg6fnhdj1Qg=="],
 

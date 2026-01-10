@@ -68,6 +68,18 @@ const getProviderForModel = (
  */
 export class LLMService {
   /**
+   * Returns an LLM client for a specific model.
+   */
+  getClient(modelName: string): ReturnType<typeof llmClient> {
+    const provider = getProviderForModel(modelName);
+    return llmClient({
+      provider,
+      modelName,
+      temperature: 0.7,
+    });
+  }
+
+  /**
    * Returns the general/chat model configured in settings.
    * Used for standard conversational tasks and general code assistance.
    */
