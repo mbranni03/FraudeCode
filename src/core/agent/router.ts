@@ -6,7 +6,7 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 import { type DynamicStructuredTool } from "@langchain/core/tools";
-import { llm } from "../../services/llm";
+import { llm } from "../llm";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { useFraudeStore } from "../../store/useFraudeStore";
 import { RouterState, type RouterStateType } from "../../types/state";

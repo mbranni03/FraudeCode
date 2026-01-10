@@ -3,7 +3,7 @@ import App from "./components/App";
 import { useSettingsStore } from "./store/settingsStore";
 import { resetLog } from "./utils/logger";
 import { Settings, UpdateSettings } from "./utils/Settings";
-import { syncOllamaModels } from "./services/llm";
+import { syncOllamaModels } from "./core/llm";
 
 async function main() {
   resetLog();

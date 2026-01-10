@@ -2,14 +2,14 @@ import { StateGraph, END, START } from "@langchain/langgraph";
 import { ModifierState, type ModifierStateType } from "../../types/state";
 
 // Nodes
-import { createSearchQdrantNode } from "../nodes/searchQdrant";
-import { createSearchNeo4jNode } from "../nodes/searchNeo4j";
-import { createCombineContextNode } from "../nodes/combineContext";
-import { createImplementationPlanNode } from "../nodes/implementationPlan";
-import { createCodeNode } from "../nodes/codeModifications";
-import { createVerifyNode } from "../nodes/verify";
-import { createSaveChangesNode } from "../nodes/saveChanges";
-import { createUpdateRagNode } from "../nodes/updateRag";
+import { createSearchQdrantNode } from "../agent/nodes/searchQdrant";
+import { createSearchNeo4jNode } from "../agent/nodes/searchNeo4j";
+import { createCombineContextNode } from "../agent/nodes/combineContext";
+import { createImplementationPlanNode } from "../agent/nodes/implementationPlan";
+import { createCodeNode } from "../agent/nodes/codeModifications";
+import { createVerifyNode } from "../agent/nodes/verify";
+import { createSaveChangesNode } from "../agent/nodes/saveChanges";
+import { createUpdateRagNode } from "../agent/nodes/updateRag";
 import { useFraudeStore } from "../../store/useFraudeStore";
 
 export default async function langgraphModify(

@@ -1,7 +1,7 @@
 import { Box, Text } from "ink";
 import { useEffect, useMemo } from "react";
 import { useSettingsStore } from "../../store/settingsStore";
-import type { Model } from "../../utils/Settings";
+import type { Model } from "../../types/models";
 
 // Theme colors
 const COLORS = {

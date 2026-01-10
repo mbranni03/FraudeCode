@@ -1,9 +1,9 @@
 import type Neo4jClient from "../../services/neo4j";
 import { SummaryState } from "../../types/state";
 import { StateGraph, END, START } from "@langchain/langgraph";
-import { createGetProjectStructureNode } from "../nodes/getProjectStructure";
-import { createSearchQdrantNode } from "../nodes/searchQdrant";
-import { createSummarizeNode } from "../nodes/summarize";
+import { createGetProjectStructureNode } from "../agent/nodes/getProjectStructure";
+import { createSearchQdrantNode } from "../agent/nodes/searchQdrant";
+import { createSummarizeNode } from "../agent/nodes/summarize";
 import { useFraudeStore } from "../../store/useFraudeStore";
 
 export default async function summarizeProject(signal?: AbortSignal) {

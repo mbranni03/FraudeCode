@@ -1,7 +1,7 @@
-import type { ModifierStateType } from "../../types/state";
-import { useFraudeStore } from "../../store/useFraudeStore";
-import neo4jClient from "../../services/neo4j";
-import type { SummaryStateType } from "../../types/state";
+import type { ModifierStateType } from "../../../types/state";
+import { useFraudeStore } from "../../../store/useFraudeStore";
+import neo4jClient from "../../../services/neo4j";
+import type { SummaryStateType } from "../../../types/state";
 
 const { updateOutput, setStatus } = useFraudeStore.getState();
 

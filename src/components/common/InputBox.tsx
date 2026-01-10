@@ -1,16 +1,16 @@
 import { useState, useMemo, useCallback } from "react";
 import { useApp, Box, Text, useInput } from "ink";
 import { TextInput } from "@inkjs/ui";
-import type { OllamaCLI } from "../hooks/useOllamaClient";
-import { useFraudeStore } from "../store/useFraudeStore";
-import { useSettingsStore } from "../store/settingsStore";
+import type { OllamaCLI } from "../../hooks/useOllamaClient";
+import { useFraudeStore } from "../../store/useFraudeStore";
+import { useSettingsStore } from "../../store/settingsStore";
 import { homedir } from "os";
 import {
   getCommandTemplates,
   getSpecificModelPrefixes,
   templateExpectsModelName,
   type CommandTemplate,
-} from "../core/commands";
+} from "../../core/commands";
 
 const shortenPath = (path: string) => {
   const home = homedir();

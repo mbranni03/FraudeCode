@@ -1,6 +1,6 @@
 import * as fs from "fs";
-import type { ModifierStateType } from "../../types/state";
-import { useFraudeStore } from "../../store/useFraudeStore";
+import type { ModifierStateType } from "../../../types/state";
+import { useFraudeStore } from "../../../store/useFraudeStore";
 
 const { updateOutput, updateInteraction } = useFraudeStore.getState();
 export const createSaveChangesNode = (
