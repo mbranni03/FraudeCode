@@ -1,6 +1,6 @@
 import { join } from "path";
 import { homedir, platform } from "os";
-import { rename } from "fs/promises";
+import { rename, mkdir } from "fs/promises";
 import { z } from "zod";
 import log from "./logger";
 
@@ -96,6 +96,16 @@ class Settings {
   }
 
   /**
+   * Update multiple settings at once and persist to disk (single write).
+   */
+  async setMultiple(updates: Partial<Config>): Promise<void> {
+    for (const [key, value] of Object.entries(updates)) {
+      (this.settings as any)[key] = value;
+    }
+    await this.saveToDisk();
+  }
+
+  /**
    * Get the platform-specific config directory.
    */
   private static getConfigDir(appName: string): string {
@@ -157,6 +167,9 @@ class Settings {
     const settingsPath = join(this.settingsDir, "settings.json");
     const tempPath = `${settingsPath}.tmp`;
     const content = JSON.stringify(this.settings, null, 2);
+
+    // Ensure the directory exists
+    await mkdir(this.settingsDir, { recursive: true });
 
     await Bun.write(tempPath, content);
     await rename(tempPath, settingsPath);

@@ -11,9 +11,6 @@ interface SettingsState {
   openrouter_api_key: string;
   // Actions
   setOllamaUrl: (url: string) => void;
-  setThinkerModel: (model: string) => void;
-  setGeneralModel: (model: string) => void;
-  setScoutModel: (model: string) => void;
   syncWithSettings: () => void;
 }
 
@@ -38,30 +35,6 @@ export const useSettingsStore = create<SettingsState>()((set) => {
         console.error("Failed to save setting ollamaUrl:", e);
       }
       set({ ollamaUrl: url });
-    },
-    setThinkerModel: (model) => {
-      try {
-        Settings.getInstance().set("thinkerModel", model);
-      } catch (e) {
-        console.error("Failed to save setting thinkerModel:", e);
-      }
-      set({ thinkerModel: model });
-    },
-    setGeneralModel: (model) => {
-      try {
-        Settings.getInstance().set("generalModel", model);
-      } catch (e) {
-        console.error("Failed to save setting generalModel:", e);
-      }
-      set({ generalModel: model });
-    },
-    setScoutModel: (model) => {
-      try {
-        Settings.getInstance().set("scoutModel", model);
-      } catch (e) {
-        console.error("Failed to save setting scoutModel:", e);
-      }
-      set({ scoutModel: model });
     },
 
     syncWithSettings: () => {

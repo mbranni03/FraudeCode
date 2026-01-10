@@ -16,7 +16,7 @@ import log from "../utils/logger";
 import { openRouterCommandHandler } from "../services/openrouter";
 import { getCommandHelp } from "../core/commands";
 import { useSettingsStore } from "../store/settingsStore";
-import { Settings } from "../utils/Settings";
+import { Settings, UpdateSettings } from "../utils/Settings";
 import { groqCommandHandler } from "../services/groq";
 
 export interface OllamaCLI {
@@ -114,7 +114,7 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
     }
   };
 
-  const handleModelCommand = (args: string[]) => {
+  const handleModelCommand = async (args: string[]) => {
     const { updateOutput } = useFraudeStore.getState();
     const store = useSettingsStore.getState();
     const settings = Settings.getInstance();
@@ -204,28 +204,26 @@ Roles: r|reasoning, g|general, l|light, a|all`;
 
     const finalModelName = matchedModel?.name || modelName;
 
-    // Apply changes based on role
-    const setModel = (setter: (model: string) => void, roleName: string) => {
-      setter(finalModelName);
-      return roleName;
-    };
+    const changedRoles: string[] =
+      role === "all" ? ["reasoning", "general", "light"] : [role];
 
-    const changedRoles: string[] = [];
+    // Build updates object based on role
+    const updates: Record<string, string> = {};
 
     switch (role) {
       case "all":
-        changedRoles.push(setModel(store.setThinkerModel, "Reasoning"));
-        changedRoles.push(setModel(store.setGeneralModel, "General"));
-        changedRoles.push(setModel(store.setScoutModel, "Light"));
+        updates.thinkerModel = finalModelName;
+        updates.generalModel = finalModelName;
+        updates.scoutModel = finalModelName;
         break;
       case "reasoning":
-        changedRoles.push(setModel(store.setThinkerModel, "Reasoning"));
+        updates.thinkerModel = finalModelName;
         break;
       case "general":
-        changedRoles.push(setModel(store.setGeneralModel, "General"));
+        updates.generalModel = finalModelName;
         break;
       case "light":
-        changedRoles.push(setModel(store.setScoutModel, "Light"));
+        updates.scoutModel = finalModelName;
         break;
       default:
         updateOutput(
@@ -234,6 +232,9 @@ Roles: r|reasoning, g|general, l|light, a|all`;
         );
         return;
     }
+
+    // Single write for all updates
+    await settings.setMultiple(updates);
 
     const matchNote = matchedModel
       ? ""
