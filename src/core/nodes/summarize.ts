@@ -2,11 +2,13 @@ import summarizePrompt from "../../types/prompts/Summarize";
 import { useFraudeStore } from "../../store/useFraudeStore";
 import { llm } from "../../services/llm";
 import type { SummaryStateType } from "../../types/state";
+import { useSettingsStore } from "../../store/settingsStore";
 
 const { updateOutput, setStatus } = useFraudeStore.getState();
+const getSettings = () => useSettingsStore.getState();
 export const createSummarizeNode = () => {
   return async (state: SummaryStateType, config?: any) => {
-    setStatus("Generating summary (llama3.1:latest)");
+    setStatus(`Generating summary (${getSettings().generalModel})`);
 
     let codeContext = "";
     if (state.qdrantResults && state.qdrantResults.length > 0) {
@@ -15,7 +17,7 @@ export const createSummarizeNode = () => {
       });
     }
 
-    //   // 3. Synthesize summary
+    // Synthesize summary
     const prompt = summarizePrompt(
       state.repoName,
       state.structuralContext,

@@ -4,9 +4,12 @@ import { interrupt, useFraudeStore } from "../../store/useFraudeStore";
 import { llm } from "../../services/llm";
 import generateIterationPrompt from "../../types/prompts/IteratePlan";
 import log from "../../utils/logger";
+import { useSettingsStore } from "../../store/settingsStore";
 
 const { updateOutput, setStatus, updateInteraction } =
   useFraudeStore.getState();
+
+const getSettings = () => useSettingsStore.getState();
 
 const iterationLoop = async (
   plan: string,
@@ -26,7 +29,7 @@ const iterationLoop = async (
         continue;
       }
       updateOutput("comment", comment);
-      setStatus("Modifying plan (qwen3:8b)");
+      setStatus(`Modifying plan (${getSettings().thinkerModel})`);
       const iteratePrompt = generateIterationPrompt(
         state.query,
         state.codeContext,
@@ -79,7 +82,7 @@ const think = async (prompt: any[], signal?: AbortSignal) => {
 
 export const createImplementationPlanNode = () => {
   return async (state: ModifierStateType, config?: any) => {
-    setStatus("Analyzing requirements (qwen3:8b)");
+    setStatus(`Analyzing requirements (${getSettings().thinkerModel})`);
 
     const prompt = ModificationThinkPrompt(state.codeContext, state.query);
 
