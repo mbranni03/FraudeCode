@@ -17,6 +17,7 @@ import { openRouterCommandHandler } from "../services/openrouter";
 import { getCommandHelp } from "../core/commands";
 import { useSettingsStore } from "../store/settingsStore";
 import { Settings } from "../utils/Settings";
+import { groqCommandHandler } from "../services/groq";
 
 export interface OllamaCLI {
   handleQuery: (query: string) => Promise<void>;
@@ -99,6 +100,9 @@ export function useOllamaClient(initialId: string | null = null): OllamaCLI {
       case "ollama":
         break;
       case "groq":
+        groqCommandHandler(command);
+        break;
+      case "models": // Auto outputs models list
         break;
 
       default:

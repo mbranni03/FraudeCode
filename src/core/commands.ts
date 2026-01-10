@@ -81,7 +81,13 @@ export const COMMANDS: CommandDefinition[] = [
     name: "groq",
     description: "Manage Groq models",
     usage: "/groq <subcommand>",
-    subcommands: [],
+    subcommands: [
+      {
+        name: "add",
+        description: "Add a Groq model",
+        usage: "/groq add <model-id>",
+      },
+    ],
   },
 ];
 
