@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useApp, Box, Text } from "ink";
 import { TextInput } from "@inkjs/ui";
 import { homedir } from "os";
-import QueryHandler from "../utils/QueryHandler";
+import QueryHandler from "../utils/queryHandler";
 
 const shortenPath = (path: string) => {
   const home = homedir();

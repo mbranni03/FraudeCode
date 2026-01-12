@@ -9,4 +9,5 @@ export default function QueryHandler(query: string) {
   if (query.startsWith("/")) {
   }
   updateOutput("command", query);
+  useFraudeStore.setState({ status: 1 });
 }
