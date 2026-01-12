@@ -1,0 +1,21 @@
+import { Box } from "ink";
+import { memo } from "react";
+import { type OutputItem } from "../store/useFraudeStore";
+import useFraudeStore from "../store/useFraudeStore";
+import CommandView from "./output/CommandView";
+
+export default memo(function OutputRenderer() {
+  const outputItems = useFraudeStore((state) => state.outputItems);
+  return (
+    <Box flexDirection="column">
+      {outputItems.map((item: OutputItem) => {
+        switch (item.type) {
+          case "command":
+            return <CommandView command={item.content} />;
+          default:
+            return null;
+        }
+      })}
+    </Box>
+  );
+});
