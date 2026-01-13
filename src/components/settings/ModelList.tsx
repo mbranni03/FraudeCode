@@ -1,7 +1,7 @@
 import { Box, Text } from "ink";
 import { useEffect, useMemo } from "react";
-import { useSettingsStore } from "../../store/settingsStore";
-import type { Model } from "../../types/models";
+import type { Model } from "@/types/Model";
+import useSettingsStore from "@/store/useSettingsStore";
 
 // Theme colors
 const COLORS = {
@@ -17,7 +17,6 @@ const COLORS = {
 const ROLE_ABBREV: Record<string, { short: string; color: string }> = {
   Reasoning: { short: "R", color: "#9370DB" }, // Purple
   General: { short: "G", color: "#20B2AA" }, // Teal
-  "Light-weight": { short: "L", color: "#FFD700" }, // Gold
 };
 
 const formatSize = (bytes: number) => {
@@ -222,7 +221,7 @@ const Legend = () => (
 );
 
 const ModelList = () => {
-  const { thinkerModel, generalModel, scoutModel, models, syncWithSettings } =
+  const { thinkerModel, generalModel, models, syncWithSettings } =
     useSettingsStore();
 
   useEffect(() => {
@@ -233,7 +232,6 @@ const ModelList = () => {
     const roles: string[] = [];
     if (name.includes(thinkerModel)) roles.push("Reasoning");
     if (name.includes(generalModel)) roles.push("General");
-    if (name.includes(scoutModel)) roles.push("Light-weight");
     return roles;
   };
 
@@ -263,7 +261,7 @@ const ModelList = () => {
       openrouterModels: sortModels(openrouter),
       ollamaModels: sortModels(ollama),
     };
-  }, [models, thinkerModel, generalModel, scoutModel]);
+  }, [models, thinkerModel, generalModel]);
 
   return (
     <Box flexDirection="column" padding={1}>

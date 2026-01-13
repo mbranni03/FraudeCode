@@ -1,11 +1,6 @@
 import { Box, Text } from "ink";
 import { useEffect, useState } from "react";
-import {
-  useFraudeStore,
-  useInteraction,
-  type TokenUsage,
-} from "../store/useFraudeStore";
-const { updateInteraction } = useFraudeStore.getState();
+import useFraudeStore from "../store/useFraudeStore";
 
 const LoaderComponent = ({
   id,

@@ -1,19 +1,16 @@
 import { render } from "ink";
 import App from "./components/App";
-import { useSettingsStore } from "./store/settingsStore";
 import { resetLog } from "./utils/logger";
-import { Settings, UpdateSettings } from "./utils/Settings";
-import { syncOllamaModels } from "./core/llm";
+import { Settings } from "./config/settings";
+import useSettingsStore from "./store/useSettingsStore";
+import OllamaClient from "./services/ollama";
 
 async function main() {
   resetLog();
   console.clear();
   await Settings.init();
-  syncOllamaModels().catch((e) => {
-    console.error("Background model sync failed:", e);
-  });
+  OllamaClient.syncOllamaModels();
   useSettingsStore.getState().syncWithSettings();
-  UpdateSettings("lastOpened", new Date().toISOString());
   render(<App />);
 }
 
