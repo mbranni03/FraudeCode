@@ -1,6 +1,6 @@
 import log from "../utils/logger";
 import { Box, useInput } from "ink";
-import InputBox from "./InputBox";
+import InputBox from "./input/InputBox";
 import OutputRenderer from "./OutputRenderer";
 import useFraudeStore from "../store/useFraudeStore";
 import IntroComponent from "./IntroComponent";

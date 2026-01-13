@@ -1,14 +1,14 @@
 import { Box, Text } from "ink";
 
-const CommandView = ({ command }: { command: string }) => {
+const CommentView = ({ comment }: { comment: string }) => {
   return (
     <Box paddingY={1}>
       <Text color="rgb(255, 140, 0)">~</Text>
       <Box paddingLeft={1}>
-        <Text dimColor>{command}</Text>
+        <Text dimColor>{comment}</Text>
       </Box>
     </Box>
   );
 };
 
-export default CommandView;
+export default CommentView;

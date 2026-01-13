@@ -3,11 +3,17 @@ import { memo } from "react";
 import { type OutputItem } from "../store/useFraudeStore";
 import useFraudeStore from "../store/useFraudeStore";
 import CommandView from "./output/CommandView";
+import CommentView from "./output/CommentView";
+import MarkdownView from "./output/MarkdownView";
 
 function renderItem(item: OutputItem) {
   switch (item.type) {
     case "command":
       return <CommandView command={item.content} />;
+    case "comment":
+      return <CommentView comment={item.content} />;
+    case "markdown":
+      return <MarkdownView markdown={item.content} />;
     default:
       return null;
   }

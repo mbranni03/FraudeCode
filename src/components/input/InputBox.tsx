@@ -2,9 +2,9 @@ import { useState, useMemo, useCallback } from "react";
 import { useApp, Box, Text, useInput } from "ink";
 import { TextInput } from "@inkjs/ui";
 import { homedir } from "os";
-import QueryHandler from "../utils/queryHandler";
-import useSettingsStore from "../store/useSettingsStore";
-import CommandCenter from "src/features/commands";
+import QueryHandler from "@/utils/queryHandler";
+import useSettingsStore from "@/store/useSettingsStore";
+import CommandCenter from "@/features/commands";
 import CommandSuggestions from "./CommandSuggestions";
 
 const shortenPath = (path: string) => {
@@ -22,7 +22,7 @@ const InputBoxComponent = () => {
   const [currentInput, setCurrentInput] = useState("");
 
   const models = useSettingsStore((state) => state.models);
-  const modelNames = useMemo(() => models.map((m) => m.name), [models]);
+  const modelNames = useMemo(() => models.map((m) => m.name).sort(), [models]);
 
   const MAX_VISIBLE_SUGGESTIONS = 5;
 
