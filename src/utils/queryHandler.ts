@@ -11,5 +11,5 @@ export default async function QueryHandler(query: string) {
   updateOutput("command", query);
   useFraudeStore.setState({ status: 1 });
   await new Promise((resolve) => setTimeout(resolve, 1000));
-  useFraudeStore.setState({ status: 0 }); // need to reset elapsedTime
+  useFraudeStore.setState({ status: 0, elapsedTime: 0 });
 }
