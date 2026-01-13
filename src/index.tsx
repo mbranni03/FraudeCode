@@ -9,8 +9,8 @@ async function main() {
   resetLog();
   console.clear();
   await Settings.init();
-  OllamaClient.syncOllamaModels();
   useSettingsStore.getState().syncWithSettings();
+  OllamaClient.syncOllamaModels();
   render(<App />);
 }
 

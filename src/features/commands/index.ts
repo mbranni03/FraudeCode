@@ -64,13 +64,13 @@ class CommandCenter {
     const templates: CommandDefinition[] = [];
 
     for (const cmd of COMMANDS) {
-      templates.push(cmd);
-
       // Add subcommands
       if (cmd.subcommands) {
         for (const sub of cmd.subcommands) {
           templates.push(sub);
         }
+      } else if (!cmd.usage.includes("<subcommand>")) {
+        templates.push(cmd);
       }
     }
 

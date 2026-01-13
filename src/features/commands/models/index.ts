@@ -16,6 +16,7 @@ class ModelCommandCenter {
         await this.setModel(command);
         break;
       case "models":
+        updateOutput("settings", "/models");
         break;
       case "groq":
         await groqCommandHandler(command);

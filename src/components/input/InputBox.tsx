@@ -91,7 +91,8 @@ const InputBoxComponent = () => {
   const actualGhostTextSuggestion = useMemo(() => {
     if (currentInput.length === 0) return null;
     const match = dynamicSuggestions.find((s) => s.startsWith(currentInput));
-    return match || null;
+    if (!match) return null;
+    return match.replace(/<[^>]+>.*$/, "");
   }, [currentInput, dynamicSuggestions]);
 
   useInput((input, key) => {
