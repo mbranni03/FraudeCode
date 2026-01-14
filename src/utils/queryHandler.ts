@@ -1,7 +1,6 @@
 import useFraudeStore from "@/store/useFraudeStore";
 import CommandCenter from "@/commands";
-import { llm } from "./llm";
-import { createAgent } from "langchain";
+import { Agent } from "@/agent";
 
 const { updateOutput } = useFraudeStore.getState();
 
@@ -15,17 +14,18 @@ export default async function QueryHandler(query: string) {
     return;
   }
   useFraudeStore.setState({ status: 1 });
-  const model = llm.general();
-  const agent = createAgent({
-    model,
+  // await new Promise((resolve) => setTimeout(resolve, 1000));
+  const agent = new Agent({
+    model: "openai/gpt-oss-120b",
+    systemPrompt: "You are a helpful assistant.",
+    temperature: 0.7,
   });
-  const response = await agent.invoke({
-    messages: [
-      {
-        role: "user",
-        content: query,
-      },
-    ],
-  });
+
+  const stream = agent.stream(query);
+  let response = "";
+  for await (const chunk of stream.textStream) {
+    response += chunk;
+    updateOutput("markdown", response);
+  }
   useFraudeStore.setState({ status: 0, elapsedTime: 0 });
 }

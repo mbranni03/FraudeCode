@@ -1,8 +1,8 @@
-import { Settings, UpdateSettings } from "../../../config/settings";
-import type { Model } from "../../../types/Model";
+import { Settings, UpdateSettings } from "@/config/settings";
+import type { Model } from "@/types/Model";
 
-import useFraudeStore from "../../../store/useFraudeStore";
-import GroqClient from "../../../services/groq";
+import useFraudeStore from "@/store/useFraudeStore";
+import GroqClient from "@/services/groq";
 
 const { updateOutput } = useFraudeStore.getState();
 

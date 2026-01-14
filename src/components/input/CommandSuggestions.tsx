@@ -1,5 +1,5 @@
 import { Box, Text } from "ink";
-import type { CommandDefinition } from "src/features/commands/types/CommandDefinition";
+import type { CommandDefinition } from "@/types/CommandDefinition";
 
 export default function CommandSuggestions({
   selectedIndex,

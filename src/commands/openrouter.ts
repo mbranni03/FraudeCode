@@ -1,8 +1,8 @@
-import { Settings, UpdateSettings } from "../../../config/settings";
-import type { Model } from "../../../types/Model";
+import { Settings, UpdateSettings } from "@/config/settings";
+import type { Model } from "@/types/Model";
 
-import useFraudeStore from "../../../store/useFraudeStore";
-import OpenRouterClient from "../../../services/openrouter";
+import useFraudeStore from "@/store/useFraudeStore";
+import OpenRouterClient from "@/services/openrouter";
 
 const { updateOutput } = useFraudeStore.getState();
 

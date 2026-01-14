@@ -1,7 +1,10 @@
 import { z } from "zod";
 
+const ProviderTypes = ["groq", "openrouter", "ollama"] as const;
+export type ProviderType = (typeof ProviderTypes)[number];
+
 export const ModelSchema = z.object({
-  type: z.string().default("ollama"),
+  type: z.enum(ProviderTypes).default("ollama"),
   name: z.string(),
   modified_at: z.string(),
   size: z.number().optional(),

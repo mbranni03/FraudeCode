@@ -34,7 +34,7 @@ const useFraudeStore = create<FraudeStore>((set) => ({
       if (
         latestOutput &&
         latestOutput.type === type &&
-        overrideType.has(type)
+        !overrideType.has(type)
       ) {
         outputItems[outputItems.length - 1] = {
           ...latestOutput,

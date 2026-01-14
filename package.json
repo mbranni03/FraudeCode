@@ -12,19 +12,19 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@ai-sdk/groq": "^3.0.7",
     "@huggingface/transformers": "^3.8.1",
     "@inkjs/ui": "^2.0.0",
     "@inkkit/ink-markdown": "^1.0.0",
-    "@langchain/core": "^1.1.8",
-    "@langchain/langgraph": "^1.0.7",
-    "@langchain/openai": "^1.2.1",
+    "@openrouter/ai-sdk-provider": "^1.5.4",
     "@qdrant/js-client-rest": "^1.16.2",
+    "ai": "^6.0.33",
     "diff": "^8.0.2",
     "ignore": "^7.0.5",
     "ink-big-text": "^2.0.0",
     "ink-gradient": "^3.0.0",
-    "langchain": "^1.2.7",
     "neo4j-driver": "^6.0.1",
+    "ollama-ai-provider": "^1.2.0",
     "web-tree-sitter": "^0.25.10",
     "zod": "^4.3.5",
     "zustand": "^5.0.9"
