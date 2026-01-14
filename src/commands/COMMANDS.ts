@@ -1,4 +1,4 @@
-import type { CommandDefinition } from "./types/CommandDefinition";
+import type { CommandDefinition } from "../types/CommandDefinition";
 
 const COMMANDS: CommandDefinition[] = [
   {

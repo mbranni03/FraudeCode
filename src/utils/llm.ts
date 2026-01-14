@@ -77,7 +77,7 @@ export class LLMService {
    * Returns the general/chat model configured in settings.
    * Used for standard conversational tasks and general code assistance.
    */
-  chat(): ReturnType<typeof llmClient> {
+  general(): ReturnType<typeof llmClient> {
     const { generalModel } = getSettings();
     return llmClient({
       provider: getProviderForModel(generalModel),
@@ -90,7 +90,7 @@ export class LLMService {
    * Returns the reasoning/thinker model configured in settings.
    * Used for complex reasoning tasks, planning, and deep analysis.
    */
-  think(): ReturnType<typeof llmClient> {
+  reasoning(): ReturnType<typeof llmClient> {
     const { thinkerModel } = getSettings();
     return llmClient({
       provider: getProviderForModel(thinkerModel),

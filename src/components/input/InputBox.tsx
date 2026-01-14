@@ -4,7 +4,7 @@ import { TextInput } from "@inkjs/ui";
 import { homedir } from "os";
 import QueryHandler from "@/utils/queryHandler";
 import useSettingsStore from "@/store/useSettingsStore";
-import CommandCenter from "@/features/commands";
+import CommandCenter from "@/commands";
 import { addHistory } from "@/config/settings";
 import CommandSuggestions from "./CommandSuggestions";
 

@@ -1,5 +1,7 @@
 import useFraudeStore from "@/store/useFraudeStore";
-import CommandCenter from "@/features/commands";
+import CommandCenter from "@/commands";
+import { llm } from "./llm";
+import { createAgent } from "langchain";
 
 const { updateOutput } = useFraudeStore.getState();
 
@@ -13,6 +15,17 @@ export default async function QueryHandler(query: string) {
     return;
   }
   useFraudeStore.setState({ status: 1 });
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  const model = llm.general();
+  const agent = createAgent({
+    model,
+  });
+  const response = await agent.invoke({
+    messages: [
+      {
+        role: "user",
+        content: query,
+      },
+    ],
+  });
   useFraudeStore.setState({ status: 0, elapsedTime: 0 });
 }
