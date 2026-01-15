@@ -30,7 +30,7 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
   const { updateOutput } = useFraudeStore.getState();
   const store = useFraudeStore.getState();
 
-  log(`Stream chunk: ${JSON.stringify(chunk)}`);
+  // log(`Stream chunk: ${JSON.stringify(chunk)}`);
 
   switch (chunk.type) {
     case "start":
@@ -89,7 +89,7 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
 
     case "finish": {
       const elapsed = store.elapsedTime;
-      updateOutput("done", `Done · (${formatDuration(elapsed * 100)} total)`);
+      updateOutput("done", `Finished in ${formatDuration(elapsed * 100)}s`);
       resetState();
       break;
     }

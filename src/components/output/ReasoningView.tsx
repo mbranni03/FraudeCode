@@ -10,11 +10,15 @@ export default function ReasoningView({
   duration,
 }: ReasoningViewProps) {
   return (
-    <Box marginBottom={1}>
+    <Box marginBottom={1} flexDirection="column">
       <Text dimColor italic>
         {content}
-        {duration && <Text dimColor> · {duration}</Text>}
       </Text>
+      {duration && (
+        <Text dimColor bold>
+          Thought for {duration}s
+        </Text>
+      )}
     </Box>
   );
 }

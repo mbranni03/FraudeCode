@@ -10,9 +10,7 @@ const readTool = tool({
   inputSchema: z.object({
     filePath: z
       .string()
-      .describe(
-        "The path to the file to read (relative to base directory i.e. src/index.ts)"
-      ),
+      .describe("The path to the file to read (relative to base directory)"),
     offset: z.coerce
       .number()
       .describe("The line number to start reading from (0-based)")
