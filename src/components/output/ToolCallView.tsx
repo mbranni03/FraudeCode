@@ -1,15 +1,15 @@
 import { Box, Text } from "ink";
 
 interface ToolCallViewProps {
-  toolName: string;
-  args?: string;
+  action: string;
+  details?: string;
   result?: string;
   duration?: string;
 }
 
 export default function ToolCallView({
-  toolName,
-  args,
+  action,
+  details,
   result,
   duration,
 }: ToolCallViewProps) {
@@ -21,14 +21,12 @@ export default function ToolCallView({
     : null;
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color="gray">[</Text>
-        <Text color="cyan">tool</Text>
-        <Text color="gray">]</Text>
+        <Text color="rgb(255, 140, 0)">•</Text>
         <Text> </Text>
-        <Text bold>{toolName}</Text>
-        {args && <Text dimColor>({args})</Text>}
+        <Text bold>{action}</Text>
+        {details && <Text dimColor>({details})</Text>}
         {duration && <Text dimColor> · {duration}</Text>}
       </Box>
       {resultPreview && (

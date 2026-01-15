@@ -10,7 +10,7 @@ export default function ReasoningView({
   duration,
 }: ReasoningViewProps) {
   return (
-    <Box>
+    <Box marginBottom={1}>
       <Text dimColor italic>
         {content}
         {duration && <Text dimColor> · {duration}</Text>}

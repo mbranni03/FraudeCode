@@ -4,7 +4,7 @@ export type OutputItemType =
   | "diff"
   | "confirmation"
   | "command"
-  | "checkpoint"
+  | "done"
   | "settings"
   | "comment"
   | "error"

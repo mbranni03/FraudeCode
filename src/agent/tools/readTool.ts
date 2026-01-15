@@ -36,10 +36,17 @@ const readTool = tool({
     const text = await file.text();
     const lines = text.split("\n");
     const lastLine = Math.min(offset + limit, lines.length);
-    updateOutput("log", `Analyzing ${filePath}#L${offset + 1}-${lastLine}`);
-    const chunk = lines.slice(offset, lastLine).join("\n");
+    const result = lines.slice(offset, lastLine).join("\n");
+    updateOutput(
+      "toolCall",
+      JSON.stringify({
+        action: "Analyzing " + filePath,
+        details: "#L" + (offset + 1) + "-" + lastLine,
+        result: result,
+      })
+    );
     return {
-      chunk,
+      result,
       lastLine,
     };
   },

@@ -55,55 +55,24 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
       break;
     }
 
-    case "tool-call": {
-      const toolCallId = chunk.toolCallId as string;
-      const toolName = chunk.toolName as string;
-      const input = chunk.input as Record<string, unknown>;
+    // case "tool-call": {
+    //   const toolCallId = chunk.toolCallId as string;
+    //   state.currentToolCallId = toolCallId;
+    //   state.toolCallTimestamps.set(toolCallId, store.elapsedTime);
+    //   break;
+    // }
 
-      state.currentToolCallId = toolCallId;
-      state.toolCallTimestamps.set(toolCallId, store.elapsedTime);
+    // case "tool-result": {
+    //   const toolCallId = chunk.toolCallId as string;
+    //   const startTime =
+    //     state.toolCallTimestamps.get(toolCallId) || store.lastBreak;
+    //   const elapsed = store.elapsedTime - startTime;
+    //   const duration = formatDuration(elapsed * 100);
 
-      const args = Object.entries(input || {})
-        .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
-        .join(", ");
-
-      updateOutput("toolCall", JSON.stringify({ toolName, args, toolCallId }));
-      break;
-    }
-
-    case "tool-result": {
-      const toolCallId = chunk.toolCallId as string;
-      const toolName = chunk.toolName as string;
-      const output = chunk.output as Record<string, unknown> | string;
-      const input = chunk.input as Record<string, unknown>;
-
-      const startTime =
-        state.toolCallTimestamps.get(toolCallId) || store.lastBreak;
-      const elapsed = store.elapsedTime - startTime;
-      const duration = formatDuration(elapsed * 100);
-
-      const args = Object.entries(input || {})
-        .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
-        .join(", ");
-
-      const resultStr =
-        typeof output === "string" ? output : JSON.stringify(output);
-
-      updateOutput(
-        "toolCall",
-        JSON.stringify({
-          toolName,
-          args,
-          result: resultStr,
-          duration,
-          toolCallId,
-        })
-      );
-
-      useFraudeStore.setState({ lastBreak: store.elapsedTime });
-      state.toolCallTimestamps.delete(toolCallId);
-      break;
-    }
+    //   useFraudeStore.setState({ lastBreak: store.elapsedTime });
+    //   state.toolCallTimestamps.delete(toolCallId);
+    //   break;
+    // }
 
     case "text-delta":
       state.agentText += chunk.text as string;
@@ -120,10 +89,7 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
 
     case "finish": {
       const elapsed = store.elapsedTime;
-      updateOutput(
-        "checkpoint",
-        `Done · (${formatDuration(elapsed * 100)} total)`
-      );
+      updateOutput("done", `Done · (${formatDuration(elapsed * 100)} total)`);
       resetState();
       break;
     }

@@ -15,7 +15,7 @@ function renderItem(item: OutputItem) {
   switch (item.type) {
     case "log":
       return <Text>{item.content}</Text>;
-    case "checkpoint":
+    case "done":
       return (
         <Text bold color="rgb(255, 105, 180)">
           {item.content}
@@ -38,8 +38,8 @@ function renderItem(item: OutputItem) {
         const data = JSON.parse(item.content);
         return (
           <ToolCallView
-            toolName={data.toolName}
-            args={data.args}
+            action={data.action}
+            details={data.details}
             result={data.result}
             duration={data.duration}
           />
