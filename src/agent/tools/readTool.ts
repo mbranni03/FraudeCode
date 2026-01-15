@@ -1,16 +1,16 @@
 import { tool } from "ai";
 import { z } from "zod";
 import path from "path";
+import { projectPath } from "@/utils";
 import useFraudeStore from "@/store/useFraudeStore";
+import DESCRIPTION from "./descriptions/read.txt";
 
 const { updateOutput } = useFraudeStore.getState();
 
 const readTool = tool({
-  description: "Read a file from the file system",
+  description: DESCRIPTION,
   inputSchema: z.object({
-    filePath: z
-      .string()
-      .describe("The path to the file to read (relative to base directory)"),
+    filePath: z.string().describe("The path to the file to read"),
     offset: z.coerce
       .number()
       .describe("The line number to start reading from (0-based)")
@@ -29,8 +29,21 @@ const readTool = tool({
     offset?: number;
     limit?: number;
   }) => {
-    const absolutePath = path.resolve(process.cwd(), filePath);
-    const file = Bun.file(absolutePath);
+    if (!path.isAbsolute(filePath)) {
+      filePath = path.join(process.cwd(), filePath);
+    }
+    const file = Bun.file(filePath);
+    if (!(await file.exists())) {
+      updateOutput(
+        "toolCall",
+        JSON.stringify({
+          action: "Error Reading" + projectPath(filePath),
+          details: "File doesn't exist",
+          result: "",
+        })
+      );
+      throw new Error("File doesn't exist");
+    }
     const text = await file.text();
     const lines = text.split("\n");
     const lastLine = Math.min(offset + limit, lines.length);
@@ -38,11 +51,14 @@ const readTool = tool({
     updateOutput(
       "toolCall",
       JSON.stringify({
-        action: "Analyzing " + filePath,
+        action: "Analyzing " + projectPath(filePath),
         details: "#L" + (offset + 1) + "-" + lastLine,
         result: result,
       })
     );
+    if (text.trim() === "") {
+      throw new Error("File is empty");
+    }
     return {
       result,
       lastLine,

@@ -3,6 +3,7 @@ import CommandCenter from "@/commands";
 import { Agent } from "@/agent";
 import readTool from "@/agent/tools/readTool";
 import bashTool from "@/agent/tools/bashTool";
+import writeTool from "@/agent/tools/writeTool";
 import log from "./logger";
 import { handleStreamChunk, resetStreamState } from "./streamHandler";
 
@@ -24,7 +25,7 @@ export default async function QueryHandler(query: string) {
   const agent = new Agent({
     model: "openai/gpt-oss-120b",
     systemPrompt: "You are a helpful assistant.",
-    tools: { readTool, bashTool },
+    tools: { readTool, bashTool, writeTool },
     temperature: 0.7,
   });
 

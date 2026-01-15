@@ -1,20 +1,11 @@
 import { useState, useMemo, useCallback } from "react";
 import { useApp, Box, Text, useInput } from "ink";
 import { TextInput } from "@inkjs/ui";
-import { homedir } from "os";
 import QueryHandler from "@/utils/queryHandler";
 import useSettingsStore from "@/store/useSettingsStore";
 import CommandCenter from "@/commands";
 import { addHistory } from "@/config/settings";
 import CommandSuggestions from "./CommandSuggestions";
-
-const shortenPath = (path: string) => {
-  const home = homedir();
-  if (path.startsWith(home)) {
-    return path.replace(home, "~");
-  }
-  return path;
-};
 
 const InputBoxComponent = () => {
   const { exit } = useApp();
