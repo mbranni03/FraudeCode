@@ -16,4 +16,5 @@ export interface OutputItem {
   id: string;
   type: OutputItemType;
   content: string;
+  duration?: number;
 }

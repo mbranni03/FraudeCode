@@ -22,8 +22,8 @@ function resetState() {
   state.toolCallTimestamps.clear();
 }
 
-function formatDuration(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}s`;
+function formatDuration(ms: number): number {
+  return ms / 1000;
 }
 
 export function handleStreamChunk(chunk: Record<string, unknown>): void {
@@ -49,8 +49,8 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
 
     case "reasoning-end": {
       const elapsed = store.elapsedTime - store.lastBreak;
-      const duration = formatDuration(elapsed * 100); // elapsed is in 100ms units
-      updateOutput("reasoning", `${state.reasoningText} · (${duration})`);
+      const duration = formatDuration(elapsed * 100);
+      updateOutput("reasoning", `${state.reasoningText}`, duration);
       useFraudeStore.setState({ lastBreak: store.elapsedTime });
       break;
     }
@@ -89,7 +89,10 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
 
     case "finish": {
       const elapsed = store.elapsedTime;
-      updateOutput("done", `Finished in ${formatDuration(elapsed * 100)}s`);
+      updateOutput(
+        "done",
+        `Finished in ${formatDuration(elapsed * 100).toFixed(1)}s`
+      );
       resetState();
       break;
     }

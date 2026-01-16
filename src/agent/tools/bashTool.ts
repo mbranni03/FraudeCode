@@ -9,7 +9,10 @@ const bashTool = tool({
   description: DESCRIPTION,
   inputSchema: z.object({
     command: z.string().describe("The command to execute"),
-    timeout: z.number().describe("Optional timeout in milliseconds").optional(),
+    timeout: z
+      .number()
+      .describe("Optional timeout in milliseconds")
+      .default(120000),
     workdir: z
       .string()
       .describe(
@@ -29,7 +32,7 @@ const bashTool = tool({
     description,
   }: {
     command: string;
-    timeout?: number;
+    timeout: number;
     workdir?: string;
     description: string;
   }) => {
@@ -54,13 +57,13 @@ const bashTool = tool({
         stderr: "pipe",
       });
 
-      const timeoutSignal = AbortSignal.timeout(timeout || 10000);
+      const timeoutSignal = AbortSignal.timeout(timeout);
 
       const outputPromise = new Response(proc.stdout).text();
       const errorPromise = new Response(proc.stderr).text();
       if (timeoutSignal.aborted) {
         proc.kill();
-        return { error: "Command timed out", code: 124 };
+        throw new Error("Command timed out");
       }
 
       const [stdout, stderr] = await Promise.all([outputPromise, errorPromise]);

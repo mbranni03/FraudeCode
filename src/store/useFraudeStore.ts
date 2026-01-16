@@ -11,7 +11,11 @@ interface FraudeStore {
   lastBreak: number;
   statusText?: string;
   contextManager: ContextManager;
-  updateOutput: (type: OutputItemType, content: string) => void;
+  updateOutput: (
+    type: OutputItemType,
+    content: string,
+    duration?: number
+  ) => void;
 }
 
 const useFraudeStore = create<FraudeStore>((set) => ({
@@ -23,7 +27,7 @@ const useFraudeStore = create<FraudeStore>((set) => ({
   lastBreak: 0,
   statusText: "",
   contextManager: new ContextManager(),
-  updateOutput: (type, content) => {
+  updateOutput: (type, content, duration?) => {
     set((state) => {
       const outputItems = [...state.outputItems];
       const latestOutput = outputItems[outputItems.length - 1];
@@ -44,12 +48,14 @@ const useFraudeStore = create<FraudeStore>((set) => ({
         outputItems[outputItems.length - 1] = {
           ...latestOutput,
           content,
+          duration,
         };
       } else {
         outputItems.push({
           id: crypto.randomUUID(),
           type,
           content,
+          duration,
         });
       }
       return {

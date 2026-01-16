@@ -2,7 +2,7 @@ import { Box, Text } from "ink";
 
 interface ReasoningViewProps {
   content: string;
-  duration?: string;
+  duration?: number;
 }
 
 export default function ReasoningView({
@@ -16,7 +16,7 @@ export default function ReasoningView({
       </Text>
       {duration && (
         <Text dimColor bold>
-          Thought for {duration}s
+          Thought for {duration.toFixed(1)}s
         </Text>
       )}
     </Box>

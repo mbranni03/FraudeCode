@@ -32,7 +32,7 @@ function renderItem(item: OutputItem) {
     case "settings":
       return <SettingsRenderer item={item} />;
     case "reasoning":
-      return <ReasoningView content={item.content} />;
+      return <ReasoningView content={item.content} duration={item.duration} />;
     case "toolCall": {
       try {
         const data = JSON.parse(item.content);

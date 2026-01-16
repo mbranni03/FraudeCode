@@ -6,6 +6,7 @@ import bashTool from "@/agent/tools/bashTool";
 import writeTool from "@/agent/tools/writeTool";
 import log from "./logger";
 import { handleStreamChunk, resetStreamState } from "./streamHandler";
+import editTool from "@/agent/tools/editTool";
 
 const { updateOutput } = useFraudeStore.getState();
 
@@ -25,7 +26,7 @@ export default async function QueryHandler(query: string) {
   const agent = new Agent({
     model: "openai/gpt-oss-120b",
     systemPrompt: "You are a helpful assistant.",
-    tools: { readTool, bashTool, writeTool },
+    tools: { readTool, bashTool, writeTool, editTool },
     temperature: 0.7,
   });
 
