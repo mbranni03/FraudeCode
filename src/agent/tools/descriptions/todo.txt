@@ -1,0 +1,16 @@
+Manage persistent tasks for tracking work across iterations.
+
+Operations:
+- "add": Create a new task with description and optional notes
+- "update": Update an existing task's status or notes (for worker summaries/reviewer feedback)
+- "complete": Mark a task as done
+- "list": Get all current tasks
+- "clear": Remove all completed tasks
+- "next-iteration": Increment the iteration counter for Ralph Loop
+
+Tasks persist in .fraude/todos.json and survive context resets between Ralph Loop iterations.
+Use this to:
+1. Break down work into trackable items
+2. Store worker iteration summaries
+3. Record reviewer feedback
+4. Track progress across fresh context windows
