@@ -15,6 +15,8 @@ function renderItem(item: OutputItem) {
   switch (item.type) {
     case "log":
       return <Text>{item.content}</Text>;
+    case "interrupted":
+      return <Text dimColor>Interrupted ({item.content}s)</Text>;
     case "done":
       return (
         <Text bold color="rgb(255, 105, 180)">

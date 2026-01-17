@@ -82,6 +82,10 @@ export default async function QueryHandler(query: string) {
     }
   } finally {
     // Always reset status when done (whether success, error, or abort)
+    updateOutput(
+      "interrupted",
+      (useFraudeStore.getState().elapsedTime / 10).toFixed(1),
+    );
     useFraudeStore.setState({
       status: 0,
       abortController: null,

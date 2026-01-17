@@ -9,6 +9,7 @@ export type OutputItemType =
   | "comment"
   | "error"
   | "reasoning"
+  | "interrupted"
   | "toolCall"
   | "agentText";
 

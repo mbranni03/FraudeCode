@@ -56,7 +56,7 @@ const useFraudeStore = create<FraudeStore>((set, get) => ({
       //   };
       //   content += ` · (${(elapsed / 10).toFixed(1)}s)`;
       // }
-      const dontOverrideType = new Set(["log", "checkpoint"]);
+      const dontOverrideType = new Set(["log", "checkpoint", "interrupted"]);
       if (
         latestOutput &&
         latestOutput.type === type &&
