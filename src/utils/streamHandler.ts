@@ -56,25 +56,6 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
       break;
     }
 
-    // case "tool-call": {
-    //   const toolCallId = chunk.toolCallId as string;
-    //   state.currentToolCallId = toolCallId;
-    //   state.toolCallTimestamps.set(toolCallId, store.elapsedTime);
-    //   break;
-    // }
-
-    // case "tool-result": {
-    //   const toolCallId = chunk.toolCallId as string;
-    //   const startTime =
-    //     state.toolCallTimestamps.get(toolCallId) || store.lastBreak;
-    //   const elapsed = store.elapsedTime - startTime;
-    //   const duration = formatDuration(elapsed * 100);
-
-    //   useFraudeStore.setState({ lastBreak: store.elapsedTime });
-    //   state.toolCallTimestamps.delete(toolCallId);
-    //   break;
-    // }
-
     case "text-delta":
       const lastItem = store.outputItems[store.outputItems.length - 1];
       if (lastItem?.type === "toolCall") {

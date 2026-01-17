@@ -3,7 +3,7 @@ import type { OutputItem } from "@/types/OutputItem";
 
 const CheckpointView = ({ item }: { item: OutputItem }) => {
   return (
-    <Box flexDirection="column" marginBottom={1}>
+    <Box flexDirection="column">
       {item.content && (
         <Text bold color="rgb(255, 105, 180)">
           {item.content}

@@ -138,10 +138,10 @@ export default function ConfirmationView() {
   const options = [
     { label: "✓ Apply All Changes", value: "apply_all" },
     { label: "✗ Reject All Changes", value: "reject_all" },
-    { label: "📝 Request Revision", value: "revise_all" },
+    { label: "Request Revision", value: "revise_all" },
     // Add options to inspect specific files
     ...filePaths.map((path) => ({
-      label: `👁 Review ${projectPath(path)}`,
+      label: `Review ${projectPath(path)}`,
       value: `view_${path}`,
     })),
   ];

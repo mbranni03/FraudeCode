@@ -10,7 +10,7 @@ export default function ReasoningView({
   duration,
 }: ReasoningViewProps) {
   return (
-    <Box marginBottom={1} flexDirection="column">
+    <Box flexDirection="column">
       <Text dimColor italic>
         {content}
       </Text>
