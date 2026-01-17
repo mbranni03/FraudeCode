@@ -27,19 +27,19 @@ export default async function QueryHandler(query: string) {
   useFraudeStore.setState({ status: 1, elapsedTime: 0, lastBreak: 0 });
   resetStreamState();
 
-  // const agent = new Agent({
-  //   model: "openai/gpt-oss-120b",
-  //   systemPrompt: "You are a helpful assistant.",
-  //   tools: { readTool, bashTool, writeTool, editTool },
-  //   temperature: 0.7,
-  // });
-
   const agent = new Agent({
     model: "openai/gpt-oss-120b",
-    systemPrompt: PLANNING_PROMPT,
-    tools: { contextSubAgentTool, writeTool },
+    systemPrompt: "You are a helpful assistant.",
+    tools: { readTool, bashTool, writeTool, editTool, grepTool, globTool },
     temperature: 0.7,
   });
+
+  // const agent = new Agent({
+  //   model: "openai/gpt-oss-120b",
+  //   systemPrompt: PLANNING_PROMPT,
+  //   tools: { contextSubAgentTool, writeTool },
+  //   temperature: 0.7,
+  // });
 
   const stream = agent.stream(query);
   for await (const chunk of stream.stream) {
