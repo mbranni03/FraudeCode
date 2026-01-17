@@ -30,7 +30,8 @@ const editTool = tool({
         action: "Edited File",
         details: projectPath(path),
         result: new_content,
-      })
+      }),
+      { dontOverride: true }
     );
     return { success: true };
   },

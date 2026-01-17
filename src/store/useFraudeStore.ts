@@ -14,7 +14,10 @@ interface FraudeStore {
   updateOutput: (
     type: OutputItemType,
     content: string,
-    duration?: number
+    config?: {
+      duration?: number;
+      dontOverride?: boolean;
+    }
   ) => void;
 }
 
@@ -27,7 +30,7 @@ const useFraudeStore = create<FraudeStore>((set) => ({
   lastBreak: 0,
   statusText: "",
   contextManager: new ContextManager(),
-  updateOutput: (type, content, duration?) => {
+  updateOutput: (type, content, config) => {
     set((state) => {
       const outputItems = [...state.outputItems];
       const latestOutput = outputItems[outputItems.length - 1];
@@ -43,19 +46,20 @@ const useFraudeStore = create<FraudeStore>((set) => ({
       if (
         latestOutput &&
         latestOutput.type === type &&
-        !dontOverrideType.has(type)
+        !dontOverrideType.has(type) &&
+        !config?.dontOverride
       ) {
         outputItems[outputItems.length - 1] = {
           ...latestOutput,
           content,
-          duration,
+          duration: config?.duration,
         };
       } else {
         outputItems.push({
           id: crypto.randomUUID(),
           type,
           content,
-          duration,
+          duration: config?.duration,
         });
       }
       return {

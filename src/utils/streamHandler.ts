@@ -40,6 +40,7 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
     case "reasoning-start":
       state.reasoningText = "";
       useFraudeStore.setState({ lastBreak: store.elapsedTime });
+      updateOutput("reasoning", "", { dontOverride: true });
       break;
 
     case "reasoning-delta":
@@ -50,7 +51,7 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
     case "reasoning-end": {
       const elapsed = store.elapsedTime - store.lastBreak;
       const duration = formatDuration(elapsed * 100);
-      updateOutput("reasoning", `${state.reasoningText}`, duration);
+      updateOutput("reasoning", `${state.reasoningText}`, { duration });
       useFraudeStore.setState({ lastBreak: store.elapsedTime });
       break;
     }
@@ -94,6 +95,12 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
         `Finished in ${formatDuration(elapsed * 100).toFixed(1)}s`
       );
       resetState();
+      break;
+    }
+
+    case "error": {
+      const error = chunk.error as Error;
+      updateOutput("error", error.message);
       break;
     }
 

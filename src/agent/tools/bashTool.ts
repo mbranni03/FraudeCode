@@ -48,7 +48,8 @@ const bashTool = tool({
           action: "Executing Bash",
           details: command,
           result: "",
-        })
+        }),
+        { dontOverride: true }
       );
 
       const proc = Bun.spawn(["sh", "-c", command], {

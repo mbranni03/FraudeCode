@@ -20,7 +20,8 @@ const writeTool = tool({
         action: "Created New File",
         details: projectPath(path),
         result: content,
-      })
+      }),
+      { dontOverride: true }
     );
     return { success: true };
   },

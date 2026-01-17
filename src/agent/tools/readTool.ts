@@ -40,7 +40,8 @@ const readTool = tool({
           action: "Error Reading" + projectPath(filePath),
           details: "File doesn't exist",
           result: "",
-        })
+        }),
+        { dontOverride: true }
       );
       throw new Error("File doesn't exist");
     }
@@ -54,7 +55,8 @@ const readTool = tool({
         action: "Analyzing " + projectPath(filePath),
         details: "#L" + (offset + 1) + "-" + lastLine,
         result: result,
-      })
+      }),
+      { dontOverride: true }
     );
     if (text.trim() === "") {
       throw new Error("File is empty");
