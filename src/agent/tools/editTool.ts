@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import useFraudeStore from "@/store/useFraudeStore";
 import { projectPath } from "@/utils";
+import pendingChanges from "@/agent/pendingChanges";
 
 import DESCRIPTION from "./descriptions/edit.txt";
 const { updateOutput } = useFraudeStore.getState();
@@ -13,7 +14,7 @@ const editTool = tool({
     old_content: z
       .string()
       .describe(
-        "Must be unique and match the file exactly (whitespace matters)"
+        "Must be unique and match the file exactly (whitespace matters)",
       ),
     new_content: z.string().describe("The new content of the file"),
   }),
@@ -23,17 +24,15 @@ const editTool = tool({
       throw new Error("Old content does not match file");
     }
     const newFileContent = fileContent.replace(old_content, new_content);
-    await Bun.write(path, newFileContent);
+
+    const change = await pendingChanges.addChange(path, newFileContent, "edit");
+    const stats = pendingChanges.getDiffStats(change.diff);
     updateOutput(
       "toolCall",
-      JSON.stringify({
-        action: "Edited File",
-        details: projectPath(path),
-        result: new_content,
-      }),
-      { dontOverride: true }
+      `Staged edit for ${projectPath(path)} (+${stats.added} / -${stats.removed} lines)`,
+      { dontOverride: true },
     );
-    return { success: true };
+    return { success: true, pending: true };
   },
 });
 

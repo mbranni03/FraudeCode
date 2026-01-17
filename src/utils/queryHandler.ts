@@ -11,6 +11,8 @@ import grepTool from "@/agent/tools/grepTool";
 import globTool from "@/agent/tools/globTool";
 import contextSubAgentTool from "@/agent/subagents/contextSubAgent";
 import PLANNING_PROMPT from "@/agent/planning.txt";
+import pendingChanges from "@/agent/pendingChanges";
+import useSettingsStore from "@/store/useSettingsStore";
 
 const { updateOutput } = useFraudeStore.getState();
 
@@ -37,7 +39,7 @@ export default async function QueryHandler(query: string) {
   resetStreamState();
 
   const agent = new Agent({
-    model: "llama3.1:latest",
+    model: useSettingsStore.getState().generalModel,
     systemPrompt: "You are a helpful assistant.",
     tools: { readTool, bashTool, writeTool, editTool, grepTool, globTool },
     temperature: 0.7,
@@ -61,6 +63,13 @@ export default async function QueryHandler(query: string) {
       log(JSON.stringify(chunk, null, 2));
       handleStreamChunk(chunk as Record<string, unknown>);
     }
+
+    if (pendingChanges.hasChanges()) {
+      useFraudeStore.setState({ status: 3, statusText: "Reviewing Changes" });
+      updateOutput("confirmation", JSON.stringify({}));
+    } else {
+      updateOutput("done", "Task Completed");
+    }
   } catch (error) {
     log(error);
     updateOutput(
@@ -68,11 +77,13 @@ export default async function QueryHandler(query: string) {
       `Error: ${error instanceof Error ? error.message : String(error)}`,
     );
   } finally {
-    // Always reset status when done (whether success, error, or abort)
-    useFraudeStore.setState({
-      status: 0,
-      abortController: null,
-      statusText: "",
-    });
+    // Only reset status if not in reviewing mode
+    if (useFraudeStore.getState().status !== 3) {
+      useFraudeStore.setState({
+        status: 0,
+        abortController: null,
+        statusText: "",
+      });
+    }
   }
 }

@@ -56,7 +56,7 @@ const InputBoxComponent = () => {
       (filteredTemplates[0]?.usage.toLowerCase() ===
         currentInput.toLowerCase() ||
         filteredTemplates[0]?.renderedOptions?.find(
-          (option) => option.toLowerCase() === currentInput.toLowerCase()
+          (option) => option.toLowerCase() === currentInput.toLowerCase(),
         ))
     )
       return [];
@@ -78,7 +78,7 @@ const InputBoxComponent = () => {
         dropdownSuggestion.renderedOptions &&
         dropdownSuggestion.renderedOptions.length > 0
           ? dropdownSuggestion.renderedOptions.find((option) =>
-              option.startsWith(currentInput)
+              option.startsWith(currentInput),
             )
           : dropdownSuggestion.usage;
       if (renderedSuggestion) {
@@ -124,13 +124,13 @@ const InputBoxComponent = () => {
     if (currentInput.startsWith("/") && dropdownSuggestions.length > 1) {
       if (key.upArrow) {
         setSelectedIndex((prev) =>
-          prev > 0 ? prev - 1 : dropdownSuggestions.length - 1
+          prev > 0 ? prev - 1 : dropdownSuggestions.length - 1,
         );
         return;
       }
       if (key.downArrow) {
         setSelectedIndex((prev) =>
-          prev < dropdownSuggestions.length - 1 ? prev + 1 : 0
+          prev < dropdownSuggestions.length - 1 ? prev + 1 : 0,
         );
         return;
       }
@@ -197,6 +197,9 @@ const InputBoxComponent = () => {
         return "Ask";
     }
   };
+
+  const status = useFraudeStore((state) => state.status);
+  if (status === 3) return null;
 
   return (
     <Box flexDirection="column" padding={1}>

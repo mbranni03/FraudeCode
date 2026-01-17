@@ -7,7 +7,7 @@ interface FraudeStore {
   executionMode: 0 | 1 | 2; // 0 = Fast, 1 = Plan, 2 = Ask
   outputItems: OutputItem[];
   started: boolean;
-  status: number; // 0 = idle, 1 = running, -1 = interrupted
+  status: number; // 0 = idle, 1 = running, 3 = reviewing changes, -1 = interrupted
   elapsedTime: number;
   lastBreak: number;
   statusText?: string;

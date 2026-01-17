@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import useFraudeStore from "@/store/useFraudeStore";
 import { projectPath } from "@/utils";
+import pendingChanges from "@/agent/pendingChanges";
 
 import DESCRIPTION from "./descriptions/write.txt";
 const { updateOutput } = useFraudeStore.getState();
@@ -13,17 +14,14 @@ const writeTool = tool({
     content: z.string().describe("The content to write to the file"),
   }),
   execute: async ({ path, content }) => {
-    await Bun.write(path, content);
+    const change = await pendingChanges.addChange(path, content, "write");
+    const stats = pendingChanges.getDiffStats(change.diff);
     updateOutput(
       "toolCall",
-      JSON.stringify({
-        action: "Created New File",
-        details: projectPath(path),
-        result: content,
-      }),
-      { dontOverride: true }
+      `Staged write for ${projectPath(path)} (+${stats.added} / -${stats.removed} lines)`,
+      { dontOverride: true },
     );
-    return { success: true };
+    return { success: true, pending: true };
   },
 });
 
