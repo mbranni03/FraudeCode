@@ -76,6 +76,10 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
     // }
 
     case "text-delta":
+      const lastItem = store.outputItems[store.outputItems.length - 1];
+      if (lastItem?.type === "toolCall") {
+        state.agentText = "";
+      }
       state.agentText += chunk.text as string;
       updateOutput("agentText", state.agentText);
       break;
@@ -92,7 +96,7 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
       const elapsed = store.elapsedTime;
       updateOutput(
         "done",
-        `Finished in ${formatDuration(elapsed * 100).toFixed(1)}s`
+        `Finished in ${formatDuration(elapsed * 100).toFixed(1)}s`,
       );
       resetState();
       break;

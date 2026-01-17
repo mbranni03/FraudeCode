@@ -16,13 +16,13 @@ const bashTool = tool({
     workdir: z
       .string()
       .describe(
-        `The working directory to run the command in. Defaults to ${process.cwd()}. Use this instead of 'cd' commands.`
+        `The working directory to run the command in. Defaults to ${process.cwd()}. Use this instead of 'cd' commands.`,
       )
       .optional(),
     description: z
       .string()
       .describe(
-        "Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'"
+        "Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'",
       ),
   }),
   execute: async ({
@@ -49,7 +49,7 @@ const bashTool = tool({
           details: command,
           result: "",
         }),
-        { dontOverride: true }
+        { dontOverride: true },
       );
 
       const proc = Bun.spawn(["sh", "-c", command], {
@@ -76,7 +76,7 @@ const bashTool = tool({
           action: "Bash",
           details: command,
           result: stdout.trim(),
-        })
+        }),
       );
       return {
         stdout: stdout.trim(),

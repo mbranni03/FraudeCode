@@ -84,7 +84,7 @@ export default function ConfirmationView() {
           {changes?.map((change) => (
             <Box key={change.id} flexDirection="column" marginBottom={1}>
               <Text dimColor>Type: {change.type}</Text>
-              <DiffView diff={change.diff} />
+              <DiffView patches={[change.diff]} />
             </Box>
           ))}
         </Box>
@@ -147,12 +147,7 @@ export default function ConfirmationView() {
   ];
 
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      borderColor="yellow"
-      padding={1}
-    >
+    <Box flexDirection="column" padding={1}>
       <Text bold color="yellow">
         Pending Changes Summary
       </Text>
@@ -160,22 +155,15 @@ export default function ConfirmationView() {
         {filePaths.map((path) => {
           const changes = groupedChanges[path];
           const type = changes?.[0]?.type || "unknown";
-          // Combine diffs if multiple changes to same file
-          const diffContent = changes?.map((c) => c.diff).join("\n") || "";
+          // Collect all patches for this file
+          const patches = changes?.map((c) => c.diff) || [];
 
           return (
-            <Box
-              key={path}
-              flexDirection="column"
-              marginBottom={1}
-              borderStyle="single"
-              borderColor="gray"
-              padding={1}
-            >
+            <Box key={path} flexDirection="column" marginBottom={1}>
               <Text bold>
                 {projectPath(path)} <Text dimColor>({type})</Text>
               </Text>
-              <DiffView diff={diffContent} />
+              <DiffView patches={patches} />
             </Box>
           );
         })}

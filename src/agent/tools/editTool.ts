@@ -29,7 +29,11 @@ const editTool = tool({
     const stats = pendingChanges.getDiffStats(change.diff);
     updateOutput(
       "toolCall",
-      `Edited ${projectPath(path)} (+${stats.added} / -${stats.removed})`,
+      JSON.stringify({
+        action: "Edited File",
+        details: path,
+        result: `(+${stats.added} / -${stats.removed})`,
+      }),
       { dontOverride: true },
     );
     return { success: true };

@@ -18,7 +18,11 @@ const writeTool = tool({
     const stats = pendingChanges.getDiffStats(change.diff);
     updateOutput(
       "toolCall",
-      `Created ${projectPath(path)} (+${stats.added} / -${stats.removed})`,
+      JSON.stringify({
+        action: "Created File",
+        details: path,
+        result: `(+${stats.added} / -${stats.removed})`,
+      }),
       { dontOverride: true },
     );
     return { success: true };

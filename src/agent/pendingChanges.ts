@@ -1,6 +1,23 @@
-import { createPatch } from "diff";
+import { structuredPatch } from "diff";
 import { projectPath } from "@/utils";
 import log from "@/utils/logger";
+
+export interface Hunk {
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  lines: string[];
+  linedelimiters?: string[];
+}
+
+export interface DiffPatch {
+  oldFileName?: string;
+  newFileName?: string;
+  oldHeader?: string;
+  newHeader?: string;
+  hunks: Hunk[];
+}
 
 export interface PendingChange {
   id: string;
@@ -8,7 +25,7 @@ export interface PendingChange {
   type: "edit" | "write";
   originalContent: string | null;
   newContent: string;
-  diff: string;
+  diff: DiffPatch;
   feedback?: string;
 }
 
@@ -25,12 +42,13 @@ class PendingChangesManager {
     // Create unified diff
     // For new files, originalContent is empty string.
     // We use path as both old and new filename for the patch header
-    const diff = createPatch(
+    const diff = structuredPatch(
+      projectPath(path),
       projectPath(path),
       originalContent || "",
       newContent,
-      originalContent ? "Original" : "New File",
-      originalContent ? "Modified" : "New Content",
+      "",
+      "",
       { context: 2 },
     );
 
@@ -134,14 +152,14 @@ class PendingChangesManager {
     return "";
   }
 
-  public getDiffStats(diff: string): { added: number; removed: number } {
-    const lines = diff.split("\n");
+  public getDiffStats(diff: DiffPatch): { added: number; removed: number } {
     let added = 0;
     let removed = 0;
-    for (const line of lines) {
-      if (line.startsWith("+++") || line.startsWith("---")) continue;
-      if (line.startsWith("+")) added++;
-      if (line.startsWith("-")) removed++;
+    for (const hunk of diff.hunks) {
+      for (const line of hunk.lines) {
+        if (line.startsWith("+")) added++;
+        if (line.startsWith("-")) removed++;
+      }
     }
     return { added, removed };
   }
