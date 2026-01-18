@@ -100,14 +100,14 @@ class Settings {
       case "win32":
         return join(
           process.env.APPDATA || join(home, "AppData", "Roaming"),
-          appName
+          appName,
         );
       case "darwin":
         return join(home, "Library", "Application Support", appName);
       case "linux":
         return join(
           process.env.XDG_CONFIG_HOME || join(home, ".config"),
-          appName
+          appName,
         );
       default:
         return join(home, `.${appName}`);
@@ -132,7 +132,7 @@ class Settings {
       if (!result.success) {
         console.error(
           "Invalid settings found, using defaults:",
-          result.error.format()
+          result.error.format(),
         );
         return SettingsSchema.parse({});
       }
@@ -175,8 +175,10 @@ const UpdateSettings = async (updates: Partial<Config>) => {
 
 const addHistory = async (value: string) => {
   const history = Settings.getInstance().get("history");
-  const newHistory = [value, ...history].slice(0, 50);
-  await UpdateSettings({ history: newHistory });
+  if (value.trim().toLowerCase() != history[0]?.trim().toLowerCase()) {
+    const newHistory = [value, ...history].slice(0, 50);
+    await UpdateSettings({ history: newHistory });
+  }
 };
 
 export default Settings;
