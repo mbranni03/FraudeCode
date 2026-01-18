@@ -1,18 +1,13 @@
 import useFraudeStore from "@/store/useFraudeStore";
 import CommandCenter from "@/commands";
 import { Agent } from "@/agent";
-import readTool from "@/agent/tools/readTool";
-import bashTool from "@/agent/tools/bashTool";
-import writeTool from "@/agent/tools/writeTool";
 import log from "./logger";
 import { handleStreamChunk, resetStreamState } from "./streamHandler";
-import editTool from "@/agent/tools/editTool";
-import grepTool from "@/agent/tools/grepTool";
-import globTool from "@/agent/tools/globTool";
-import contextSubAgentTool from "@/agent/subagents/contextSubAgent";
-import PLANNING_PROMPT from "@/agent/planning.txt";
 import pendingChanges from "@/agent/pendingChanges";
 import useSettingsStore from "@/store/useSettingsStore";
+import planTool from "@/agent/tools/planTool";
+import todoTool from "@/agent/tools/todoTool";
+import researchSubAgentTool from "@/agent/subagents/researchSubAgent";
 
 const { updateOutput } = useFraudeStore.getState();
 
@@ -38,11 +33,31 @@ export default async function QueryHandler(query: string) {
   });
   resetStreamState();
 
-  const agent = new Agent({
+  const managerPrompt = `You are the Lead Architect and Project Manager.
+Your goal is to complete the user's request by orchestrating a team of specialized sub-agents.
+
+**CORE RULES:**
+1.  **DO NOT CODE.** You cannot edit files or run terminal commands. You must delegate these tasks to the 'Coder' agent.
+2.  **DO NOT GUESS.** If you need to know where a file is or how it works, delegate to the 'Researcher' agent.
+3.  **MAINTAIN THE PLAN.** Before taking any action, check the current state of the project plan. Update it as tasks are finished.
+
+**YOUR TEAM:**
+- **Researcher:** Cheap, fast, read-only. Use this to map out the codebase, find file paths, and understand logic.
+- **Coder:** Expensive, precise, write-access. Use this to apply edits, run tests, and verify fixes. Only give the Coder small, well-defined tasks.
+
+**WORKFLOW:**
+1.  Receive user request.
+2.  (Optional) Ask Researcher to gather context if you don't know the file structure.
+3.  Update the Plan (break request into steps).
+4.  Delegate the first step to the Coder.
+5.  Review Coder's output. If successful, move to next step.`;
+
+  const managerAgent = new Agent({
     model: useSettingsStore.getState().generalModel,
-    systemPrompt: "You are a helpful assistant.",
-    tools: { readTool, bashTool, writeTool, editTool, grepTool, globTool },
+    systemPrompt: managerPrompt,
+    tools: { planTool, todoTool, researchSubAgentTool },
     temperature: 0.7,
+    maxSteps: 20,
   });
 
   // const agent = new Agent({
@@ -53,7 +68,9 @@ export default async function QueryHandler(query: string) {
   // });
 
   try {
-    const stream = agent.stream(query, { abortSignal: abortController.signal });
+    const stream = managerAgent.stream(query, {
+      abortSignal: abortController.signal,
+    });
     for await (const chunk of stream.stream) {
       // Check if aborted between chunks
       if (abortController.signal.aborted) {

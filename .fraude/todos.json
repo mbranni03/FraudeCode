@@ -1,0 +1,22 @@
+{
+  "todos": [
+    {
+      "id": "mkk9qyy6gzmlu",
+      "description": "Create combined Python script sample/combined.py that merges utils.py, main.py, and sample.py, fixing the missing subtract call.",
+      "status": "pending",
+      "context": {
+        "files": [
+          "sample/utils.py",
+          "sample/main.py",
+          "sample/sample.py"
+        ],
+        "instructions": "Write a new file sample/combined.py containing:\n- The add, multiply, divide functions, CONSTANT_VALUE, and Greeter class from utils.py.\n- The DataProcessor class from sample.py.\n- The calculate, power, and run functions from main.py, but replace the call to utils.subtract (which does not exist) with a valid operation (e.g., utils.add or a custom subtraction).\n- Include a standard `if __name__ == \"__main__\": run()` block.\n- Ensure the script runs without import errors and prints the greeting and result when executed.\nAfter writing the file, execute `python sample/combined.py` to verify it works."
+      },
+      "notes": [
+        "First step of the condensation."
+      ],
+      "createdAt": "2026-01-18T21:49:15.246Z",
+      "updatedAt": "2026-01-18T21:49:15.246Z"
+    }
+  ]
+}

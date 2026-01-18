@@ -1,0 +1,3 @@
+Manage the project plan. 
+ALWAYS read this at the start of a turn to see what is left to do.
+Update this when a sub-agent completes a task.
