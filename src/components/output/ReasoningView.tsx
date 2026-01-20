@@ -14,11 +14,11 @@ export default function ReasoningView({
       <Text dimColor italic>
         {content}
       </Text>
-      {duration && (
+      {duration ? (
         <Text dimColor bold>
           Thought for {duration.toFixed(1)}s
         </Text>
-      )}
+      ) : null}
     </Box>
   );
 }

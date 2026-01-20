@@ -8,6 +8,7 @@ import useSettingsStore from "@/store/useSettingsStore";
 import planTool from "@/agent/tools/planTool";
 import todoTool from "@/agent/tools/todoTool";
 import researchSubAgentTool from "@/agent/subagents/researchSubAgent";
+import workerSubAgentTool from "@/agent/subagents/workerSubAgent";
 
 const { updateOutput } = useFraudeStore.getState();
 
@@ -37,25 +38,32 @@ export default async function QueryHandler(query: string) {
 Your goal is to complete the user's request by orchestrating a team of specialized sub-agents.
 
 **CORE RULES:**
-1.  **DO NOT CODE.** You cannot edit files or run terminal commands. You must delegate these tasks to the 'Coder' agent.
+1.  **DO NOT CODE.** You cannot edit files or run terminal commands. You must delegate these tasks to the 'Worker' agent.
 2.  **DO NOT GUESS.** If you need to know where a file is or how it works, delegate to the 'Researcher' agent.
 3.  **MAINTAIN THE PLAN.** Before taking any action, check the current state of the project plan. Update it as tasks are finished.
 
 **YOUR TEAM:**
 - **Researcher:** Cheap, fast, read-only. Use this to map out the codebase, find file paths, and understand logic.
-- **Coder:** Expensive, precise, write-access. Use this to apply edits, run tests, and verify fixes. Only give the Coder small, well-defined tasks.
+- **Worker:** Expensive, precise, write-access. Use this to apply edits. Only give the Worker small, well-defined tasks.
 
 **WORKFLOW:**
-1.  Receive user request.
-2.  (Optional) Ask Researcher to gather context if you don't know the file structure.
-3.  Update the Plan (break request into steps).
-4.  Delegate the first step to the Coder.
-5.  Review Coder's output. If successful, move to next step.`;
+1. Receive user request.
+2. Use your researcher to answer any questions you have regarding the user's request and the codebase.
+3. Consider the context and the user's request and create a plan using the plan tool.
+4. Use the todos tool. List todos to view current tasks. If unrelated, clear todos. Add todos if needed to create granular tasks.
+5. While there are pending tasks, use the todos tool to get the next task and delegate it to the worker.
+6. Once the worker is done, update the plan and the todos tool to reflect the changes.
+7. Repeat steps 5-6 until the user's request is completed.
+
+**IMPORTANT:**
+- If the user asks to continue and a plan already exists, use the todos tool to get the next task and delegate it to the worker.
+- Skip workflow steps 2-4 if a plan already exists.
+`;
 
   const managerAgent = new Agent({
     model: useSettingsStore.getState().generalModel,
     systemPrompt: managerPrompt,
-    tools: { planTool, todoTool, researchSubAgentTool },
+    tools: { planTool, todoTool, researchSubAgentTool, workerSubAgentTool },
     temperature: 0.7,
     maxSteps: 20,
   });

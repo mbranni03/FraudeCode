@@ -21,3 +21,5 @@ Condense the three Python example files under `sample/` (`utils.py`, `main.py`, 
 ---
 
 *All further actions will be delegated to the Coder agent.*
+
+- Completed creation of combined script `sample/combined.py` with subtract fix.

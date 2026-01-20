@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import path from "path";
 import useFraudeStore from "@/store/useFraudeStore";
+import DESCRIPTION from "./descriptions/todo.txt";
 
 const { updateOutput } = useFraudeStore.getState();
 
@@ -51,19 +52,10 @@ function generateId(): string {
 }
 
 const todoTool = tool({
-  description: `Manage tasks for worker agents.
-
-Operations:
-- "add": Create task with description, context (files + instructions), and optional notes
-- "get-next": Get the next pending task for a worker to execute
-- "update": Update task status or add notes
-- "complete": Mark task done with optional completion note
-- "list": Get all tasks with summary
-- "clear": Remove completed tasks`,
-
+  description: DESCRIPTION,
   inputSchema: z.object({
     operation: z
-      .enum(["add", "get-next", "update", "complete", "list", "clear"])
+      .enum(["add", "next", "update", "complete", "list", "clear"])
       .describe("The operation to perform"),
     id: z
       .string()
@@ -119,7 +111,7 @@ Operations:
         return { success: true, id: newTodo.id };
       }
 
-      case "get-next": {
+      case "next": {
         const nextTodo = state.todos.find((t) => t.status === "pending");
         if (!nextTodo) {
           return { done: true, message: "All tasks complete" };

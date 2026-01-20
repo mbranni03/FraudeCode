@@ -11,7 +11,9 @@ const { updateOutput } = useFraudeStore.getState();
 const readTool = tool({
   description: DESCRIPTION,
   inputSchema: z.object({
-    filePath: z.string().describe("The path to the file to read"),
+    filePath: z
+      .string()
+      .describe("The path to the file to read. Base path is the project root."),
     offset: z.coerce
       .number()
       .describe("The line number to start reading from (0-based)")
@@ -41,7 +43,7 @@ const readTool = tool({
       updateOutput(
         "toolCall",
         JSON.stringify({
-          action: "Error Reading" + projectPath(filePath),
+          action: "Error Reading " + projectPath(filePath),
           details: "File doesn't exist",
           result: "",
         }),
