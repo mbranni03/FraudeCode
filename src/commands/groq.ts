@@ -49,7 +49,11 @@ export const addGroqModel = async (model: string) => {
     modified_at: new Date(modelData.created * 1000).toISOString(),
     digest: modelData.id,
     capabilities: [],
-    usage: 0,
+    usage: {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    },
     details: {
       context_length: modelData.context_window,
     },
@@ -58,7 +62,7 @@ export const addGroqModel = async (model: string) => {
   const savedModels = useSettingsStore.getState().models || [];
 
   const existingIndex = savedModels.findIndex(
-    (m) => m.name === newModel.name && m.type === "groq"
+    (m) => m.name === newModel.name && m.type === "groq",
   );
 
   if (existingIndex >= 0) {

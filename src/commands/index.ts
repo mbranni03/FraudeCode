@@ -16,6 +16,9 @@ class CommandCenter {
       case "context":
         updateOutput("settings", "/context");
         break;
+      case "usage":
+        updateOutput("settings", "/usage");
+        break;
       case "model":
       case "openrouter":
       case "ollama":
@@ -36,7 +39,7 @@ class CommandCenter {
   getCommandHelp(commandName?: string): string {
     if (commandName) {
       const cmd = COMMANDS.find(
-        (c) => c.name.toLowerCase() === commandName.toLowerCase()
+        (c) => c.name.toLowerCase() === commandName.toLowerCase(),
       );
       if (cmd) {
         let help = `\n/${cmd.name} - ${cmd.description}\n`;

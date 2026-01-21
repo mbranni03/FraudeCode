@@ -230,6 +230,7 @@ export default class Agent {
   private config: AgentConfig;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private model: any;
+  private rawModel: string;
 
   constructor(config: AgentConfig) {
     this.config = {
@@ -240,6 +241,7 @@ export default class Agent {
       ...config,
     };
     this.model = getModel(config.model);
+    this.rawModel = config.model;
   }
 
   // ==========================================================================
@@ -313,7 +315,7 @@ export default class Agent {
     contextManager.addContext(result.response.messages);
 
     const response = this.mapResponse(result);
-    await incrementModelUsage(this.model, response.usage);
+    await incrementModelUsage(this.rawModel, response.usage);
     return response;
   }
 
@@ -549,7 +551,7 @@ export default class Agent {
   }
 
   getModel(): string {
-    return this.config.model;
+    return this.rawModel;
   }
 
   /**

@@ -7,7 +7,6 @@ import { ModelSchema } from "../types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 
 const SettingsSchema = z.object({
-  lifetimeTokenUsage: z.number().default(0),
   lastOpened: z.iso.datetime().optional(),
   ollamaUrl: z.string().default("http://localhost:11434"),
   thinkerModel: z.string().default("qwen3:8b"),
@@ -207,6 +206,7 @@ const incrementModelUsage = async (
         totalTokens: (model.usage?.totalTokens ?? 0) + usage.total,
       },
     };
+    log(JSON.stringify(models, null, 2));
     await UpdateSettings({ models });
   }
 };
