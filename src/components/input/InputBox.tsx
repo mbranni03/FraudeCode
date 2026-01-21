@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useApp, Box, Text, useInput } from "ink";
 import { TextInput } from "@inkjs/ui";
 import QueryHandler from "@/utils/queryHandler";
@@ -7,6 +7,8 @@ import useFraudeStore from "@/store/useFraudeStore";
 import CommandCenter from "@/commands";
 import { addHistory } from "@/config/settings";
 import CommandSuggestions from "./CommandSuggestions";
+import FileSuggestions from "./FileSuggestions";
+import { getFileSuggestions } from "@/utils/fileSuggestions";
 import { shortenPath } from "@/utils";
 
 const InputBoxComponent = () => {
@@ -15,11 +17,16 @@ const InputBoxComponent = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [currentInput, setCurrentInput] = useState("");
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [allFiles, setAllFiles] = useState<string[]>([]);
+  const [scrollOffset, setScrollOffset] = useState(0);
+
+  useEffect(() => {
+    getFileSuggestions(process.cwd()).then(setAllFiles);
+  }, []);
 
   const history = useSettingsStore((state) => state.history);
   const models = useSettingsStore((state) => state.models);
   const modelNames = useMemo(() => models.map((m) => m.name).sort(), [models]);
-
   const MAX_VISIBLE_SUGGESTIONS = 5;
 
   const suggestions = useMemo(() => {
@@ -38,6 +45,22 @@ const InputBoxComponent = () => {
     return suggestions;
   }, [modelNames]);
 
+  const fileTokenMatch = useMemo(
+    () => currentInput.match(/@([^ ]*)$/),
+    [currentInput],
+  );
+  const isFileMode = !!fileTokenMatch;
+  const fileQuery = fileTokenMatch ? fileTokenMatch[1] : "";
+  const filePrefix = fileTokenMatch
+    ? currentInput.slice(0, fileTokenMatch.index! + 1)
+    : "";
+
+  const fileDropdownSuggestions = useMemo(() => {
+    if (!isFileMode || !allFiles.length) return [];
+    return allFiles.filter((f) =>
+      f.toLowerCase().includes(fileQuery!.toLowerCase()),
+    );
+  }, [isFileMode, allFiles, fileQuery]);
   const dropdownSuggestions = useMemo(() => {
     if (!currentInput.startsWith("/")) return [];
     const filteredTemplates = suggestions
@@ -88,8 +111,25 @@ const InputBoxComponent = () => {
         ];
       }
     }
+
+    // File suggestions
+    if (isFileMode && fileDropdownSuggestions.length > 0) {
+      const selectedFile = fileDropdownSuggestions[selectedIndex];
+      if (selectedFile) {
+        return [filePrefix + selectedFile + " "];
+      }
+    }
+
     return allSuggestions;
-  }, [suggestions, dropdownSuggestions, selectedIndex, currentInput]);
+  }, [
+    suggestions,
+    dropdownSuggestions,
+    selectedIndex,
+    currentInput,
+    isFileMode,
+    fileDropdownSuggestions,
+    filePrefix,
+  ]);
 
   // Calculate what ghost text the TextInput is ACTUALLY showing
   // This mirrors TextInput's internal logic: first suggestion that starts with input
@@ -136,6 +176,31 @@ const InputBoxComponent = () => {
       }
     }
 
+    // Input starts with @ (or contains @ at end)
+    if (isFileMode && fileDropdownSuggestions.length > 1) {
+      const listLen = fileDropdownSuggestions.length;
+      if (key.upArrow) {
+        const newIndex = selectedIndex > 0 ? selectedIndex - 1 : listLen - 1;
+        setSelectedIndex(newIndex);
+        if (newIndex < scrollOffset) {
+          setScrollOffset(newIndex);
+        } else if (newIndex >= scrollOffset + MAX_VISIBLE_SUGGESTIONS) {
+          setScrollOffset(newIndex - MAX_VISIBLE_SUGGESTIONS + 1);
+        }
+        return;
+      }
+      if (key.downArrow) {
+        const newIndex = selectedIndex < listLen - 1 ? selectedIndex + 1 : 0;
+        setSelectedIndex(newIndex);
+        if (newIndex >= scrollOffset + MAX_VISIBLE_SUGGESTIONS) {
+          setScrollOffset(newIndex - MAX_VISIBLE_SUGGESTIONS + 1);
+        } else if (newIndex < scrollOffset) {
+          setScrollOffset(newIndex);
+        }
+        return;
+      }
+    }
+
     // // Otherwise, use arrow keys for history navigation
     // // Note: history[0] is the most recent item in useFraudeStore
     if (key.upArrow && history.length > 0) {
@@ -172,6 +237,7 @@ const InputBoxComponent = () => {
   const handleChange = useCallback((value: string) => {
     setCurrentInput(value);
     setSelectedIndex(0);
+    setScrollOffset(0);
   }, []);
 
   const processSubmit = () => {
@@ -224,13 +290,25 @@ const InputBoxComponent = () => {
         />
       ) : (
         <Box width={70} justifyContent="space-between" paddingX={1}>
-          <Text color="gray">{shortenPath(process.cwd())}</Text>
-          <Text color="cyan">
-            <Text bold>
-              {getExecutionMode(useFraudeStore.getState().executionMode)} (Tab
-              to Change)
-            </Text>
-          </Text>
+          {fileDropdownSuggestions.length > 0 ? (
+            <FileSuggestions
+              selectedIndex={selectedIndex - scrollOffset}
+              suggestions={fileDropdownSuggestions.slice(
+                scrollOffset,
+                scrollOffset + MAX_VISIBLE_SUGGESTIONS,
+              )}
+            />
+          ) : (
+            <>
+              <Text color="gray">{shortenPath(process.cwd())}</Text>
+              <Text color="cyan">
+                <Text bold>
+                  {getExecutionMode(useFraudeStore.getState().executionMode)}{" "}
+                  (Tab to Change)
+                </Text>
+              </Text>
+            </>
+          )}
         </Box>
       )}
     </Box>
