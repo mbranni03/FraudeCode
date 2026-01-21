@@ -6,6 +6,7 @@ import type {
   AsyncIterableStream,
   TextStreamPart,
 } from "ai";
+import type { TokenUsage } from "./TokenUsage";
 
 // ============================================================================
 // Agent Configuration Types
@@ -100,18 +101,12 @@ export interface StepInfo {
 // Agent Response Types
 // ============================================================================
 
-export interface AgentUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
-
 export interface AgentResponse {
   /** The final text response */
   text: string;
 
   /** Token usage statistics */
-  usage: AgentUsage;
+  usage: TokenUsage;
 
   /** Finish reason for the generation */
   finishReason: string;
@@ -142,7 +137,7 @@ export interface StructuredAgentResponse<T> {
   object: T;
 
   /** Token usage statistics */
-  usage: AgentUsage;
+  usage: TokenUsage;
 
   /** Finish reason for the generation */
   finishReason: string;

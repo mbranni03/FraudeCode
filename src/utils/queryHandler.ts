@@ -39,7 +39,13 @@ export default async function QueryHandler(query: string) {
     temperature: 0.7,
   });
 
-  await streamer(agent, query, abortController);
+  const response = await agent.chat(query, {
+    abortSignal: abortController.signal,
+  });
+
+  log(JSON.stringify(response, null, 2));
+
+  // await streamer(agent, query, abortController);
 
   // Only reset status if not in reviewing mode
   if (useFraudeStore.getState().status !== 3) {

@@ -10,7 +10,6 @@ export type {
   ToolResultInfo,
   StepInfo,
   SimpleMessage,
-  AgentUsage,
   AgentMessage,
   MessageRole,
   StructuredSchema,

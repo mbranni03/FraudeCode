@@ -12,34 +12,34 @@ import { getModel } from "@/providers/providers";
 import type {
   AgentConfig,
   AgentResponse,
-  ReasoningEffort,
   StreamingAgentResponse,
   StructuredAgentResponse,
   StructuredSchema,
   ToolCallInfo,
   ToolResultInfo,
   StepInfo,
-  AgentUsage,
 } from "@/types/Agent";
 import log from "@/utils/logger";
 import useFraudeStore from "@/store/useFraudeStore";
+import { incrementModelUsage } from "@/config/settings";
+import type { TokenUsage } from "@/types/TokenUsage";
 
 // ============================================================================
 // Helper to extract usage from SDK response
 // ============================================================================
 
-function extractUsage(usage: unknown): AgentUsage {
+function extractUsage(usage: unknown): TokenUsage {
   if (usage && typeof usage === "object") {
     const u = usage as Record<string, unknown>;
     return {
-      promptTokens: typeof u.inputTokens === "number" ? u.inputTokens : 0,
-      completionTokens: typeof u.outputTokens === "number" ? u.outputTokens : 0,
-      totalTokens:
+      prompt: typeof u.inputTokens === "number" ? u.inputTokens : 0,
+      completion: typeof u.outputTokens === "number" ? u.outputTokens : 0,
+      total:
         (typeof u.inputTokens === "number" ? u.inputTokens : 0) +
         (typeof u.outputTokens === "number" ? u.outputTokens : 0),
     };
   }
-  return { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+  return { prompt: 0, completion: 0, total: 0 };
 }
 
 // ============================================================================
@@ -312,7 +312,9 @@ export default class Agent {
     // Update conversation history
     contextManager.addContext(result.response.messages);
 
-    return this.mapResponse(result);
+    const response = this.mapResponse(result);
+    await incrementModelUsage(this.model, response.usage);
+    return response;
   }
 
   /**
