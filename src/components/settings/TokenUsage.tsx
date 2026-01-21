@@ -3,48 +3,24 @@ import { useMemo } from "react";
 import type { Model, ProviderType } from "@/types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 
-// Theme colors (consistent with ModelList)
-const COLORS = {
-  accent: "#FF69B4", // Pink for highlights
-  header: "#87CEEB", // Sky blue for headers
-  muted: "gray",
-  dim: "gray",
+// Minimalist Theme
+const THEME = {
   text: "white",
-  progress: "#20B2AA", // Teal for progress bars
-  prompt: "#9370DB", // Purple for prompt tokens
-  completion: "#FF8C00", // Orange for completion tokens
-  total: "#ffc169", // Light orange for totals
+  dim: "gray",
+  accent: "cyan",
+  error: "red",
+  header: "#87CEEB", // Light Blue
+  barFilled: "cyan",
+  barEmpty: "gray",
 };
 
-// Provider display names and colors
-const PROVIDER_STYLES: Record<ProviderType, { name: string; color: string }> = {
-  groq: { name: "Groq", color: "#FF6B6B" },
-  openrouter: { name: "OpenRouter", color: "#4ECDC4" },
-  ollama: { name: "Ollama", color: "#95E1D3" },
-};
-
-// Format token count with K/M suffix
+// Format token count with K/M suffix (Compact)
 const formatTokens = (tokens: number): string => {
-  if (tokens >= 1_000_000) {
-    return `${(tokens / 1_000_000).toFixed(2)}M`;
-  }
-  if (tokens >= 10_000) {
-    return `${(tokens / 1_000).toFixed(1)}k`;
-  }
-  if (tokens >= 1_000) {
-    return `${(tokens / 1_000).toFixed(2)}k`;
-  }
+  if (tokens === 0) return "0";
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
+  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}k`;
   return tokens.toLocaleString();
 };
-
-// Calculate usage data per provider
-interface ProviderUsage {
-  provider: ProviderType;
-  models: ModelUsage[];
-  totalPrompt: number;
-  totalCompletion: number;
-  totalTokens: number;
-}
 
 interface ModelUsage {
   name: string;
@@ -52,374 +28,246 @@ interface ModelUsage {
   completionTokens: number;
   totalTokens: number;
   percentOfProvider: number;
-  percentOfTotal: number;
 }
 
-// Progress bar component
-interface ProgressBarProps {
-  percent: number;
-  width?: number;
-  color?: string;
+interface ProviderUsage {
+  provider: ProviderType;
+  models: ModelUsage[];
+  totalTokens: number;
+  percentOfTotal: number;
 }
 
 const ProgressBar = ({
   percent,
-  width = 20,
-  color = COLORS.progress,
-}: ProgressBarProps) => {
+  width = 15,
+}: {
+  percent: number;
+  width?: number;
+}) => {
   const safePercent = Math.min(100, Math.max(0, percent));
   const filled = Math.round((safePercent / 100) * width);
   const empty = width - filled;
 
   return (
     <Text>
-      <Text color={color}>{"█".repeat(filled)}</Text>
-      <Text color={COLORS.dim}>{"░".repeat(empty)}</Text>
+      <Text color={THEME.barFilled}>{"━".repeat(filled)}</Text>
+      <Text color={THEME.barEmpty}>{"─".repeat(empty)}</Text>
     </Text>
   );
 };
 
-// Model row in the usage table
-interface ModelRowProps {
-  model: ModelUsage;
-  maxNameWidth: number;
-}
+// Unified Column Widths
+const COL_WIDTHS = {
+  NAME: 24,
+  BAR: 18, // Widen for bar + text
+  TOTAL: 10,
+  BREAKDOWN: 24,
+};
 
-const ModelRow = ({ model, maxNameWidth }: ModelRowProps) => {
+const HeaderRow = () => (
+  <Box flexDirection="row" gap={2} marginBottom={0}>
+    <Box width={COL_WIDTHS.NAME}>
+      <Text color={THEME.dim}>Model Name</Text>
+    </Box>
+    <Box width={COL_WIDTHS.BAR}>
+      <Text color={THEME.dim}>% of Provider</Text>
+    </Box>
+    <Box width={COL_WIDTHS.TOTAL} justifyContent="flex-end">
+      <Text color={THEME.dim}>Total</Text>
+    </Box>
+    <Box width={COL_WIDTHS.BREAKDOWN} justifyContent="flex-end">
+      <Text color={THEME.dim}>Breakdown</Text>
+    </Box>
+  </Box>
+);
+
+const ModelRow = ({ model }: { model: ModelUsage }) => {
   return (
-    <Box flexDirection="row" gap={1}>
-      {/* Model name */}
-      <Box width={maxNameWidth}>
-        <Text color={COLORS.text} wrap="truncate-end">
+    <Box flexDirection="row" gap={2}>
+      {/* Name */}
+      <Box width={COL_WIDTHS.NAME}>
+        <Text color={THEME.text} wrap="truncate-end">
           {model.name}
         </Text>
       </Box>
 
-      {/* Progress bar for provider % */}
-      <Box width={12}>
-        <ProgressBar percent={model.percentOfProvider} width={10} />
+      {/* Bar */}
+      <Box width={COL_WIDTHS.BAR} flexDirection="row" gap={1}>
+        <ProgressBar percent={model.percentOfProvider} width={8} />
+        <Text color={THEME.dim}>{model.percentOfProvider.toFixed(0)}%</Text>
       </Box>
 
-      {/* Percentage */}
-      <Box width={6} justifyContent="flex-end">
-        <Text
-          color={model.percentOfProvider > 50 ? COLORS.accent : COLORS.muted}
-        >
-          {model.percentOfProvider.toFixed(1)}%
-        </Text>
-      </Box>
-
-      {/* Token breakdown */}
-      <Box width={10} justifyContent="flex-end">
-        <Text color={COLORS.prompt}>{formatTokens(model.promptTokens)}</Text>
-      </Box>
-      <Box width={1}>
-        <Text color={COLORS.dim}>/</Text>
-      </Box>
-      <Box width={10} justifyContent="flex-end">
-        <Text color={COLORS.completion}>
-          {formatTokens(model.completionTokens)}
-        </Text>
-      </Box>
-      <Box width={1}>
-        <Text color={COLORS.dim}>=</Text>
-      </Box>
-      <Box width={10} justifyContent="flex-end">
-        <Text color={COLORS.total} bold>
+      {/* Total */}
+      <Box width={COL_WIDTHS.TOTAL} justifyContent="flex-end">
+        <Text color={THEME.text} bold>
           {formatTokens(model.totalTokens)}
+        </Text>
+      </Box>
+
+      {/* Breakdown */}
+      <Box width={COL_WIDTHS.BREAKDOWN} justifyContent="flex-end">
+        <Text color={THEME.dim}>
+          P: {formatTokens(model.promptTokens)} · C:{" "}
+          {formatTokens(model.completionTokens)}
         </Text>
       </Box>
     </Box>
   );
 };
 
-// Provider section component
-interface ProviderSectionProps {
-  usage: ProviderUsage;
-  globalTotal: number;
-}
-
-const ProviderSection = ({ usage, globalTotal }: ProviderSectionProps) => {
-  const style = PROVIDER_STYLES[usage.provider];
-  const providerPercent =
-    globalTotal > 0 ? (usage.totalTokens / globalTotal) * 100 : 0;
-  const maxNameWidth = Math.max(20, ...usage.models.map((m) => m.name.length));
-
-  if (usage.models.length === 0 || usage.totalTokens === 0) {
-    return null;
-  }
+const ProviderSection = ({ usage }: { usage: ProviderUsage }) => {
+  if (usage.totalTokens === 0) return null;
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
-      {/* Provider header */}
+    <Box flexDirection="column" marginTop={1}>
       <Box marginBottom={0}>
-        <Text color={style.color} bold>
-          {style.name}
+        <Text bold color={THEME.header}>
+          {usage.provider.toUpperCase()}
+          <Text color={THEME.dim}>
+            {" "}
+            · {usage.percentOfTotal.toFixed(1)}% of all usage
+          </Text>
         </Text>
-        <Text color={COLORS.dim}> ─ </Text>
-        <Text color={COLORS.total} bold>
-          {formatTokens(usage.totalTokens)}
-        </Text>
-        <Text color={COLORS.dim}> tokens </Text>
-        <Text color={COLORS.accent}>({providerPercent.toFixed(1)}%</Text>
-        <Text color={COLORS.dim}> of total)</Text>
       </Box>
 
-      {/* Provider table */}
-      <Box
-        borderStyle="round"
-        borderColor={style.color}
-        flexDirection="column"
-        paddingX={1}
-      >
-        {/* Column headers */}
-        <Box flexDirection="row" gap={1}>
-          <Box width={maxNameWidth}>
-            <Text color={COLORS.dim}>Model</Text>
-          </Box>
-          <Box width={12}>
-            <Text color={COLORS.dim}>Usage</Text>
-          </Box>
-          <Box width={6} justifyContent="flex-end">
-            <Text color={COLORS.dim}>%</Text>
-          </Box>
-          <Box width={10} justifyContent="flex-end">
-            <Text color={COLORS.prompt}>Prompt</Text>
-          </Box>
-          <Box width={1}>
-            <Text color={COLORS.dim}> </Text>
-          </Box>
-          <Box width={10} justifyContent="flex-end">
-            <Text color={COLORS.completion}>Compl</Text>
-          </Box>
-          <Box width={1}>
-            <Text color={COLORS.dim}> </Text>
-          </Box>
-          <Box width={10} justifyContent="flex-end">
-            <Text color={COLORS.total}>Total</Text>
-          </Box>
-        </Box>
+      {/* Column Headers for this section */}
+      <HeaderRow />
 
-        {/* Separator */}
-        <Text color={COLORS.dim}>{"─".repeat(maxNameWidth + 55)}</Text>
-
-        {/* Model rows sorted by usage */}
+      <Box flexDirection="column">
         {usage.models
           .sort((a, b) => b.totalTokens - a.totalTokens)
           .map((model) => (
-            <ModelRow
-              key={model.name}
-              model={model}
-              maxNameWidth={maxNameWidth}
-            />
+            <ModelRow key={model.name} model={model} />
           ))}
       </Box>
     </Box>
   );
 };
 
-// Summary card at top
-interface SummaryCardProps {
-  totalTokens: number;
-  totalPrompt: number;
-  totalCompletion: number;
-  providerBreakdown: {
-    provider: ProviderType;
-    tokens: number;
-    percent: number;
-  }[];
-}
-
-const SummaryCard = ({
-  totalTokens,
-  totalPrompt,
-  totalCompletion,
-  providerBreakdown,
-}: SummaryCardProps) => {
-  return (
-    <Box
-      borderStyle="double"
-      borderColor={COLORS.accent}
-      flexDirection="column"
-      paddingX={2}
-      paddingY={0}
-      marginBottom={1}
-    >
-      <Box justifyContent="center">
-        <Text color={COLORS.header} bold>
-          ⚡ Token Usage Summary
-        </Text>
-      </Box>
-
-      <Box flexDirection="row" justifyContent="space-between" marginTop={0}>
-        {/* Total tokens */}
-        <Box flexDirection="column" alignItems="center" width="33%">
-          <Text color={COLORS.dim}>Total</Text>
-          <Text color={COLORS.total} bold>
-            {formatTokens(totalTokens)}
-          </Text>
-        </Box>
-
-        {/* Prompt tokens */}
-        <Box flexDirection="column" alignItems="center" width="33%">
-          <Text color={COLORS.dim}>Prompt</Text>
-          <Text color={COLORS.prompt} bold>
-            {formatTokens(totalPrompt)}
-          </Text>
-        </Box>
-
-        {/* Completion tokens */}
-        <Box flexDirection="column" alignItems="center" width="33%">
-          <Text color={COLORS.dim}>Completion</Text>
-          <Text color={COLORS.completion} bold>
-            {formatTokens(totalCompletion)}
-          </Text>
-        </Box>
-      </Box>
-
-      {/* Provider breakdown mini-bars */}
-      <Box marginTop={1} flexDirection="column">
-        <Text color={COLORS.dim}>Provider Breakdown:</Text>
-        <Box flexDirection="row" gap={2}>
-          {providerBreakdown
-            .filter((p) => p.tokens > 0)
-            .map((p) => (
-              <Box key={p.provider} flexDirection="row" gap={1}>
-                <Text color={PROVIDER_STYLES[p.provider].color} bold>
-                  {PROVIDER_STYLES[p.provider].name}
-                </Text>
-                <Text color={COLORS.muted}>{p.percent.toFixed(0)}%</Text>
-              </Box>
-            ))}
-        </Box>
-      </Box>
-    </Box>
-  );
-};
-
-// Main component
 const TokenUsage = () => {
   const { models } = useSettingsStore();
 
-  const { providerUsages, globalTotal, globalPrompt, globalCompletion } =
-    useMemo(() => {
-      let globalTotal = 0;
-      let globalPrompt = 0;
-      let globalCompletion = 0;
+  const stats = useMemo(() => {
+    let globalTotal = 0;
+    let globalPrompt = 0;
+    let globalCompletion = 0;
 
-      // Group models by provider
-      const grouped: Record<ProviderType, Model[]> = {
-        groq: [],
-        openrouter: [],
-        ollama: [],
+    const grouped: Record<ProviderType, Model[]> = {
+      groq: [],
+      openrouter: [],
+      ollama: [],
+    };
+
+    // Aggregate
+    for (const model of models) {
+      const provider = model.type || "ollama";
+      if (!grouped[provider]) grouped[provider] = []; // Safety
+      grouped[provider].push(model);
+
+      const u = model.usage || {
+        totalTokens: 0,
+        promptTokens: 0,
+        completionTokens: 0,
       };
+      globalTotal += u.totalTokens;
+      globalPrompt += u.promptTokens;
+      globalCompletion += u.completionTokens;
+    }
 
-      for (const model of models) {
-        const provider = model.type || "ollama";
-        grouped[provider].push(model);
-        globalTotal += model.usage?.totalTokens ?? 0;
-        globalPrompt += model.usage?.promptTokens ?? 0;
-        globalCompletion += model.usage?.completionTokens ?? 0;
-      }
+    // Process per provider
+    const providers: ProviderUsage[] = (
+      ["groq", "openrouter", "ollama"] as ProviderType[]
+    )
+      .map((provider) => {
+        const pModels = grouped[provider] || [];
+        let pTotal = 0;
 
-      // Calculate provider usage
-      const providerUsages: ProviderUsage[] = (
-        ["groq", "openrouter", "ollama"] as ProviderType[]
-      ).map((provider) => {
-        const providerModels = grouped[provider];
-        let totalPrompt = 0;
-        let totalCompletion = 0;
-        let totalTokens = 0;
-
-        providerModels.forEach((m) => {
-          totalPrompt += m.usage?.promptTokens ?? 0;
-          totalCompletion += m.usage?.completionTokens ?? 0;
-          totalTokens += m.usage?.totalTokens ?? 0;
-        });
-
-        const modelUsages: ModelUsage[] = providerModels
+        const mUsages: ModelUsage[] = pModels
           .filter((m) => (m.usage?.totalTokens ?? 0) > 0)
-          .map((m) => ({
-            name: m.name,
-            promptTokens: m.usage?.promptTokens ?? 0,
-            completionTokens: m.usage?.completionTokens ?? 0,
-            totalTokens: m.usage?.totalTokens ?? 0,
-            percentOfProvider:
-              totalTokens > 0
-                ? ((m.usage?.totalTokens ?? 0) / totalTokens) * 100
-                : 0,
-            percentOfTotal:
-              globalTotal > 0
-                ? ((m.usage?.totalTokens ?? 0) / globalTotal) * 100
-                : 0,
-          }));
+          .map((m) => {
+            const t = m.usage?.totalTokens ?? 0;
+            pTotal += t;
+            return {
+              name: m.name,
+              totalTokens: t,
+              promptTokens: m.usage?.promptTokens ?? 0,
+              completionTokens: m.usage?.completionTokens ?? 0,
+              percentOfProvider: 0, // Calc later
+            };
+          });
+
+        // Calc percents
+        mUsages.forEach(
+          (m) =>
+            (m.percentOfProvider =
+              pTotal > 0 ? (m.totalTokens / pTotal) * 100 : 0),
+        );
 
         return {
           provider,
-          models: modelUsages,
-          totalPrompt,
-          totalCompletion,
-          totalTokens,
+          models: mUsages,
+          totalTokens: pTotal,
+          percentOfTotal: globalTotal > 0 ? (pTotal / globalTotal) * 100 : 0,
         };
-      });
+      })
+      .filter((p) => p.totalTokens > 0)
+      .sort((a, b) => b.totalTokens - a.totalTokens);
 
-      return { providerUsages, globalTotal, globalPrompt, globalCompletion };
-    }, [models]);
+    return { globalTotal, globalPrompt, globalCompletion, providers };
+  }, [models]);
 
-  const providerBreakdown = providerUsages.map((p) => ({
-    provider: p.provider,
-    tokens: p.totalTokens,
-    percent: globalTotal > 0 ? (p.totalTokens / globalTotal) * 100 : 0,
-  }));
-
-  const hasAnyUsage = globalTotal > 0;
+  if (stats.globalTotal === 0) {
+    return (
+      <Box padding={1}>
+        <Text color={THEME.dim}>
+          No token usage data available. Start a chat to see stats!
+        </Text>
+      </Box>
+    );
+  }
 
   return (
-    <Box flexDirection="column" padding={1}>
-      {/* Summary at top */}
-      <SummaryCard
-        totalTokens={globalTotal}
-        totalPrompt={globalPrompt}
-        totalCompletion={globalCompletion}
-        providerBreakdown={providerBreakdown}
-      />
-
-      {/* Provider sections */}
-      {hasAnyUsage ? (
-        providerUsages.map((usage) => (
-          <ProviderSection
-            key={usage.provider}
-            usage={usage}
-            globalTotal={globalTotal}
-          />
-        ))
-      ) : (
-        <Box
-          borderStyle="round"
-          borderColor={COLORS.dim}
-          paddingX={2}
-          paddingY={1}
-          justifyContent="center"
-        >
-          <Text color={COLORS.dim} italic>
-            No token usage recorded yet. Start a conversation to track usage!
+    <Box flexDirection="column" paddingX={1} paddingY={1}>
+      {/* Header Stats */}
+      <Box
+        borderStyle="round"
+        borderColor={THEME.dim}
+        paddingX={1}
+        marginBottom={1}
+        justifyContent="space-between"
+      >
+        <Text color={THEME.text} bold>
+          Stats Overview
+        </Text>
+        <Box gap={2}>
+          <Text>
+            Total:{" "}
+            <Text color={THEME.accent} bold>
+              {formatTokens(stats.globalTotal)}
+            </Text>
+          </Text>
+          <Text color={THEME.dim}>
+            Prompt: {formatTokens(stats.globalPrompt)}
+          </Text>
+          <Text color={THEME.dim}>
+            Compl: {formatTokens(stats.globalCompletion)}
           </Text>
         </Box>
-      )}
+      </Box>
 
-      {/* Legend */}
-      <Box paddingX={1} marginTop={1} flexDirection="row" gap={2}>
-        <Text>
-          <Text color={COLORS.prompt}>■</Text>
-          <Text color={COLORS.dim}> Prompt</Text>
+      {/* Provider Lists */}
+      {stats.providers.map((p) => (
+        <ProviderSection key={p.provider} usage={p} />
+      ))}
+
+      {/* Legend Footer */}
+      <Box marginTop={1} paddingX={1} flexDirection="column">
+        <Text color={THEME.dim} italic>
+          • P / C = Prompt vs Completion tokens
         </Text>
-        <Text>
-          <Text color={COLORS.completion}>■</Text>
-          <Text color={COLORS.dim}> Completion</Text>
-        </Text>
-        <Text>
-          <Text color={COLORS.total}>■</Text>
-          <Text color={COLORS.dim}> Total</Text>
+        <Text color={THEME.dim} italic>
+          • % of Provider = How much this model contributed to that provider's
+          total cost/usage
         </Text>
       </Box>
     </Box>
