@@ -11,6 +11,15 @@ import type {
 // Agent Configuration Types
 // ============================================================================
 
+/** Reasoning effort levels for reasoning models (e.g., OpenAI o-series, GPT-5) */
+export type ReasoningEffort =
+  | "none"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh";
+
 export interface AgentConfig {
   /** Model identifier (e.g., "llama3.1:latest", "gpt-4", etc.) */
   model: string;
@@ -35,6 +44,17 @@ export interface AgentConfig {
 
   /** Whether to automatically execute tools (default: true) */
   autoExecuteTools?: boolean;
+
+  /**
+   * Reasoning effort for reasoning models (OpenAI o-series, GPT-5, etc.)
+   * - 'none': No reasoning (only GPT-5.1 models)
+   * - 'minimal': Minimal reasoning
+   * - 'low': Low reasoning effort
+   * - 'medium': Medium reasoning effort (default)
+   * - 'high': High reasoning effort
+   * - 'xhigh': Extra high reasoning (only GPT-5.1-Codex-Max)
+   */
+  reasoningEffort?: ReasoningEffort;
 
   /** Callback for streaming text chunks */
   onTextChunk?: (chunk: string) => void;

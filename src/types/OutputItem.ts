@@ -11,7 +11,8 @@ export type OutputItemType =
   | "reasoning"
   | "interrupted"
   | "toolCall"
-  | "agentText";
+  | "agentText"
+  | "modelSelect";
 
 export interface OutputItem {
   id: string;

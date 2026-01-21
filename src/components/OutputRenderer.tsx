@@ -11,6 +11,7 @@ import ReasoningView from "./output/ReasoningView";
 import ToolCallView from "./output/ToolCallView";
 import DiffView from "./output/DiffView";
 import ConfirmationView from "./output/ConfirmationView";
+import ModelSelectView from "./output/ModelSelectView";
 
 function renderItem(item: OutputItem) {
   switch (item.type) {
@@ -56,6 +57,8 @@ function renderItem(item: OutputItem) {
       return <DiffView diff={item.content} />;
     case "confirmation":
       return <ConfirmationView />;
+    case "modelSelect":
+      return <ModelSelectView />;
     default:
       return null;
   }

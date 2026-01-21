@@ -16,7 +16,7 @@ const bashTool = tool({
     workdir: z
       .string()
       .describe(
-        `The working directory to run the command in. Defaults to ${process.cwd()}. Use this instead of 'cd' commands.`,
+        `The working directory to run the command in. Defaults to project root ${process.cwd()}. Use this instead of 'cd' commands.`,
       )
       .optional(),
     description: z

@@ -20,7 +20,7 @@ interface TaskContext {
 interface TodoItem {
   id: string;
   description: string;
-  status: "pending" | "in-progress" | "completed";
+  status: "pending" | "in-progress" | "reviewing" | "completed";
   context?: TaskContext;
   notes: string[];
   createdAt: string;
@@ -75,7 +75,7 @@ const todoTool = tool({
       .optional()
       .describe("Pre-researched context for the worker (for add)"),
     status: z
-      .enum(["pending", "in-progress", "completed"])
+      .enum(["pending", "in-progress", "reviewing", "completed"])
       .optional()
       .describe("New status (for update)"),
     note: z.string().optional().describe("Note to append"),
