@@ -5,6 +5,8 @@ import log from "./logger";
 import { handleStreamChunk, resetStreamState } from "./streamHandler";
 import pendingChanges from "@/agent/pendingChanges";
 import useSettingsStore from "@/store/useSettingsStore";
+import { incrementModelUsage } from "@/config/settings";
+import type { TokenUsage } from "@/types/TokenUsage";
 
 const { updateOutput } = useFraudeStore.getState();
 
@@ -65,7 +67,12 @@ const streamer = async function* (
         break;
       }
       log(JSON.stringify(chunk, null, 2));
-      handleStreamChunk(chunk as Record<string, unknown>);
+      const usage: TokenUsage = handleStreamChunk(
+        chunk as Record<string, unknown>,
+      );
+
+      // Increment usage for the currently selected model
+      await incrementModelUsage(agent.getModel(), usage);
     }
 
     if (pendingChanges.hasChanges()) {

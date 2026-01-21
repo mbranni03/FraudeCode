@@ -10,7 +10,17 @@ export const ModelSchema = z.object({
   size: z.number().optional(),
   digest: z.string(),
   capabilities: z.array(z.string()).optional(),
-  usage: z.number().default(0),
+  usage: z
+    .object({
+      promptTokens: z.number().default(0),
+      completionTokens: z.number().default(0),
+      totalTokens: z.number().default(0),
+    })
+    .default({
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    }),
   details: z.object({
     format: z.string().optional(),
     family: z.string().optional(),

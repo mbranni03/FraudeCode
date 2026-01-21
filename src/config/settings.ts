@@ -181,6 +181,42 @@ const addHistory = async (value: string) => {
   }
 };
 
+/**
+ * Increment token usage for a specific model.
+ * @param modelName - The name of the model to update
+ * @param usage - Token usage data with prompt, completion, and total counts
+ */
+const incrementModelUsage = async (
+  modelName: string,
+  usage: { prompt: number; completion: number; total: number },
+): Promise<void> => {
+  if (usage.total <= 0) return;
+
+  const settings = Settings.getInstance();
+  const models = [...settings.get("models")];
+  const modelIndex = models.findIndex((m) => m.name === modelName);
+
+  if (modelIndex !== -1) {
+    const model = models[modelIndex]!;
+    models[modelIndex] = {
+      ...model,
+      usage: {
+        promptTokens: (model.usage?.promptTokens ?? 0) + usage.prompt,
+        completionTokens:
+          (model.usage?.completionTokens ?? 0) + usage.completion,
+        totalTokens: (model.usage?.totalTokens ?? 0) + usage.total,
+      },
+    };
+    await UpdateSettings({ models });
+  }
+};
+
 export default Settings;
 
-export { Settings, type Config, UpdateSettings, addHistory };
+export {
+  Settings,
+  type Config,
+  UpdateSettings,
+  addHistory,
+  incrementModelUsage,
+};

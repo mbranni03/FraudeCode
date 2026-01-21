@@ -546,6 +546,10 @@ export default class Agent {
     return { ...this.config };
   }
 
+  getModel(): string {
+    return this.config.model;
+  }
+
   /**
    * Switch to a different model
    */

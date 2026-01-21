@@ -1,5 +1,7 @@
 import useFraudeStore from "@/store/useFraudeStore";
 import log from "./logger";
+import { UpdateSettings } from "@/config/settings";
+import type { TokenUsage } from "@/types/TokenUsage";
 
 interface StreamState {
   reasoningText: string;
@@ -26,7 +28,7 @@ function formatDuration(ms: number): number {
   return ms / 1000;
 }
 
-export function handleStreamChunk(chunk: Record<string, unknown>): void {
+export function handleStreamChunk(chunk: Record<string, unknown>): TokenUsage {
   const { updateOutput } = useFraudeStore.getState();
   const store = useFraudeStore.getState();
 
@@ -70,7 +72,20 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
       if (finishReason === "stop" && state.agentText) {
         // Final text output is already displayed
       }
-      break;
+      const usage = (
+        chunk.usage as {
+          raw: {
+            prompt_tokens: number;
+            completion_tokens: number;
+            total_tokens: number;
+          };
+        }
+      ).raw;
+      return {
+        prompt: usage.prompt_tokens,
+        completion: usage.completion_tokens,
+        total: usage.total_tokens,
+      };
     }
 
     case "finish": {
@@ -93,6 +108,11 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
       // Ignore other chunk types (start-step, tool-input-*, etc.)
       break;
   }
+  return {
+    prompt: 0,
+    completion: 0,
+    total: 0,
+  };
 }
 
 export function resetStreamState() {
