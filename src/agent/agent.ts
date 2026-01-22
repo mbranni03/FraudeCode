@@ -3,7 +3,6 @@ import { getModel } from "@/providers/providers";
 import type {
   AgentConfig,
   AgentResponse,
-  StreamingAgentResponse,
   ToolCallInfo,
   ToolResultInfo,
   StepInfo,
@@ -258,7 +257,7 @@ export default class Agent {
   stream(
     input: string,
     options?: Partial<AgentConfig>,
-  ): StreamingAgentResponse {
+  ): Promise<AgentResponse> {
     const contextManager = useFraudeStore.getState().contextManager;
     const messages = contextManager.addContext(input);
     const mergedConfig = { ...this.config, ...options };
@@ -284,9 +283,7 @@ export default class Agent {
       onStepFinish: contextManager.processStep,
     });
 
-    return {
-      response: this.buildStreamingResponse(result, messages),
-    };
+    return this.buildStreamingResponse(result, messages);
   }
 
   // ==========================================================================
@@ -368,11 +365,11 @@ export default class Agent {
     messages: ModelMessage[],
   ): Promise<AgentResponse> {
     const contextManager = useFraudeStore.getState().contextManager;
-    // Wait for the stream to complete
-    const finalResult = await result;
 
-    // Note: Context is tracked incrementally in onStepFinish for error recovery
-
+    // Consume the stream - required for the promise to resolve
+    for await (const _ of result.textStream) {
+      // Stream chunks are handled by onChunk callback
+    }
     const text = await result.text;
     const usage = await result.usage;
     const finishReason = await result.finishReason;
@@ -397,7 +394,7 @@ export default class Agent {
       steps: mappedSteps,
       toolCalls,
       toolResults,
-      raw: finalResult,
+      raw: result,
     };
   }
 }

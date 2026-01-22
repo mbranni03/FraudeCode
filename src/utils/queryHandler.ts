@@ -35,37 +35,27 @@ export default async function QueryHandler(query: string) {
   const agent = new Agent({
     model: useSettingsStore.getState().generalModel,
     systemPrompt: "",
-    tools: {},
     temperature: 0.7,
   });
 
-  try {
-    const { response } = agent.stream(query, {
-      abortSignal: abortController.signal,
-      onStreamChunk: async (chunk) => {
-        log(JSON.stringify(chunk, null, 2));
-        const usage: TokenUsage = handleStreamChunk(
-          chunk as Record<string, unknown>,
-        );
-        await incrementModelUsage(agent.getModel(), usage);
-      },
-    });
+  const response = await agent.stream(query, {
+    abortSignal: abortController.signal,
+    onStreamChunk: async (chunk) => {
+      log(JSON.stringify(chunk, null, 2));
+      const usage: TokenUsage = handleStreamChunk(
+        chunk as Record<string, unknown>,
+      );
+      await incrementModelUsage(agent.getModel(), usage);
+    },
+  });
 
-    const result = await response;
-    log(JSON.stringify(result, null, 2));
+  log(JSON.stringify(response, null, 2));
 
-    if (pendingChanges.hasChanges()) {
-      useFraudeStore.setState({ status: 3, statusText: "Reviewing Changes" });
-      updateOutput("confirmation", JSON.stringify({}));
-    } else {
-      updateOutput("done", "Task Completed");
-    }
-  } catch (error) {
-    log(error);
-    updateOutput(
-      "error",
-      `Error: ${error instanceof Error ? error.message : String(error)}`,
-    );
+  if (pendingChanges.hasChanges()) {
+    useFraudeStore.setState({ status: 3, statusText: "Reviewing Changes" });
+    updateOutput("confirmation", JSON.stringify({}));
+  } else {
+    updateOutput("done", "Task Completed");
   }
 
   // Only reset status if not in reviewing mode

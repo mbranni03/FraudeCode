@@ -118,11 +118,6 @@ export interface AgentResponse {
   raw?: unknown;
 }
 
-export interface StreamingAgentResponse {
-  /** Promise that resolves to the full response when streaming completes */
-  response: Promise<AgentResponse>;
-}
-
 export interface StructuredAgentResponse<T> {
   /** The structured object matching the provided schema */
   object: T;

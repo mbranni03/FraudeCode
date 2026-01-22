@@ -15,11 +15,11 @@ class ContextManager {
     this.context = [];
   }
 
-  processStep(step: StepResult<ToolSet>) {
+  processStep = (step: StepResult<ToolSet>) => {
     if (step.response?.messages) {
       this.addContext(step.response.messages);
     }
-  }
+  };
 
   addContext(query: string | ModelMessage | ModelMessage[]) {
     if (typeof query === "string") {
