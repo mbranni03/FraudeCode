@@ -4,7 +4,6 @@ export { default as Agent } from "./agent";
 export type {
   AgentConfig,
   AgentResponse,
-  StreamingAgentResponse,
   StructuredAgentResponse,
   ToolCallInfo,
   ToolResultInfo,

@@ -3,7 +3,7 @@ import log from "../utils/logger";
 import { join } from "path";
 import { homedir, platform } from "os";
 import { rename, mkdir } from "fs/promises";
-import { ModelSchema } from "../types/Model";
+import { ModelSchema, parseModelUniqueId } from "../types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 
 const SettingsSchema = z.object({
@@ -182,18 +182,31 @@ const addHistory = async (value: string) => {
 
 /**
  * Increment token usage for a specific model.
- * @param modelName - The name of the model to update
+ * @param modelIdentifier - The model identifier (can be unique ID "name|type" or just "name")
  * @param usage - Token usage data with prompt, completion, and total counts
  */
 const incrementModelUsage = async (
-  modelName: string,
+  modelIdentifier: string,
   usage: { prompt: number; completion: number; total: number },
 ): Promise<void> => {
   if (usage.total <= 0) return;
 
   const settings = Settings.getInstance();
   const models = [...settings.get("models")];
-  const modelIndex = models.findIndex((m) => m.name === modelName);
+
+  // Try parsing as unique ID (name|type format)
+  const parsed = parseModelUniqueId(modelIdentifier);
+  let modelIndex: number;
+
+  if (parsed) {
+    // Match by both name and type
+    modelIndex = models.findIndex(
+      (m) => m.name === parsed.name && m.type === parsed.type,
+    );
+  } else {
+    // Fall back to name-only matching (legacy format)
+    modelIndex = models.findIndex((m) => m.name === modelIdentifier);
+  }
 
   if (modelIndex !== -1) {
     const model = models[modelIndex]!;
