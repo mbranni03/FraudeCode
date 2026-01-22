@@ -11,6 +11,8 @@ import FileSuggestions from "./FileSuggestions";
 import { getFileSuggestions } from "@/utils/fileSuggestions";
 import { shortenPath } from "@/utils";
 
+import { getModelDisplayId } from "@/types/Model";
+
 const InputBoxComponent = () => {
   const { exit } = useApp();
   const [inputKey, setInputKey] = useState(0);
@@ -26,7 +28,11 @@ const InputBoxComponent = () => {
 
   const history = useSettingsStore((state) => state.history);
   const models = useSettingsStore((state) => state.models);
-  const modelNames = useMemo(() => models.map((m) => m.name).sort(), [models]);
+  // Create display identifiers that include provider to differentiate same-name models
+  const modelNames = useMemo(
+    () => models.map((m) => getModelDisplayId(m)).sort(),
+    [models],
+  );
   const MAX_VISIBLE_SUGGESTIONS = 5;
 
   const suggestions = useMemo(() => {

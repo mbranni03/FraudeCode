@@ -9,9 +9,9 @@ import useSettingsStore from "@/store/useSettingsStore";
 const SettingsSchema = z.object({
   lastOpened: z.iso.datetime().optional(),
   ollamaUrl: z.string().default("http://localhost:11434"),
-  thinkerModel: z.string().default("qwen3:8b"),
-  generalModel: z.string().default("llama3.1:latest"),
-  lightWeightModel: z.string().default("llama3.1:latest"),
+  thinkerModel: z.string().default("qwen3:8b|ollama"),
+  generalModel: z.string().default("llama3.1:latest|ollama"),
+  lightWeightModel: z.string().default("llama3.1:latest|ollama"),
   models: z.array(ModelSchema).default([]),
   history: z.array(z.string()).default([]),
   openrouter_api_key: z.string().optional(),

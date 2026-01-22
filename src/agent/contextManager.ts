@@ -1,39 +1,87 @@
 import type { ModelMessage, StepResult, ToolSet } from "ai";
 
+// CONTEXT ORDER
+/**
+ * 1. Task Content
+ * 2. Tone
+ * 3. Data/Docs
+ * 4. Rules
+ * 5. Examples
+ * 6. History
+ * 7. Immediate Request
+ * 8. Think step by step
+ * 9. Format
+ */
+
+type ContextCategory =
+  | "task"
+  | "tone"
+  | "docs"
+  | "rules"
+  | "examples"
+  | "request"
+  | "reasoning"
+  | "format";
+
+const CONTEXT_ORDER: ContextCategory[] = [
+  "task",
+  "tone",
+  "docs",
+  "rules",
+  "examples",
+  "request",
+  "reasoning",
+  "format",
+];
+
 class ContextManager {
-  private context: ModelMessage[] = [];
+  private slots: Partial<Record<ContextCategory, string>> = {};
+  private history: ModelMessage[] = [];
 
   constructor(initialContext: ModelMessage[] = []) {
-    this.context = initialContext;
+    this.history = initialContext;
   }
 
-  getContext() {
-    return this.context;
+  getContext(): ModelMessage[] {
+    const ordered = CONTEXT_ORDER.map((cat) => this.slots[cat])
+      .filter(Boolean)
+      .map((content) => ({ role: "system", content }) as ModelMessage);
+    return [...ordered, ...this.history];
   }
 
   clearContext() {
-    this.context = [];
+    this.slots = {};
+    this.history = [];
   }
 
   processStep = (step: StepResult<ToolSet>) => {
     if (step.response?.messages) {
-      this.addContext(step.response.messages);
+      this.addHistory(step.response.messages);
     }
   };
 
-  addContext(query: string | ModelMessage | ModelMessage[]) {
+  setSlot(category: ContextCategory, content: string) {
+    this.slots[category] = content;
+  }
+
+  addHistory(query: string | ModelMessage | ModelMessage[]) {
     if (typeof query === "string") {
-      this.context.push({ role: "user", content: query });
+      this.history.push({ role: "user", content: query });
     } else if (Array.isArray(query)) {
-      this.context.push(...query);
+      this.history.push(...query);
     } else {
-      this.context.push(query);
+      this.history.push(query);
     }
-    return this.context;
+    return this.getContext();
+  }
+
+  // Backward compatibility alias
+  addContext(query: string | ModelMessage | ModelMessage[]) {
+    return this.addHistory(query);
   }
 
   estimateContextTokens() {
-    return this.context.reduce(
+    return this.getContext().reduce(
       (total, message) => total + this.estimateMessageTokens(message),
       0,
     );
@@ -52,3 +100,4 @@ class ContextManager {
 }
 
 export default ContextManager;
+export type { ContextCategory };

@@ -4,6 +4,11 @@ import useFraudeStore from "src/store/useFraudeStore";
 import { groqCommandHandler } from "./groq";
 import { openRouterCommandHandler } from "./openrouter";
 import log from "@/utils/logger";
+import {
+  parseModelDisplayId,
+  getModelDisplayId,
+  getModelUniqueId,
+} from "@/types/Model";
 
 const { updateOutput } = useFraudeStore.getState();
 
@@ -50,8 +55,9 @@ Usage:
   /model all <name>          Set model for all roles
   /model reasoning <name>    Set reasoning model
   /model general <name>      Set general model
+  /model light <name>        Set lightweight model
 
-Roles: r|reasoning, g|general, a|all`;
+Roles: r|reasoning, g|general, l|light, a|all`;
       updateOutput("log", output);
       return;
     }
@@ -62,12 +68,24 @@ Roles: r|reasoning, g|general, a|all`;
       reasoning: "reasoning",
       g: "general",
       general: "general",
+      l: "lightweight",
+      light: "lightweight",
       a: "all",
       all: "all",
     };
 
     // Check if first arg is a role command (list, all, reasoning, general, light)
-    const roleCommands = ["list", "all", "reasoning", "general", "r", "g", "a"];
+    const roleCommands = [
+      "list",
+      "all",
+      "reasoning",
+      "general",
+      "light",
+      "r",
+      "g",
+      "l",
+      "a",
+    ];
 
     let modelName: string;
     let role: string;
@@ -91,32 +109,50 @@ Roles: r|reasoning, g|general, a|all`;
     if (!modelName) {
       updateOutput(
         "log",
-        "Error: No model name specified. Use /model list to see current assignments."
+        "Error: No model name specified. Use /model list to see current assignments.",
       );
       return;
     }
 
-    const matchedModel = models.find(
-      (m) => m.name.toLowerCase() == modelName.toLowerCase()
-    );
+    // Try to parse as display ID (e.g., "model-name (provider)")
+    const parsed = parseModelDisplayId(modelName);
+    let matchedModel;
+
+    if (parsed) {
+      // Match by both name and provider type
+      matchedModel = models.find(
+        (m) =>
+          m.name.toLowerCase() === parsed.name.toLowerCase() &&
+          m.type === parsed.type,
+      );
+    } else {
+      // Fall back to name-only matching (for backwards compatibility)
+      // If multiple models have the same name, this picks the first one
+      matchedModel = models.find(
+        (m) => m.name.toLowerCase() === modelName.toLowerCase(),
+      );
+    }
 
     if (!matchedModel) {
       updateOutput(
         "error",
-        `Error: Model "${modelName}" not found. Use /model list to see available models.`
+        `Error: Model "${modelName}" not found. Use /model list to see available models.`,
       );
       return;
     }
 
-    const finalModelName = matchedModel.name;
+    // Use unique ID (name|type) for storage to distinguish same-named models
+    const finalModelName = getModelUniqueId(matchedModel);
+    const displayName = getModelDisplayId(matchedModel);
     const changedRoles: string[] =
-      role === "all" ? ["reasoning", "general"] : [role];
+      role === "all" ? ["reasoning", "general", "lightweight"] : [role];
     const updates: Record<string, string> = {};
 
     switch (role) {
       case "all":
         updates.thinkerModel = finalModelName;
         updates.generalModel = finalModelName;
+        updates.lightWeightModel = finalModelName;
         break;
       case "reasoning":
         updates.thinkerModel = finalModelName;
@@ -124,10 +160,13 @@ Roles: r|reasoning, g|general, a|all`;
       case "general":
         updates.generalModel = finalModelName;
         break;
+      case "lightweight":
+        updates.lightWeightModel = finalModelName;
+        break;
       default:
         updateOutput(
           "log",
-          `Unknown role: ${role}. Use: r|reasoning, g|general, a|all`
+          `Unknown role: ${role}. Use: r|reasoning, g|general, l|lightweight, a|all`,
         );
         return;
     }
@@ -137,7 +176,7 @@ Roles: r|reasoning, g|general, a|all`;
 
     updateOutput(
       "log",
-      `✓ Set ${changedRoles.join(", ")} model to: ${finalModelName}`
+      `✓ Set ${changedRoles.join(", ")} model to: ${displayName}`,
     );
   };
 }
