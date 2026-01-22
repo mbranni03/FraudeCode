@@ -19,6 +19,10 @@ class CommandCenter {
       case "usage":
         updateOutput("settings", "/usage");
         break;
+      case "session":
+        if (command[0] == "clear")
+          useFraudeStore.getState().contextManager.clearContext();
+        break;
       case "model":
       case "openrouter":
       case "ollama":

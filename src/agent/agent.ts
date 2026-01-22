@@ -225,7 +225,7 @@ export default class Agent {
     options?: Partial<AgentConfig>,
   ): Promise<AgentResponse> {
     const contextManager = useFraudeStore.getState().contextManager;
-    const messages = contextManager.addContext(input);
+    const messages = await contextManager.addContext(input);
     const mergedConfig = { ...this.config, ...options };
 
     const result = await generateText({
@@ -254,12 +254,12 @@ export default class Agent {
    * Stream a response in real-time.
    * Returns an async iterable for text chunks and a promise for the full response.
    */
-  stream(
+  async stream(
     input: string,
     options?: Partial<AgentConfig>,
   ): Promise<AgentResponse> {
     const contextManager = useFraudeStore.getState().contextManager;
-    const messages = contextManager.addContext(input);
+    const messages = await contextManager.addContext(input);
     const mergedConfig = { ...this.config, ...options };
 
     const result = streamText({
