@@ -1,4 +1,4 @@
-import type { ModelMessage } from "ai";
+import type { ModelMessage, StepResult, ToolSet } from "ai";
 
 class ContextManager {
   private context: ModelMessage[] = [];
@@ -15,6 +15,12 @@ class ContextManager {
     this.context = [];
   }
 
+  processStep(step: StepResult<ToolSet>) {
+    if (step.response?.messages) {
+      this.addContext(step.response.messages);
+    }
+  }
+
   addContext(query: string | ModelMessage | ModelMessage[]) {
     if (typeof query === "string") {
       this.context.push({ role: "user", content: query });
@@ -29,7 +35,7 @@ class ContextManager {
   estimateContextTokens() {
     return this.context.reduce(
       (total, message) => total + this.estimateMessageTokens(message),
-      0
+      0,
     );
   }
 

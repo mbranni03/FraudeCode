@@ -31,6 +31,24 @@ function extractUsage(usage: unknown): TokenUsage {
   return { prompt: 0, completion: 0, total: 0 };
 }
 
+async function experimental_repairToolCall(failed: any) {
+  const lower = failed.toolCall.toolName.toLowerCase();
+  if (lower !== failed.toolCall.toolName && failed.tools?.[lower]) {
+    return {
+      ...failed.toolCall,
+      toolName: lower,
+    };
+  }
+  return {
+    ...failed.toolCall,
+    input: JSON.stringify({
+      tool: failed.toolCall.toolName,
+      error: failed.error.message,
+    }),
+    toolName: "invalid",
+  };
+}
+
 // ============================================================================
 // Rate Limit Handling
 // ============================================================================
@@ -222,32 +240,11 @@ export default class Agent {
       stopWhen: mergedConfig.maxSteps
         ? stepCountIs(mergedConfig.maxSteps)
         : undefined,
-      async experimental_repairToolCall(failed) {
-        const lower = failed.toolCall.toolName.toLowerCase();
-        if (lower !== failed.toolCall.toolName && mergedConfig.tools?.[lower]) {
-          return {
-            ...failed.toolCall,
-            toolName: lower,
-          };
-        }
-        return {
-          ...failed.toolCall,
-          input: JSON.stringify({
-            tool: failed.toolCall.toolName,
-            error: failed.error.message,
-          }),
-          toolName: "invalid",
-        };
-      },
-      onStepFinish: (step) => {
-        if (mergedConfig.onStepComplete) {
-          mergedConfig.onStepComplete(this.mapStepInfo(step));
-        }
-      },
+      experimental_repairToolCall,
+      onStepFinish: contextManager.processStep,
     });
 
-    // Update conversation history
-    contextManager.addContext(result.response.messages);
+    // Note: Context is tracked incrementally in onStepFinish for error recovery
 
     const response = this.mapResponse(result);
     await incrementModelUsage(this.rawModel, response.usage);
@@ -278,33 +275,13 @@ export default class Agent {
       stopWhen: mergedConfig.maxSteps
         ? stepCountIs(mergedConfig.maxSteps)
         : undefined,
-      async experimental_repairToolCall(failed) {
-        const lower = failed.toolCall.toolName.toLowerCase();
-        if (lower !== failed.toolCall.toolName && mergedConfig.tools?.[lower]) {
-          return {
-            ...failed.toolCall,
-            toolName: lower,
-          };
-        }
-        return {
-          ...failed.toolCall,
-          input: JSON.stringify({
-            tool: failed.toolCall.toolName,
-            error: failed.error.message,
-          }),
-          toolName: "invalid",
-        };
-      },
+      experimental_repairToolCall,
       onChunk: async ({ chunk }) => {
         if (mergedConfig.onStreamChunk) {
           await mergedConfig.onStreamChunk(chunk);
         }
       },
-      onStepFinish: (step) => {
-        if (mergedConfig.onStepComplete) {
-          mergedConfig.onStepComplete(this.mapStepInfo(step));
-        }
-      },
+      onStepFinish: contextManager.processStep,
     });
 
     return {
@@ -367,8 +344,6 @@ export default class Agent {
       | Array<Record<string, unknown>>
       | undefined;
 
-    log(`Step ${step.stepNumber}: ${JSON.stringify(step, null, 2)}`);
-
     return {
       stepNumber: (step.stepNumber as number) ?? 0,
       text: (step.text as string) ?? "",
@@ -396,9 +371,7 @@ export default class Agent {
     // Wait for the stream to complete
     const finalResult = await result;
 
-    // Update conversation history
-    const responseMessages = await result.response;
-    contextManager.addContext(responseMessages.messages);
+    // Note: Context is tracked incrementally in onStepFinish for error recovery
 
     const text = await result.text;
     const usage = await result.usage;
