@@ -39,47 +39,20 @@ export default async function QueryHandler(query: string) {
     temperature: 0.7,
   });
 
-  const response = await agent.chat(query, {
-    abortSignal: abortController.signal,
-  });
-
-  log(JSON.stringify(response, null, 2));
-
-  // await streamer(agent, query, abortController);
-
-  // Only reset status if not in reviewing mode
-  if (useFraudeStore.getState().status !== 3) {
-    useFraudeStore.setState({
-      status: 0,
-      abortController: null,
-      statusText: "",
-    });
-  }
-}
-
-const streamer = async function* (
-  agent: Agent,
-  query: string,
-  abortController: AbortController,
-) {
   try {
-    const stream = agent.stream(query, {
+    const { response } = agent.stream(query, {
       abortSignal: abortController.signal,
+      onStreamChunk: async (chunk) => {
+        log(JSON.stringify(chunk, null, 2));
+        const usage: TokenUsage = handleStreamChunk(
+          chunk as Record<string, unknown>,
+        );
+        await incrementModelUsage(agent.getModel(), usage);
+      },
     });
-    for await (const chunk of stream.stream) {
-      // Check if aborted between chunks
-      if (abortController.signal.aborted) {
-        log("Stream aborted by user");
-        break;
-      }
-      log(JSON.stringify(chunk, null, 2));
-      const usage: TokenUsage = handleStreamChunk(
-        chunk as Record<string, unknown>,
-      );
 
-      // Increment usage for the currently selected model
-      await incrementModelUsage(agent.getModel(), usage);
-    }
+    const result = await response;
+    log(JSON.stringify(result, null, 2));
 
     if (pendingChanges.hasChanges()) {
       useFraudeStore.setState({ status: 3, statusText: "Reviewing Changes" });
@@ -94,4 +67,13 @@ const streamer = async function* (
       `Error: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-};
+
+  // Only reset status if not in reviewing mode
+  if (useFraudeStore.getState().status !== 3) {
+    useFraudeStore.setState({
+      status: 0,
+      abortController: null,
+      statusText: "",
+    });
+  }
+}

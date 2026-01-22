@@ -53,6 +53,7 @@ function findSymbolPosition(
  */
 const lspTool = tool({
   description: DESCRIPTION,
+  strict: true,
   inputSchema: z.object({
     command: z
       .enum([

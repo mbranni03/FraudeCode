@@ -10,6 +10,7 @@ const { updateOutput } = useFraudeStore.getState();
 
 const readTool = tool({
   description: DESCRIPTION,
+  strict: true,
   inputSchema: z.object({
     filePath: z
       .string()

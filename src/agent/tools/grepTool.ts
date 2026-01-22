@@ -7,6 +7,7 @@ const { updateOutput } = useFraudeStore.getState();
 
 const grepTool = tool({
   description: DESCRIPTION,
+  strict: true,
   inputSchema: z.object({
     pattern: z
       .string()
@@ -15,13 +16,13 @@ const grepTool = tool({
       .string()
       .optional()
       .describe(
-        "The directory to search in. Defaults to the current working directory."
+        "The directory to search in. Defaults to the current working directory.",
       ),
     include: z
       .string()
       .optional()
       .describe(
-        'File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")'
+        'File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")',
       ),
   }),
   execute: async ({
@@ -61,7 +62,7 @@ type MatchResult = {
 async function runGitGrep(
   pattern: string,
   cwd: string,
-  include?: string
+  include?: string,
 ): Promise<MatchResult[] | null> {
   // Check if we are in a git repo first to avoid noisy errors
   const isGit =
@@ -92,7 +93,7 @@ async function runGitGrep(
 async function runSystemGrep(
   pattern: string,
   cwd: string,
-  include?: string
+  include?: string,
 ): Promise<MatchResult[] | null> {
   try {
     // -r: Recursive, -I: Ignore binary, -n: Line numbers
@@ -125,7 +126,7 @@ async function runSystemGrep(
 async function runBunGrep(
   pattern: string,
   cwd: string,
-  include?: string
+  include?: string,
 ): Promise<MatchResult[]> {
   const { Glob } = await import("bun");
   // Use include pattern if specified, otherwise match all files
@@ -179,7 +180,7 @@ async function runBunGrep(
 // --- Helper: Parse Grep Output & Attach Stats ---
 async function parseAndStat(
   rawOutput: string,
-  cwd: string
+  cwd: string,
 ): Promise<MatchResult[]> {
   const lines = rawOutput.trim().split("\n");
   if (!lines.length || (lines.length === 1 && !lines[0])) return [];
@@ -209,7 +210,7 @@ async function parseAndStat(
     uniqueFiles.map(async (f) => {
       const stats = await Bun.file(`${cwd}/${f}`).lastModified;
       mtimeMap.set(f, stats);
-    })
+    }),
   );
 
   // 4. Attach mtime and Sort (Newest First)
@@ -228,7 +229,7 @@ function formatOutput(results: MatchResult[]): string {
   let output = displayResults
     .map(
       (r) =>
-        `[${new Date(r.mtime).toISOString()}] ${r.file}:${r.line}  ${r.content}`
+        `[${new Date(r.mtime).toISOString()}] ${r.file}:${r.line}  ${r.content}`,
     )
     .join("\n");
 

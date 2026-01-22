@@ -9,6 +9,7 @@ const { updateOutput } = useFraudeStore.getState();
 
 const writeTool = tool({
   description: DESCRIPTION,
+  strict: true,
   inputSchema: z.object({
     path: z.string().describe("The path to the file to write"),
     content: z.string().describe("The content to write to the file"),

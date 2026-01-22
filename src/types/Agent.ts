@@ -1,11 +1,5 @@
 import type { z } from "zod";
-import type {
-  Tool,
-  ModelMessage,
-  ToolSet,
-  AsyncIterableStream,
-  TextStreamPart,
-} from "ai";
+import type { ModelMessage, ToolSet, TextStreamPart } from "ai";
 import type { TokenUsage } from "./TokenUsage";
 
 // ============================================================================
@@ -57,9 +51,6 @@ export interface AgentConfig {
    */
   reasoningEffort?: ReasoningEffort;
 
-  /** Callback for streaming text chunks */
-  onTextChunk?: (chunk: string) => void;
-
   /** Callback for tool calls */
   onToolCall?: (toolCall: ToolCallInfo) => void;
 
@@ -68,6 +59,9 @@ export interface AgentConfig {
 
   /** Callback for step completion */
   onStepComplete?: (step: StepInfo) => void;
+
+  /** Callback for each raw stream chunk (for custom handling like usage tracking) */
+  onStreamChunk?: (chunk: TextStreamPart<ToolSet>) => void | Promise<void>;
 
   /** Abort signal for cancelling the request */
   abortSignal?: AbortSignal;
@@ -125,9 +119,6 @@ export interface AgentResponse {
 }
 
 export interface StreamingAgentResponse {
-  /** Async iterator for text chunks */
-  stream: AsyncIterable<string> | AsyncIterableStream<TextStreamPart<ToolSet>>;
-
   /** Promise that resolves to the full response when streaming completes */
   response: Promise<AgentResponse>;
 }

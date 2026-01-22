@@ -7,6 +7,7 @@ const { updateOutput } = useFraudeStore.getState();
 
 const bashTool = tool({
   description: DESCRIPTION,
+  strict: true,
   inputSchema: z.object({
     command: z.string().describe("The command to execute"),
     timeout: z

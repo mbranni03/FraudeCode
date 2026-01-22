@@ -8,13 +8,14 @@ const { updateOutput } = useFraudeStore.getState();
 
 const globTool = tool({
   description: DESCRIPTION,
+  strict: true,
   inputSchema: z.object({
     pattern: z.string().describe("The glob pattern to match files with"),
     path: z
       .string()
       .optional()
       .describe(
-        `The directory to search in. If not specified, the current directory will be searched. DO NOT enter "undefined" or "null" - simply omit it for the default behavior. Must be a valid directory path if provided.`
+        `The directory to search in. If not specified, the current directory will be searched. DO NOT enter "undefined" or "null" - simply omit it for the default behavior. Must be a valid directory path if provided.`,
       ),
   }),
   execute: async ({ pattern, path }: { pattern: string; path?: string }) => {

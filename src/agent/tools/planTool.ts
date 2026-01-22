@@ -40,7 +40,7 @@ Operations:
 - write: Replace the entire plan with new content
 - append: Add content to the end of the plan
 - clear: Reset the plan to empty`,
-
+  strict: true,
   inputSchema: z.object({
     operation: z
       .enum(["read", "write", "append", "clear"])

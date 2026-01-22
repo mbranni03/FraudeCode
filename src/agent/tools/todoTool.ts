@@ -53,6 +53,7 @@ function generateId(): string {
 
 const todoTool = tool({
   description: DESCRIPTION,
+  strict: true,
   inputSchema: z.object({
     operation: z
       .enum(["add", "next", "update", "complete", "list", "clear"])

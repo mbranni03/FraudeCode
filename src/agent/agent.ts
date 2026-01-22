@@ -1,20 +1,9 @@
-import {
-  generateText,
-  streamText,
-  Output,
-  stepCountIs,
-  NoSuchToolError,
-  type ModelMessage,
-  type TextStreamPart,
-  type ToolSet,
-} from "ai";
+import { generateText, streamText, stepCountIs, type ModelMessage } from "ai";
 import { getModel } from "@/providers/providers";
 import type {
   AgentConfig,
   AgentResponse,
   StreamingAgentResponse,
-  StructuredAgentResponse,
-  StructuredSchema,
   ToolCallInfo,
   ToolResultInfo,
   StepInfo,
@@ -153,44 +142,6 @@ async function withRateLimitRetry<T>(
 }
 
 // ============================================================================
-// Tool Call Repair Handler
-// ============================================================================
-
-/**
- * Creates a repair handler for tool calls that returns a helpful error message
- * when the model tries to call a tool that doesn't exist, instead of failing.
- */
-function createToolCallRepairHandler(availableTools: ToolSet | undefined) {
-  return async ({
-    toolCall,
-    error,
-  }: {
-    toolCall: { toolName: string };
-    tools: ToolSet;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    error: any;
-  }) => {
-    // If it's a NoSuchToolError, return a "repaired" call that provides feedback
-    if (NoSuchToolError.isInstance(error)) {
-      const availableToolNames = availableTools
-        ? Object.keys(availableTools).join(", ")
-        : "none";
-
-      log(
-        `Tool repair: Model tried to call unknown tool '${toolCall.toolName}'. Available: ${availableToolNames}`,
-      );
-
-      // Return null to skip this tool call and let the error be sent back to the model
-      // The model will see the error in the next step and can correct itself
-      return null;
-    }
-
-    // For other errors, don't repair - let them propagate
-    throw error;
-  };
-}
-
-// ============================================================================
 // Provider Options Builder
 // ============================================================================
 
@@ -260,56 +211,40 @@ export default class Agent {
     const messages = contextManager.addContext(input);
     const mergedConfig = { ...this.config, ...options };
 
-    const result = await withRateLimitRetry(
-      async () => {
-        return await generateText({
-          model: this.model as Parameters<typeof generateText>[0]["model"],
-          messages,
-          system: mergedConfig.systemPrompt,
-          temperature: mergedConfig.temperature,
-          maxOutputTokens: mergedConfig.maxTokens,
-          tools: mergedConfig.tools,
-          providerOptions: buildProviderOptions(mergedConfig),
-          stopWhen: mergedConfig.maxSteps
-            ? stepCountIs(mergedConfig.maxSteps)
-            : undefined,
-          experimental_repairToolCall: createToolCallRepairHandler(
-            mergedConfig.tools,
-          ),
-          onStepFinish: (step) => {
-            if (mergedConfig.onStepComplete) {
-              mergedConfig.onStepComplete(this.mapStepInfo(step));
-            }
-          },
-        });
-      },
-      this.config.model,
-      (newModelName) => {
-        this.setModel(newModelName);
-        return async () => {
-          return await generateText({
-            model: this.model as Parameters<typeof generateText>[0]["model"],
-            messages,
-            system: mergedConfig.systemPrompt,
-            temperature: mergedConfig.temperature,
-            maxOutputTokens: mergedConfig.maxTokens,
-            tools: mergedConfig.tools,
-            providerOptions: buildProviderOptions(mergedConfig),
-            stopWhen: mergedConfig.maxSteps
-              ? stepCountIs(mergedConfig.maxSteps)
-              : undefined,
-            experimental_repairToolCall: createToolCallRepairHandler(
-              mergedConfig.tools,
-            ),
-            onStepFinish: (step) => {
-              if (mergedConfig.onStepComplete) {
-                mergedConfig.onStepComplete(this.mapStepInfo(step));
-              }
-            },
-          });
+    const result = await generateText({
+      model: this.model as Parameters<typeof generateText>[0]["model"],
+      messages,
+      system: mergedConfig.systemPrompt,
+      temperature: mergedConfig.temperature,
+      maxOutputTokens: mergedConfig.maxTokens,
+      tools: mergedConfig.tools,
+      providerOptions: buildProviderOptions(mergedConfig),
+      stopWhen: mergedConfig.maxSteps
+        ? stepCountIs(mergedConfig.maxSteps)
+        : undefined,
+      async experimental_repairToolCall(failed) {
+        const lower = failed.toolCall.toolName.toLowerCase();
+        if (lower !== failed.toolCall.toolName && mergedConfig.tools?.[lower]) {
+          return {
+            ...failed.toolCall,
+            toolName: lower,
+          };
+        }
+        return {
+          ...failed.toolCall,
+          input: JSON.stringify({
+            tool: failed.toolCall.toolName,
+            error: failed.error.message,
+          }),
+          toolName: "invalid",
         };
       },
-    );
+      onStepFinish: (step) => {
+        if (mergedConfig.onStepComplete) {
+          mergedConfig.onStepComplete(this.mapStepInfo(step));
+        }
+      },
+    });
 
     // Update conversation history
     contextManager.addContext(result.response.messages);
@@ -343,12 +278,26 @@ export default class Agent {
       stopWhen: mergedConfig.maxSteps
         ? stepCountIs(mergedConfig.maxSteps)
         : undefined,
-      experimental_repairToolCall: createToolCallRepairHandler(
-        mergedConfig.tools,
-      ),
-      onChunk: ({ chunk }) => {
-        if (chunk.type === "text-delta" && mergedConfig.onTextChunk) {
-          mergedConfig.onTextChunk(chunk.text);
+      async experimental_repairToolCall(failed) {
+        const lower = failed.toolCall.toolName.toLowerCase();
+        if (lower !== failed.toolCall.toolName && mergedConfig.tools?.[lower]) {
+          return {
+            ...failed.toolCall,
+            toolName: lower,
+          };
+        }
+        return {
+          ...failed.toolCall,
+          input: JSON.stringify({
+            tool: failed.toolCall.toolName,
+            error: failed.error.message,
+          }),
+          toolName: "invalid",
+        };
+      },
+      onChunk: async ({ chunk }) => {
+        if (mergedConfig.onStreamChunk) {
+          await mergedConfig.onStreamChunk(chunk);
         }
       },
       onStepFinish: (step) => {
@@ -359,171 +308,7 @@ export default class Agent {
     });
 
     return {
-      stream: this.createRetryableStream(
-        result.fullStream,
-        input,
-        options,
-      ) as StreamingAgentResponse["stream"],
       response: this.buildStreamingResponse(result, messages),
-    };
-  }
-
-  /**
-   * Create a stream wrapper that handles rate limit errors with retry logic.
-   * If a rate limit error occurs during streaming, it waits and retries.
-   * After exhausting retries, prompts user for model selection.
-   */
-  private createRetryableStream<T>(
-    originalStream: AsyncIterable<T>,
-    input: string,
-    options?: Partial<AgentConfig>,
-    retryCount = 0,
-  ): AsyncIterable<T> {
-    const self = this;
-
-    return {
-      [Symbol.asyncIterator](): AsyncIterator<T> {
-        const iterator = originalStream[Symbol.asyncIterator]();
-
-        return {
-          async next(): Promise<IteratorResult<T>> {
-            try {
-              return await iterator.next();
-            } catch (error) {
-              if (isRateLimitError(error)) {
-                if (retryCount < MAX_RATE_LIMIT_RETRIES) {
-                  const waitTime = RATE_LIMIT_RETRY_DELAY_MS;
-                  log(
-                    `Rate limit hit during stream. Waiting ${waitTime / 1000} seconds before retry ${retryCount + 1}/${MAX_RATE_LIMIT_RETRIES}...`,
-                  );
-                  useFraudeStore.setState({
-                    statusText: `Rate limited - waiting ${waitTime / 1000}s (retry ${retryCount + 1}/${MAX_RATE_LIMIT_RETRIES})`,
-                  });
-                  await sleep(waitTime);
-
-                  // Create a new stream and continue from there
-                  const newStreamResponse = self.stream(input, options);
-                  const newIterator = self
-                    .createRetryableStream<T>(
-                      newStreamResponse.stream as AsyncIterable<T>,
-                      input,
-                      options,
-                      retryCount + 1,
-                    )
-                    [Symbol.asyncIterator]();
-
-                  return newIterator.next();
-                } else {
-                  // Exhausted retries, offer model selection
-                  const errorMessage =
-                    error instanceof Error ? error.message : String(error);
-                  log(
-                    `Rate limit retries exhausted during stream. Prompting user for model selection...`,
-                  );
-
-                  const selectedModel = await useFraudeStore
-                    .getState()
-                    .requestModelSelection(self.config.model, errorMessage);
-
-                  if (selectedModel) {
-                    log(`User selected alternative model: ${selectedModel}`);
-                    self.setModel(selectedModel);
-                    // Create a new stream with the new model, reset retry count
-                    const newStreamResponse = self.stream(input, options);
-                    const newIterator = self
-                      .createRetryableStream<T>(
-                        newStreamResponse.stream as AsyncIterable<T>,
-                        input,
-                        options,
-                        0, // Reset retry count for new model
-                      )
-                      [Symbol.asyncIterator]();
-
-                    return newIterator.next();
-                  } else {
-                    throw new Error(
-                      `Request cancelled by user after rate limit on model: ${self.config.model}`,
-                    );
-                  }
-                }
-              }
-              throw error;
-            }
-          },
-        };
-      },
-    };
-  }
-
-  /**
-   * Generate a structured object that conforms to a Zod schema.
-   * Useful for extracting data, function calling, or typed responses.
-   *
-   * @example
-   * ```typescript
-   * const schema = z.object({
-   *   name: z.string(),
-   *   age: z.number(),
-   * });
-   *
-   * const result = await agent.generate("John is 25 years old", schema);
-   * console.log(result.object); // { name: "John", age: 25 }
-   * ```
-   */
-  async generate<T>(
-    input: string,
-    schema: StructuredSchema<T>,
-    options?: Partial<AgentConfig> & {
-      schemaName?: string;
-      schemaDescription?: string;
-    },
-  ): Promise<StructuredAgentResponse<T>> {
-    const contextManager = useFraudeStore.getState().contextManager;
-    const messages = contextManager.addContext(input);
-    const mergedConfig = { ...this.config, ...options };
-
-    const result = await withRateLimitRetry(
-      async () => {
-        return await generateText({
-          model: this.model as Parameters<typeof generateText>[0]["model"],
-          messages,
-          system: mergedConfig.systemPrompt,
-          temperature: mergedConfig.temperature,
-          maxOutputTokens: mergedConfig.maxTokens,
-          providerOptions: buildProviderOptions(mergedConfig),
-          output: Output.object({
-            schema,
-            name: options?.schemaName,
-            description: options?.schemaDescription,
-          }),
-        });
-      },
-      this.config.model,
-      (newModelName) => {
-        this.setModel(newModelName);
-        return async () => {
-          return await generateText({
-            model: this.model as Parameters<typeof generateText>[0]["model"],
-            messages,
-            system: mergedConfig.systemPrompt,
-            temperature: mergedConfig.temperature,
-            maxOutputTokens: mergedConfig.maxTokens,
-            providerOptions: buildProviderOptions(mergedConfig),
-            output: Output.object({
-              schema,
-              name: options?.schemaName,
-              description: options?.schemaDescription,
-            }),
-          });
-        };
-      },
-    );
-
-    return {
-      object: result.output as T,
-      usage: extractUsage(result.usage),
-      finishReason: result.finishReason ?? "unknown",
-      raw: result,
     };
   }
 
@@ -531,49 +316,16 @@ export default class Agent {
   // Configuration
   // ==========================================================================
 
-  /**
-   * Update the agent's configuration
-   */
-  configure(options: Partial<AgentConfig>): void {
-    this.config = { ...this.config, ...options };
-
-    // If model changed, update the model instance
-    if (options.model) {
-      this.model = getModel(options.model);
-    }
-  }
-
-  /**
-   * Get the current configuration
-   */
-  getConfig(): AgentConfig {
-    return { ...this.config };
-  }
-
   getModel(): string {
     return this.rawModel;
   }
 
   /**
-   * Switch to a different model
+   * Switch to a different model (used internally by rate limit retry logic)
    */
   setModel(modelName: string): void {
     this.config.model = modelName;
     this.model = getModel(modelName);
-  }
-
-  /**
-   * Update the system prompt
-   */
-  setSystemPrompt(prompt: string): void {
-    this.config.systemPrompt = prompt;
-  }
-
-  /**
-   * Register tools for the agent to use
-   */
-  setTools(tools: AgentConfig["tools"]): void {
-    this.config.tools = tools;
   }
 
   // ==========================================================================
@@ -675,15 +427,4 @@ export default class Agent {
       raw: finalResult,
     };
   }
-}
-
-// ============================================================================
-// Factory Functions
-// ============================================================================
-
-/**
- * Create an agent with a specific role/persona
- */
-export function createAgent(config: AgentConfig): Agent {
-  return new Agent(config);
 }

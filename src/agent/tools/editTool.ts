@@ -9,6 +9,7 @@ const { updateOutput } = useFraudeStore.getState();
 
 const editTool = tool({
   description: DESCRIPTION,
+  strict: true,
   inputSchema: z.object({
     path: z.string().describe("The path to the file to edit"),
     old_content: z
