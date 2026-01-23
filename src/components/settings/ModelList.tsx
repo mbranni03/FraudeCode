@@ -3,239 +3,171 @@ import { useEffect, useMemo } from "react";
 import {
   type Model,
   parseModelUniqueId,
-  getModelUniqueId,
+  type ProviderType,
 } from "@/types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 
-// Theme colors
-const COLORS = {
-  active: "#FF8C00", // Orange for active models
-  accent: "#FF69B4", // Pink for commands/highlights
-  header: "#87CEEB", // Sky blue for headers
-  muted: "gray",
-  dim: "gray",
+// Simplified Theme
+const THEME = {
+  active: "#34d399", // Emerald 400 - Success/Active
+  primary: "#60a5fa", // Blue 400
+  secondary: "#a78bfa", // Violet 400
   text: "white",
-};
-
-// Role abbreviations for compact display
-const ROLE_ABBREV: Record<string, { short: string; color: string }> = {
-  Primary: { short: "P", color: "#9370DB" }, // Purple
-  Secondary: { short: "S", color: "#20B2AA" }, // Teal
-};
-
-const formatSize = (bytes: number) => {
-  if (!bytes || bytes === 0) return "—";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  const size = sizes[Math.min(i, sizes.length - 1)] || "";
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + size;
+  dim: "gray",
+  border: "gray",
 };
 
 const formatContext = (contextLength: number | undefined) => {
-  if (!contextLength) return "—";
+  if (!contextLength) return "";
   return `${(contextLength / 1000).toFixed(0)}k`;
 };
 
 /**
  * Check if a model matches a stored model reference.
- * Handles both:
- * - New unique ID format: "name|type"
- * - Legacy name-only format: "name"
  */
 const modelMatchesReference = (model: Model, reference: string): boolean => {
-  // Try parsing as unique ID (name|type format)
   const parsed = parseModelUniqueId(reference);
   if (parsed) {
     return model.name === parsed.name && model.type === parsed.type;
   }
-  // Fall back to name-only matching (legacy format)
   return model.name === reference;
 };
 
-interface RoleBadgesProps {
-  roles: string[];
-}
-
-const RoleBadges = ({ roles }: RoleBadgesProps) => {
-  if (roles.length === 0) {
-    return null;
-  }
-
-  // Just show the active role letters, no brackets or dots
-  return (
-    <Box>
-      {Object.entries(ROLE_ABBREV).map(([role, { short, color }]) =>
-        roles.includes(role) ? (
-          <Text key={role} color={color} bold>
-            {short}
-          </Text>
-        ) : null,
-      )}
-    </Box>
-  );
-};
-
-interface ModelRowProps {
+const ModelRow = ({
+  model,
+  isPrimary,
+  isSecondary,
+}: {
   model: Model;
-  roles: string[];
-  showSize: boolean;
-  showContext: boolean;
-}
-
-const ModelRow = ({ model, roles, showSize, showContext }: ModelRowProps) => {
-  const isActive = roles.length > 0;
+  isPrimary: boolean;
+  isSecondary: boolean;
+}) => {
+  const isActive = isPrimary || isSecondary;
 
   return (
     <Box flexDirection="row" gap={1}>
-      {/* Status indicator */}
-      <Text color={isActive ? COLORS.active : COLORS.dim}>
-        {isActive ? "✦" : " "}
-      </Text>
+      <Box width={1}>{isActive && <Text color={THEME.active}>•</Text>}</Box>
 
-      {/* Model name */}
-      <Box flexGrow={1} flexShrink={1}>
-        <Text
-          color={isActive ? COLORS.active : COLORS.text}
-          bold={isActive}
-          wrap="truncate-end"
-        >
+      <Box flexGrow={1}>
+        <Text color={isActive ? THEME.active : THEME.text} wrap="truncate-end">
           {model.name}
         </Text>
       </Box>
 
-      {/* Role badges - right of name */}
-      <Box width={5} justifyContent="flex-start">
-        <RoleBadges roles={roles} />
-      </Box>
-
-      {/* Size column */}
-      {showSize && (
-        <Box width={8} justifyContent="flex-end">
-          <Text color={COLORS.muted}>{formatSize(model.size || 0)}</Text>
-        </Box>
-      )}
-
-      {/* Context column */}
-      {showContext && (
-        <Box width={6} justifyContent="flex-end">
-          <Text color={COLORS.muted}>
-            {formatContext(model.details?.context_length)}
+      {/* Tags */}
+      <Box gap={1} flexShrink={0}>
+        {/* Context Size */}
+        {model.details?.context_length && (
+          <Text color={THEME.dim}>
+            {formatContext(model.details.context_length)}
           </Text>
-        </Box>
-      )}
-    </Box>
-  );
-};
+        )}
 
-interface ModelTableProps {
-  title: string;
-  models: Model[];
-  getModelRoles: (model: Model) => string[];
-  showSize: boolean;
-  showContext: boolean;
-  emptyMessage: string;
-}
-
-const ModelTable = ({
-  title,
-  models,
-  getModelRoles,
-  showSize,
-  showContext,
-  emptyMessage,
-}: ModelTableProps) => {
-  const hasModels = models.length > 0;
-
-  return (
-    <Box flexDirection="column" marginBottom={1}>
-      {/* Section header */}
-      <Box marginBottom={0}>
-        <Text color={COLORS.header} bold>
-          {title}
-        </Text>
-        <Text color={COLORS.dim}> ({models.length})</Text>
-      </Box>
-
-      {/* Table container */}
-      <Box
-        borderStyle="round"
-        borderColor={hasModels ? "white" : COLORS.dim}
-        flexDirection="column"
-        paddingX={1}
-      >
-        {!hasModels ? (
-          <Text color={COLORS.dim} italic>
-            {emptyMessage}
+        {isPrimary && (
+          <Text color={THEME.primary} bold>
+            PRI
           </Text>
-        ) : (
-          <>
-            {/* Column headers */}
-            <Box flexDirection="row" gap={1} marginBottom={0}>
-              <Text color={COLORS.dim}> </Text>
-              <Box flexGrow={1}>
-                <Text color={COLORS.dim}>Model</Text>
-              </Box>
-              <Box width={5}>
-                <Text color={COLORS.dim}>Role</Text>
-              </Box>
-              {showSize && (
-                <Box width={8} justifyContent="flex-end">
-                  <Text color={COLORS.dim}>Size</Text>
-                </Box>
-              )}
-              {showContext && (
-                <Box width={6} justifyContent="flex-end">
-                  <Text color={COLORS.dim}>Ctx</Text>
-                </Box>
-              )}
-            </Box>
-
-            {/* Separator */}
-            <Text color={COLORS.dim}>{"─".repeat(50)}</Text>
-
-            {/* Model rows */}
-            {models.map((model) => {
-              const roles = getModelRoles(model);
-              return (
-                <ModelRow
-                  key={model.digest}
-                  model={model}
-                  roles={roles}
-                  showSize={showSize}
-                  showContext={showContext}
-                />
-              );
-            })}
-          </>
+        )}
+        {isSecondary && (
+          <Text color={THEME.secondary} bold>
+            SEC
+          </Text>
         )}
       </Box>
     </Box>
   );
 };
 
-const Legend = () => (
-  <Box flexDirection="column" paddingX={1}>
-    <Box flexDirection="row" gap={2}>
-      <Text>
-        <Text color={COLORS.active}>✦</Text>
-        <Text color={COLORS.dim}>=In use</Text>
-      </Text>
-      {Object.entries(ROLE_ABBREV).map(([role, { short, color }]) => (
-        <Text key={role}>
-          <Text color={color} bold>
-            {short}
-          </Text>
-          <Text color={COLORS.dim}>={role}</Text>
-        </Text>
-      ))}
-    </Box>
+const ProviderSection = ({
+  provider,
+  models,
+  primaryModelRef,
+  secondaryModelRef,
+}: {
+  provider: string;
+  models: Model[];
+  primaryModelRef: string;
+  secondaryModelRef: string;
+}) => {
+  // Show all active models + up to 5 others
+  const { visibleModels, hiddenCount } = useMemo(() => {
+    const active: Model[] = [];
+    const others: Model[] = [];
 
-    <Box marginTop={1}>
-      <Text>
-        To switch models, use:{" "}
-        <Text color={COLORS.accent}>/model &lt;model-name&gt;</Text>
+    models.forEach((m) => {
+      const isPri = modelMatchesReference(m, primaryModelRef);
+      const isSec = modelMatchesReference(m, secondaryModelRef);
+      if (isPri || isSec) {
+        active.push(m);
+      } else {
+        others.push(m);
+      }
+    });
+
+    // Sort others alphabetically
+    others.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Combine: Active first, then top 3 others
+    // If we have very few active models, show more others to fill space, but let's keep it simple.
+    // Let's just show up to 5 'others'.
+    const visibleOthers = others.slice(0, 5);
+    return {
+      visibleModels: [...active, ...visibleOthers],
+      hiddenCount: others.length - visibleOthers.length,
+    };
+  }, [models, primaryModelRef, secondaryModelRef]);
+
+  if (models.length === 0) return null;
+
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Text color={THEME.dim} bold>
+        {provider.toUpperCase()}
       </Text>
+      {visibleModels.map((model) => (
+        <ModelRow
+          key={model.digest || `${model.type}-${model.name}`}
+          model={model}
+          isPrimary={modelMatchesReference(model, primaryModelRef)}
+          isSecondary={modelMatchesReference(model, secondaryModelRef)}
+        />
+      ))}
+      {hiddenCount > 0 && (
+        <Box marginLeft={2}>
+          <Text color={THEME.dim} italic>
+            + {hiddenCount} more models...
+          </Text>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+const CurrentConfig = ({
+  primary,
+  secondary,
+}: {
+  primary: string;
+  secondary: string;
+}) => (
+  <Box
+    flexDirection="column"
+    marginBottom={1}
+    borderStyle="round"
+    borderColor={THEME.dim}
+    paddingX={1}
+  >
+    <Box flexDirection="row" justifyContent="space-between">
+      <Text color={THEME.primary} bold>
+        Primary
+      </Text>
+      <Text>{primary}</Text>
+    </Box>
+    <Box flexDirection="row" justifyContent="space-between">
+      <Text color={THEME.secondary} bold>
+        Secondary
+      </Text>
+      <Text>{secondary}</Text>
     </Box>
   </Box>
 );
@@ -248,71 +180,51 @@ const ModelList = () => {
     syncWithSettings();
   }, [syncWithSettings]);
 
-  const getModelRoles = (model: Model) => {
-    const roles: string[] = [];
-    if (modelMatchesReference(model, primaryModel)) roles.push("Primary");
-    if (modelMatchesReference(model, secondaryModel)) roles.push("Secondary");
-    return roles;
-  };
+  // Group models
+  const groups = useMemo(() => {
+    const g: Record<string, Model[]> = {};
+    models.forEach((m) => {
+      // Clean up provider name
+      let type = (m.type || "ollama").toLowerCase();
+      // Skip ollama embedding models
+      if (
+        type === "ollama" &&
+        m.capabilities?.length === 1 &&
+        m.capabilities[0] === "embedding"
+      )
+        return;
 
-  // Split and sort models by type
-  const { groqModels, openrouterModels, ollamaModels } = useMemo(() => {
-    const groq = models.filter((m) => m.type === "groq");
-    const openrouter = models.filter((m) => m.type === "openrouter");
-    const ollama = models.filter((m) => {
-      const isOllama = m.type === "ollama" || !m.type;
-      if (!isOllama) return false;
-      // Exclude embedding-only models
-      const caps = m.capabilities || [];
-      return !(caps.length === 1 && caps[0] === "embedding");
+      if (!g[type]) g[type] = [];
+      g[type].push(m);
     });
+    return g;
+  }, [models]);
 
-    // Sort each group: active models first, then alphabetically
-    const sortModels = (arr: Model[]) =>
-      arr.sort((a, b) => {
-        const aActive = getModelRoles(a).length > 0;
-        const bActive = getModelRoles(b).length > 0;
-        if (aActive !== bActive) return bActive ? 1 : -1;
-        return a.name.localeCompare(b.name);
-      });
-
-    return {
-      groqModels: sortModels(groq),
-      openrouterModels: sortModels(openrouter),
-      ollamaModels: sortModels(ollama),
-    };
-  }, [models, primaryModel, secondaryModel]);
+  if (models.length === 0) {
+    return <Text color={THEME.dim}>No models found.</Text>;
+  }
 
   return (
     <Box flexDirection="column" padding={1}>
-      <ModelTable
-        title="Groq"
-        models={groqModels}
-        getModelRoles={getModelRoles}
-        showSize={false}
-        showContext={true}
-        emptyMessage="No Groq models configured"
-      />
+      <CurrentConfig primary={primaryModel} secondary={secondaryModel} />
 
-      <ModelTable
-        title="OpenRouter"
-        models={openrouterModels}
-        getModelRoles={getModelRoles}
-        showSize={false}
-        showContext={true}
-        emptyMessage="No OpenRouter models configured"
-      />
+      <Box flexDirection="column">
+        {Object.entries(groups).map(([provider, providerModels]) => (
+          <ProviderSection
+            key={provider}
+            provider={provider}
+            models={providerModels}
+            primaryModelRef={primaryModel}
+            secondaryModelRef={secondaryModel}
+          />
+        ))}
+      </Box>
 
-      <ModelTable
-        title="Ollama (Local)"
-        models={ollamaModels}
-        getModelRoles={getModelRoles}
-        showSize={true}
-        showContext={true}
-        emptyMessage="No local Ollama models found. Is Ollama running?"
-      />
-
-      <Legend />
+      <Box marginTop={1}>
+        <Text color={THEME.dim}>
+          Use <Text color="white">/model &lt;name&gt;</Text> to switch
+        </Text>
+      </Box>
     </Box>
   );
 };
