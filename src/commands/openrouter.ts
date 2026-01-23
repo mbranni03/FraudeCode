@@ -55,7 +55,11 @@ export const addOpenRouterModel = async (model: string) => {
     modified_at: new Date(modelData.created * 1000).toISOString(),
     digest: modelData.id,
     capabilities: endpoint?.supported_parameters || [],
-    usage: 0,
+    usage: {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    },
     details: {
       context_length: endpoint?.context_length,
     },
@@ -65,7 +69,7 @@ export const addOpenRouterModel = async (model: string) => {
 
   // Check if model already exists, update if so, else add
   const existingIndex = savedModels.findIndex(
-    (m) => m.name === newModel.name && m.type === "openrouter"
+    (m) => m.name === newModel.name && m.type === "openrouter",
   );
 
   if (existingIndex >= 0) {

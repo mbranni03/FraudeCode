@@ -1,0 +1,20 @@
+Interact with Language Server Protocol (LSP) servers to get code intelligence features.
+
+Supported operations:
+- goToDefinition: Find where a symbol is defined
+- findReferences: Find all references to a symbol
+- hover: Get hover information (documentation, type info) for a symbol
+- documentSymbol: Get all symbols (functions, classes, variables) in a document
+- workspaceSymbol: Search for symbols across the entire workspace
+- goToImplementation: Find implementations of an interface or abstract method
+- prepareCallHierarchy: Get call hierarchy item at a position (functions/methods)
+- incomingCalls: Find all functions/methods that call the function at a position
+- outgoingCalls: Find all functions/methods called by the function at a position
+
+## Parameters:
+- **filePath**: Path to the file containing the symbol
+- **symbol**: The exact name of the function, class, variable, or import to look up
+- **occurrence**: If symbol appears multiple times, which one to use (default: 1 = first)
+
+## Supported Languages:
+TypeScript, JavaScript, Python, Rust, Go, C/C++, JSON, CSS, HTML

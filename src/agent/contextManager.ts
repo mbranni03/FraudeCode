@@ -1,40 +1,56 @@
-import type { ModelMessage } from "ai";
+import type { ModelMessage, StepResult, ToolSet } from "ai";
 
 class ContextManager {
-  private context: ModelMessage[] = [];
+  private longTermSummary: string = "";
+  private history: ModelMessage[] = [];
 
   constructor(initialContext: ModelMessage[] = []) {
-    this.context = initialContext;
+    this.history = initialContext;
   }
 
-  getContext() {
-    return this.context;
+  getContext(): ModelMessage[] {
+    return this.history;
   }
 
   clearContext() {
-    this.context = [];
+    this.history = [];
+    this.longTermSummary = "";
   }
 
-  addContext(query: string | ModelMessage | ModelMessage[]) {
-    if (typeof query === "string") {
-      this.context.push({ role: "user", content: query });
-    } else if (Array.isArray(query)) {
-      this.context.push(...query);
-    } else {
-      this.context.push(query);
+  processStep = (step: StepResult<ToolSet>) => {
+    if (step.response?.messages) {
+      this.addHistory(step.response.messages);
     }
-    return this.context;
+  };
+
+  async addHistory(query: string | ModelMessage | ModelMessage[]) {
+    if (typeof query === "string") {
+      this.history.push({ role: "user", content: query });
+    } else if (Array.isArray(query)) {
+      this.history.push(...query);
+    } else {
+      this.history.push(query);
+    }
+    return this.history;
+  }
+
+  // Backward compatibility alias
+  addContext(query: string | ModelMessage | ModelMessage[]) {
+    return this.addHistory(query);
   }
 
   estimateContextTokens() {
-    return this.context.reduce(
-      (total, message) => total + this.estimateMessageTokens(message),
-      0
+    return (
+      this.getContext().reduce(
+        (total, message) => total + this.estimateMessageTokens(message),
+        0,
+      ) + this.estimateMessageTokens(this.longTermSummary)
     );
   }
 
-  estimateMessageTokens(message: ModelMessage) {
-    const text = message.content as string;
+  estimateMessageTokens(message: ModelMessage | string) {
+    const text =
+      typeof message === "string" ? message : (message.content as string);
     if (/[\u4E00-\u9FFF]/.test(text)) {
       return Math.ceil(text.length / 2); // CJK safety
     }

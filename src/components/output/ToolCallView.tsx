@@ -21,7 +21,7 @@ export default function ToolCallView({
     : null;
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
+    <Box flexDirection="column">
       <Box>
         <Text color="rgb(255, 140, 0)">•</Text>
         <Text> </Text>

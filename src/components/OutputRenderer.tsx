@@ -9,7 +9,9 @@ import SettingsRenderer from "./SettingsRenderer";
 import ErrorView from "./output/ErrorView";
 import ReasoningView from "./output/ReasoningView";
 import ToolCallView from "./output/ToolCallView";
-import AgentTextView from "./output/AgentTextView";
+import DiffView from "./output/DiffView";
+import ConfirmationView from "./output/ConfirmationView";
+import ModelSelectView from "./output/ModelSelectView";
 
 function renderItem(item: OutputItem) {
   switch (item.type) {
@@ -29,6 +31,7 @@ function renderItem(item: OutputItem) {
       return <CommandView command={item.content} />;
     case "comment":
       return <CommentView comment={item.content} />;
+    case "agentText":
     case "markdown":
       return <MarkdownView markdown={item.content} />;
     case "settings":
@@ -50,8 +53,12 @@ function renderItem(item: OutputItem) {
         return <Text dimColor>{item.content}</Text>;
       }
     }
-    case "agentText":
-      return <AgentTextView content={item.content} />;
+    case "diff":
+      return <DiffView diff={item.content} />;
+    case "confirmation":
+      return <ConfirmationView />;
+    case "modelSelect":
+      return <ModelSelectView />;
     default:
       return null;
   }
@@ -62,7 +69,9 @@ export default memo(function OutputRenderer() {
   return (
     <Box flexDirection="column">
       {outputItems.map((item: OutputItem) => (
-        <Box key={item.id}>{renderItem(item)}</Box>
+        <Box key={item.id} marginBottom={1}>
+          {renderItem(item)}
+        </Box>
       ))}
     </Box>
   );

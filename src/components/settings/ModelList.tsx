@@ -1,6 +1,10 @@
 import { Box, Text } from "ink";
 import { useEffect, useMemo } from "react";
-import type { Model } from "@/types/Model";
+import {
+  type Model,
+  parseModelUniqueId,
+  getModelUniqueId,
+} from "@/types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 
 // Theme colors
@@ -15,9 +19,8 @@ const COLORS = {
 
 // Role abbreviations for compact display
 const ROLE_ABBREV: Record<string, { short: string; color: string }> = {
-  Reasoning: { short: "R", color: "#9370DB" }, // Purple
-  General: { short: "G", color: "#20B2AA" }, // Teal
-  Lightweight: { short: "L", color: "#ffc169" }, // Orange
+  Primary: { short: "P", color: "#9370DB" }, // Purple
+  Secondary: { short: "S", color: "#20B2AA" }, // Teal
 };
 
 const formatSize = (bytes: number) => {
@@ -32,6 +35,22 @@ const formatSize = (bytes: number) => {
 const formatContext = (contextLength: number | undefined) => {
   if (!contextLength) return "—";
   return `${(contextLength / 1000).toFixed(0)}k`;
+};
+
+/**
+ * Check if a model matches a stored model reference.
+ * Handles both:
+ * - New unique ID format: "name|type"
+ * - Legacy name-only format: "name"
+ */
+const modelMatchesReference = (model: Model, reference: string): boolean => {
+  // Try parsing as unique ID (name|type format)
+  const parsed = parseModelUniqueId(reference);
+  if (parsed) {
+    return model.name === parsed.name && model.type === parsed.type;
+  }
+  // Fall back to name-only matching (legacy format)
+  return model.name === reference;
 };
 
 interface RoleBadgesProps {
@@ -51,7 +70,7 @@ const RoleBadges = ({ roles }: RoleBadgesProps) => {
           <Text key={role} color={color} bold>
             {short}
           </Text>
-        ) : null
+        ) : null,
       )}
     </Box>
   );
@@ -112,7 +131,7 @@ const ModelRow = ({ model, roles, showSize, showContext }: ModelRowProps) => {
 interface ModelTableProps {
   title: string;
   models: Model[];
-  getModelRoles: (name: string) => string[];
+  getModelRoles: (model: Model) => string[];
   showSize: boolean;
   showContext: boolean;
   emptyMessage: string;
@@ -177,7 +196,7 @@ const ModelTable = ({
 
             {/* Model rows */}
             {models.map((model) => {
-              const roles = getModelRoles(model.name);
+              const roles = getModelRoles(model);
               return (
                 <ModelRow
                   key={model.digest}
@@ -222,23 +241,17 @@ const Legend = () => (
 );
 
 const ModelList = () => {
-  const {
-    thinkerModel,
-    generalModel,
-    lightWeightModel,
-    models,
-    syncWithSettings,
-  } = useSettingsStore();
+  const { primaryModel, secondaryModel, models, syncWithSettings } =
+    useSettingsStore();
 
   useEffect(() => {
     syncWithSettings();
   }, [syncWithSettings]);
 
-  const getModelRoles = (name: string) => {
+  const getModelRoles = (model: Model) => {
     const roles: string[] = [];
-    if (name.includes(thinkerModel)) roles.push("Reasoning");
-    if (name.includes(generalModel)) roles.push("General");
-    if (name.includes(lightWeightModel)) roles.push("Lightweight");
+    if (modelMatchesReference(model, primaryModel)) roles.push("Primary");
+    if (modelMatchesReference(model, secondaryModel)) roles.push("Secondary");
     return roles;
   };
 
@@ -257,8 +270,8 @@ const ModelList = () => {
     // Sort each group: active models first, then alphabetically
     const sortModels = (arr: Model[]) =>
       arr.sort((a, b) => {
-        const aActive = getModelRoles(a.name).length > 0;
-        const bActive = getModelRoles(b.name).length > 0;
+        const aActive = getModelRoles(a).length > 0;
+        const bActive = getModelRoles(b).length > 0;
         if (aActive !== bActive) return bActive ? 1 : -1;
         return a.name.localeCompare(b.name);
       });
@@ -268,7 +281,7 @@ const ModelList = () => {
       openrouterModels: sortModels(openrouter),
       ollamaModels: sortModels(ollama),
     };
-  }, [models, thinkerModel, generalModel]);
+  }, [models, primaryModel, secondaryModel]);
 
   return (
     <Box flexDirection="column" padding={1}>

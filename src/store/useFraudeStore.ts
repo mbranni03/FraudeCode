@@ -3,16 +3,23 @@ import type { OutputItem, OutputItemType } from "@/types/OutputItem";
 import ContextManager from "@/agent/contextManager";
 import log from "@/utils/logger";
 
+interface ModelSelectionRequest {
+  originalModel: string;
+  errorMessage: string;
+  resolve: (modelName: string | null) => void;
+}
+
 interface FraudeStore {
   executionMode: 0 | 1 | 2; // 0 = Fast, 1 = Plan, 2 = Ask
   outputItems: OutputItem[];
   started: boolean;
-  status: number; // 0 = idle, 1 = running, -1 = interrupted
+  status: number; // 0 = idle, 1 = running, 3 = reviewing changes, 4 = awaiting model selection, -1 = interrupted
   elapsedTime: number;
   lastBreak: number;
   statusText?: string;
   contextManager: ContextManager;
   abortController: AbortController | null;
+  pendingModelSelection: ModelSelectionRequest | null;
   interruptAgent: () => void;
   updateOutput: (
     type: OutputItemType,
@@ -22,6 +29,11 @@ interface FraudeStore {
       dontOverride?: boolean;
     },
   ) => void;
+  requestModelSelection: (
+    originalModel: string,
+    errorMessage: string,
+  ) => Promise<string | null>;
+  resolveModelSelection: (modelName: string | null) => void;
 }
 
 const useFraudeStore = create<FraudeStore>((set, get) => ({
@@ -34,6 +46,7 @@ const useFraudeStore = create<FraudeStore>((set, get) => ({
   statusText: "",
   contextManager: new ContextManager(),
   abortController: null,
+  pendingModelSelection: null,
   interruptAgent: () => {
     const controller = get().abortController;
     if (controller && !controller.signal.aborted) {
@@ -56,7 +69,12 @@ const useFraudeStore = create<FraudeStore>((set, get) => ({
       //   };
       //   content += ` · (${(elapsed / 10).toFixed(1)}s)`;
       // }
-      const dontOverrideType = new Set(["log", "checkpoint", "interrupted"]);
+      const dontOverrideType = new Set([
+        "log",
+        "checkpoint",
+        "interrupted",
+        "command",
+      ]);
       if (
         latestOutput &&
         latestOutput.type === type &&
@@ -81,6 +99,35 @@ const useFraudeStore = create<FraudeStore>((set, get) => ({
         ...extraChanges,
       };
     });
+  },
+  requestModelSelection: (originalModel: string, errorMessage: string) => {
+    return new Promise<string | null>((resolve) => {
+      set({
+        status: 4, // awaiting model selection
+        statusText: "Awaiting model selection...",
+        pendingModelSelection: {
+          originalModel,
+          errorMessage,
+          resolve,
+        },
+      });
+      // Also add to output items so it renders
+      get().updateOutput(
+        "modelSelect",
+        JSON.stringify({ originalModel, errorMessage }),
+      );
+    });
+  },
+  resolveModelSelection: (modelName: string | null) => {
+    const pending = get().pendingModelSelection;
+    if (pending) {
+      pending.resolve(modelName);
+      set({
+        status: modelName ? 1 : 0, // back to running or idle
+        statusText: modelName ? "Retrying with new model..." : "",
+        pendingModelSelection: null,
+      });
+    }
   },
 }));
 

@@ -6,13 +6,14 @@ import bashTool from "../tools/bashTool";
 import grepTool from "../tools/grepTool";
 import globTool from "../tools/globTool";
 import useFraudeStore from "@/store/useFraudeStore";
+import useSettingsStore from "@/store/useSettingsStore";
+import lspTool from "../tools/lspTool";
 
 const { updateOutput } = useFraudeStore.getState();
 
-const contextSubAgentTool = tool({
+const researchSubAgentTool = tool({
   description: `Ask a specialized researcher to find information in the codebase.
-    Use this BEFORE making edits to ensure you know the file structure and logic.
-    Example: "Where is the generic Button component defined?"`,
+    Use this BEFORE making edits to ensure you know the file structure and logic.`,
   inputSchema: z.object({
     question: z
       .string()
@@ -26,14 +27,17 @@ const contextSubAgentTool = tool({
         details: question,
         result: "",
       }),
-      { dontOverride: true }
+      { dontOverride: true },
     );
+    // Create agent at execution time to pick up current settings
+    // Use isolated context to prevent contaminating the parent agent's context
     const subagent = new Agent({
-      model: "openai/gpt-oss-120b",
+      model: useSettingsStore.getState().secondaryModel,
       systemPrompt: prompt,
-      tools: { readTool, bashTool, grepTool, globTool },
+      tools: { readTool, bashTool, grepTool, globTool, lspTool },
       temperature: 0.7,
       maxSteps: 10,
+      useIsolatedContext: true,
     });
     const result = await subagent.chat(question);
     updateOutput(
@@ -42,13 +46,13 @@ const contextSubAgentTool = tool({
         action: "Explored context",
         details: question,
         result: result.text,
-      })
+      }),
     );
     return result.text;
   },
 });
 
-export default contextSubAgentTool;
+export default researchSubAgentTool;
 
 const prompt = `
 You are a read-only research assistant.

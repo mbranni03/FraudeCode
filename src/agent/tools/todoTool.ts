@@ -10,19 +10,24 @@ const { updateOutput } = useFraudeStore.getState();
 const FRAUDE_DIR = path.join(process.cwd(), ".fraude");
 const TODOS_FILE = path.join(FRAUDE_DIR, "todos.json");
 
+// Context for worker agents
+interface TaskContext {
+  files: string[];
+  instructions: string;
+}
+
 // Todo item schema
-interface TodoItem {
+export interface TodoItem {
   id: string;
   description: string;
-  status: "pending" | "in-progress" | "completed";
-  iteration: number;
+  status: "pending" | "in-progress" | "reviewing" | "completed";
+  context?: TaskContext;
   notes: string[];
   createdAt: string;
   updatedAt: string;
 }
 
 interface TodoState {
-  currentIteration: number;
   todos: TodoItem[];
 }
 
@@ -33,7 +38,7 @@ async function readTodos(): Promise<TodoState> {
     const text = await file.text();
     return JSON.parse(text);
   }
-  return { currentIteration: 1, todos: [] };
+  return { todos: [] };
 }
 
 // Helper to write todos
@@ -48,9 +53,10 @@ function generateId(): string {
 
 const todoTool = tool({
   description: DESCRIPTION,
+  strict: true,
   inputSchema: z.object({
     operation: z
-      .enum(["add", "update", "complete", "list", "clear", "next-iteration"])
+      .enum(["add", "update", "complete", "list", "clear"])
       .describe("The operation to perform"),
     id: z
       .string()
@@ -60,150 +66,159 @@ const todoTool = tool({
       .string()
       .optional()
       .describe("Task description (required for add)"),
+    context: z
+      .object({
+        files: z.array(z.string()).describe("Relevant file paths"),
+        instructions: z
+          .string()
+          .describe("Specific instructions for the worker"),
+      })
+      .optional()
+      .describe("Pre-researched context for the worker (for add)"),
     status: z
-      .enum(["pending", "in-progress", "completed"])
+      .enum(["pending", "in-progress", "reviewing", "completed"])
       .optional()
-      .describe("New status (for update operation)"),
-    note: z
-      .string()
-      .optional()
-      .describe("Note to append (for worker summaries or reviewer feedback)"),
+      .describe("New status (for update)"),
+    note: z.string().optional().describe("Note to append"),
   }),
-  execute: async ({ operation, id, description, status, note }) => {
+
+  execute: async ({ operation, id, description, context, status, note }) => {
     const state = await readTodos();
     const now = new Date().toISOString();
-    let result: unknown;
 
     switch (operation) {
       case "add": {
-        if (!description)
-          throw new Error("Description required for add operation");
+        if (!description) throw new Error("Description required");
         const newTodo: TodoItem = {
           id: generateId(),
           description,
           status: "pending",
-          iteration: state.currentIteration,
+          context,
           notes: note ? [note] : [],
           createdAt: now,
           updatedAt: now,
         };
         state.todos.push(newTodo);
         await writeTodos(state);
-        result = { success: true, todo: newTodo };
         updateOutput(
           "toolCall",
           JSON.stringify({
-            action: "Added Todo",
+            action: "Added Task",
             details: description,
             result: newTodo.id,
           }),
-          { dontOverride: true }
+          { dontOverride: true },
         );
-        break;
+        return { success: true, id: newTodo.id };
       }
 
       case "update": {
-        if (!id) throw new Error("ID required for update operation");
+        if (!id) throw new Error("ID required");
         const todo = state.todos.find((t) => t.id === id);
-        if (!todo) throw new Error(`Todo not found: ${id}`);
+        if (!todo) throw new Error(`Task not found: ${id}`);
         if (status) todo.status = status;
-        if (note) todo.notes.push(`[Iter ${state.currentIteration}] ${note}`);
+        if (note) todo.notes.push(note);
         todo.updatedAt = now;
         await writeTodos(state);
-        result = { success: true, todo };
         updateOutput(
           "toolCall",
           JSON.stringify({
-            action: "Updated Todo",
+            action: "Updated Task",
             details: todo.description,
             result: status || "note added",
           }),
-          { dontOverride: true }
+          { dontOverride: true },
         );
-        break;
+        return { success: true };
       }
 
       case "complete": {
-        if (!id) throw new Error("ID required for complete operation");
+        if (!id) throw new Error("ID required");
         const todo = state.todos.find((t) => t.id === id);
-        if (!todo) throw new Error(`Todo not found: ${id}`);
+        if (!todo) throw new Error(`Task not found: ${id}`);
         todo.status = "completed";
+        if (note) todo.notes.push(`[Done] ${note}`);
         todo.updatedAt = now;
-        if (note) todo.notes.push(`[Completed] ${note}`);
         await writeTodos(state);
-        result = { success: true, todo };
         updateOutput(
           "toolCall",
           JSON.stringify({
-            action: "Completed Todo",
+            action: "Completed Task",
             details: todo.description,
             result: "✓",
           }),
-          { dontOverride: true }
+          { dontOverride: true },
         );
-        break;
+        return { success: true };
       }
 
       case "list": {
-        result = {
-          iteration: state.currentIteration,
-          todos: state.todos,
-          summary: {
-            total: state.todos.length,
-            pending: state.todos.filter((t) => t.status === "pending").length,
-            inProgress: state.todos.filter((t) => t.status === "in-progress")
-              .length,
-            completed: state.todos.filter((t) => t.status === "completed")
-              .length,
-          },
+        const summary = {
+          total: state.todos.length,
+          pending: state.todos.filter((t) => t.status === "pending").length,
+          inProgress: state.todos.filter((t) => t.status === "in-progress")
+            .length,
+          completed: state.todos.filter((t) => t.status === "completed").length,
         };
         updateOutput(
           "toolCall",
           JSON.stringify({
-            action: "Listed Todos",
-            details: `Iteration ${state.currentIteration}`,
-            result: `${state.todos.length} tasks`,
+            action: "Listed Tasks",
+            details: `${summary.pending} pending, ${summary.inProgress} in-progress`,
+            result: `${summary.total} total`,
           }),
-          { dontOverride: true }
+          { dontOverride: true },
         );
-        break;
+        return { todos: state.todos, summary };
       }
 
       case "clear": {
+        const before = state.todos.length;
         state.todos = state.todos.filter((t) => t.status !== "completed");
         await writeTodos(state);
-        result = { success: true, remaining: state.todos.length };
         updateOutput(
           "toolCall",
           JSON.stringify({
             action: "Cleared Completed",
-            details: `${state.todos.length} remaining`,
+            details: `Removed ${before - state.todos.length} tasks`,
             result: "✓",
           }),
-          { dontOverride: true }
+          { dontOverride: true },
         );
-        break;
-      }
-
-      case "next-iteration": {
-        state.currentIteration += 1;
-        await writeTodos(state);
-        result = { success: true, iteration: state.currentIteration };
-        updateOutput(
-          "toolCall",
-          JSON.stringify({
-            action: "Next Iteration",
-            details: `Now on iteration ${state.currentIteration}`,
-            result: "✓",
-          }),
-          { dontOverride: true }
-        );
-        break;
+        return { success: true, remaining: state.todos.length };
       }
     }
-
-    return result;
   },
 });
+
+export const getNextTodo = async () => {
+  const state = await readTodos();
+  const nextTodo = state.todos.find((t) => t.status === "pending");
+  if (!nextTodo) {
+    return { done: true, task: null };
+  }
+  // Mark as in-progress
+  nextTodo.status = "in-progress";
+  nextTodo.updatedAt = new Date().toISOString();
+  await writeTodos(state);
+  return {
+    done: false,
+    task: nextTodo,
+  };
+};
+
+export const getTodoById = async (id: string) => {
+  const state = await readTodos();
+  return state.todos.find((t) => t.id === id);
+};
+
+/**
+ * Check if there are any pending todos without modifying state.
+ * Used to validate that the manager agent created tasks.
+ */
+export const hasPendingTodos = async (): Promise<boolean> => {
+  const state = await readTodos();
+  return state.todos.some((t) => t.status === "pending");
+};
 
 export default todoTool;

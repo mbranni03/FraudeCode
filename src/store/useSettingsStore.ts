@@ -4,9 +4,8 @@ import type { Model } from "../types/Model";
 
 interface SettingsState {
   ollamaUrl: string;
-  thinkerModel: string;
-  generalModel: string;
-  lightWeightModel: string;
+  primaryModel: string;
+  secondaryModel: string;
   models: Model[];
   history: string[];
   groq_api_key: string;
@@ -18,9 +17,8 @@ interface SettingsState {
 
 const DEFAULTS = {
   ollamaUrl: "http://localhost:11434",
-  thinkerModel: "qwen3:8b",
-  generalModel: "llama3.1:latest",
-  lightWeightModel: "llama3.1:latest",
+  primaryModel: "qwen3:8b|ollama",
+  secondaryModel: "llama3.1:latest|ollama",
   models: [] as Model[],
   history: [] as string[],
   groq_api_key: "",
@@ -45,9 +43,8 @@ const useSettingsStore = create<SettingsState>()((set) => {
         const settings = Settings.getInstance();
         set({
           ollamaUrl: settings.get("ollamaUrl"),
-          thinkerModel: settings.get("thinkerModel"),
-          generalModel: settings.get("generalModel"),
-          lightWeightModel: settings.get("lightWeightModel"),
+          primaryModel: settings.get("primaryModel"),
+          secondaryModel: settings.get("secondaryModel"),
           models: settings.get("models"),
           history: settings.get("history"),
           groq_api_key: settings.get("groq_api_key"),

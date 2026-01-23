@@ -1,41 +1,191 @@
-import {
-  generateText,
-  streamText,
-  Output,
-  stepCountIs,
-  type ModelMessage,
-} from "ai";
+import { generateText, streamText, stepCountIs, type ModelMessage } from "ai";
 import { getModel } from "@/providers/providers";
 import type {
   AgentConfig,
   AgentResponse,
-  StreamingAgentResponse,
-  StructuredAgentResponse,
-  StructuredSchema,
   ToolCallInfo,
   ToolResultInfo,
   StepInfo,
-  AgentUsage,
 } from "@/types/Agent";
 import log from "@/utils/logger";
 import useFraudeStore from "@/store/useFraudeStore";
+import { incrementModelUsage } from "@/config/settings";
+import type { TokenUsage } from "@/types/TokenUsage";
+import { handleStreamChunk } from "@/utils/streamHandler";
+import ContextManager from "@/agent/contextManager";
 
 // ============================================================================
 // Helper to extract usage from SDK response
 // ============================================================================
 
-function extractUsage(usage: unknown): AgentUsage {
+function extractUsage(usage: unknown): TokenUsage {
   if (usage && typeof usage === "object") {
     const u = usage as Record<string, unknown>;
     return {
-      promptTokens: typeof u.inputTokens === "number" ? u.inputTokens : 0,
-      completionTokens: typeof u.outputTokens === "number" ? u.outputTokens : 0,
-      totalTokens:
+      prompt: typeof u.inputTokens === "number" ? u.inputTokens : 0,
+      completion: typeof u.outputTokens === "number" ? u.outputTokens : 0,
+      total:
         (typeof u.inputTokens === "number" ? u.inputTokens : 0) +
         (typeof u.outputTokens === "number" ? u.outputTokens : 0),
     };
   }
-  return { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+  return { prompt: 0, completion: 0, total: 0 };
+}
+
+async function experimental_repairToolCall(failed: any) {
+  const lower = failed.toolCall.toolName.toLowerCase();
+  if (lower !== failed.toolCall.toolName && failed.tools?.[lower]) {
+    return {
+      ...failed.toolCall,
+      toolName: lower,
+    };
+  }
+  return {
+    ...failed.toolCall,
+    input: JSON.stringify({
+      tool: failed.toolCall.toolName,
+      error: failed.error.message,
+    }),
+    toolName: "invalid",
+  };
+}
+
+// ============================================================================
+// Rate Limit Handling
+// ============================================================================
+
+const RATE_LIMIT_RETRY_DELAY_MS = 60000; // 60 seconds - wait for TPM limit to reset
+const MAX_RATE_LIMIT_RETRIES = 3;
+
+/**
+ * Check if an error is a rate limit error (429 or TPM limit)
+ */
+function isRateLimitError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    // Check for 429 status or TPM limit messages
+    if (
+      message.includes("429") ||
+      message.includes("rate limit") ||
+      message.includes("tokens per minute") ||
+      message.includes("tpm") ||
+      message.includes("request too large") ||
+      message.includes("too many requests")
+    ) {
+      return true;
+    }
+  }
+  // Check if error has a status property (API response errors)
+  if (error && typeof error === "object" && "status" in error) {
+    return (error as { status: number }).status === 429;
+  }
+  return false;
+}
+
+/**
+ * Sleep for a specified number of milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Execute a function with rate limit retry logic.
+ * If all retries fail, prompts the user to select an alternative model.
+ *
+ * @param fn - The function to execute (should use currentModel from getModel callback)
+ * @param currentModelName - The current model name for error reporting
+ * @param onModelChange - Callback when user selects a new model (should update internal state and return new fn)
+ */
+async function withRateLimitRetry<T>(
+  fn: () => Promise<T>,
+  currentModelName: string,
+  onModelChange?: (newModelName: string) => () => Promise<T>,
+  retries = MAX_RATE_LIMIT_RETRIES,
+): Promise<T> {
+  let lastError: unknown;
+  let currentFn = fn;
+  let modelName = currentModelName;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await currentFn();
+    } catch (error) {
+      lastError = error;
+
+      if (isRateLimitError(error) && attempt < retries) {
+        const waitTime = RATE_LIMIT_RETRY_DELAY_MS;
+        log(
+          `Rate limit hit. Waiting ${waitTime / 1000} seconds before retry ${attempt + 1}/${retries}...`,
+        );
+        useFraudeStore.setState({
+          statusText: `Rate limited - waiting ${waitTime / 1000}s (retry ${attempt + 1}/${retries})`,
+        });
+        await sleep(waitTime);
+        continue;
+      }
+
+      // If it's a rate limit error and we've exhausted retries, offer model selection
+      if (isRateLimitError(error) && onModelChange) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        log(
+          `Rate limit retries exhausted. Prompting user for model selection...`,
+        );
+
+        const selectedModel = await useFraudeStore
+          .getState()
+          .requestModelSelection(modelName, errorMessage);
+
+        if (selectedModel) {
+          log(`User selected alternative model: ${selectedModel}`);
+          // Get new function with updated model
+          currentFn = onModelChange(selectedModel);
+          modelName = selectedModel;
+          // Reset retries for the new model
+          attempt = -1; // Will become 0 after continue
+          continue;
+        } else {
+          // User cancelled
+          throw new Error(
+            `Request cancelled by user after rate limit on model: ${modelName}`,
+          );
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError;
+}
+
+// ============================================================================
+// Provider Options Builder
+// ============================================================================
+
+/**
+ * Build provider options object for generateText/streamText calls.
+ * Currently supports OpenAI-specific options like reasoningEffort.
+ */
+function buildProviderOptions(
+  config: Partial<AgentConfig>,
+): Record<string, Record<string, string | number | boolean>> | undefined {
+  const openaiOptions: Record<string, string | number | boolean> = {};
+
+  // Add reasoning effort if specified
+  if (config.reasoningEffort) {
+    openaiOptions.reasoningEffort = config.reasoningEffort;
+  }
+
+  // Only return providerOptions if we have something to set
+  if (Object.keys(openaiOptions).length > 0) {
+    return {
+      openai: openaiOptions,
+    };
+  }
+
+  return undefined;
 }
 
 // ============================================================================
@@ -50,6 +200,8 @@ export default class Agent {
   private config: AgentConfig;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private model: any;
+  private rawModel: string;
+  private isolatedContextManager: ContextManager | null = null;
 
   constructor(config: AgentConfig) {
     this.config = {
@@ -60,6 +212,22 @@ export default class Agent {
       ...config,
     };
     this.model = getModel(config.model);
+    this.rawModel = config.model;
+
+    // Create isolated context manager if requested (for subagents)
+    if (config.useIsolatedContext) {
+      this.isolatedContextManager = new ContextManager();
+    }
+  }
+
+  /**
+   * Get the appropriate context manager for this agent.
+   * Returns isolated context manager if configured, otherwise the global one.
+   */
+  private getContextManager(): ContextManager {
+    return (
+      this.isolatedContextManager ?? useFraudeStore.getState().contextManager
+    );
   }
 
   // ==========================================================================
@@ -72,10 +240,10 @@ export default class Agent {
    */
   async chat(
     input: string,
-    options?: Partial<AgentConfig>
+    options?: Partial<AgentConfig>,
   ): Promise<AgentResponse> {
-    const contextManager = useFraudeStore.getState().contextManager;
-    const messages = contextManager.addContext(input);
+    const contextManager = this.getContextManager();
+    const messages = await contextManager.addContext(input);
     const mergedConfig = { ...this.config, ...options };
 
     const result = await generateText({
@@ -85,32 +253,31 @@ export default class Agent {
       temperature: mergedConfig.temperature,
       maxOutputTokens: mergedConfig.maxTokens,
       tools: mergedConfig.tools,
+      providerOptions: buildProviderOptions(mergedConfig),
       stopWhen: mergedConfig.maxSteps
         ? stepCountIs(mergedConfig.maxSteps)
         : undefined,
-      onStepFinish: (step) => {
-        if (mergedConfig.onStepComplete) {
-          mergedConfig.onStepComplete(this.mapStepInfo(step));
-        }
-      },
+      experimental_repairToolCall,
+      onStepFinish: contextManager.processStep,
     });
 
-    // Update conversation history
-    contextManager.addContext(result.response.messages);
+    // Note: Context is tracked incrementally in onStepFinish for error recovery
 
-    return this.mapResponse(result);
+    const response = this.mapResponse(result);
+    await incrementModelUsage(this.rawModel, response.usage);
+    return response;
   }
 
   /**
    * Stream a response in real-time.
    * Returns an async iterable for text chunks and a promise for the full response.
    */
-  stream(
+  async stream(
     input: string,
-    options?: Partial<AgentConfig>
-  ): StreamingAgentResponse {
-    const contextManager = useFraudeStore.getState().contextManager;
-    const messages = contextManager.addContext(input);
+    options?: Partial<AgentConfig>,
+  ): Promise<AgentResponse> {
+    const contextManager = this.getContextManager();
+    const messages = await contextManager.addContext(input);
     const mergedConfig = { ...this.config, ...options };
 
     const result = streamText({
@@ -121,118 +288,37 @@ export default class Agent {
       maxOutputTokens: mergedConfig.maxTokens,
       tools: mergedConfig.tools,
       abortSignal: mergedConfig.abortSignal,
+      providerOptions: buildProviderOptions(mergedConfig),
       stopWhen: mergedConfig.maxSteps
         ? stepCountIs(mergedConfig.maxSteps)
         : undefined,
-      onChunk: ({ chunk }) => {
-        if (chunk.type === "text-delta" && mergedConfig.onTextChunk) {
-          mergedConfig.onTextChunk(chunk.text);
-        }
-      },
+      experimental_repairToolCall,
       onStepFinish: (step) => {
-        if (mergedConfig.onStepComplete) {
-          mergedConfig.onStepComplete(this.mapStepInfo(step));
-        }
+        log(`Step finished: ${step.finishReason}`);
+        contextManager.processStep(step);
+      },
+      onError: (error) => {
+        log(`Stream error: ${JSON.stringify(error, null, 2)}`);
       },
     });
 
-    return {
-      stream: result.fullStream,
-      response: this.buildStreamingResponse(result, messages),
-    };
-  }
-
-  /**
-   * Generate a structured object that conforms to a Zod schema.
-   * Useful for extracting data, function calling, or typed responses.
-   *
-   * @example
-   * ```typescript
-   * const schema = z.object({
-   *   name: z.string(),
-   *   age: z.number(),
-   * });
-   *
-   * const result = await agent.generate("John is 25 years old", schema);
-   * console.log(result.object); // { name: "John", age: 25 }
-   * ```
-   */
-  async generate<T>(
-    input: string,
-    schema: StructuredSchema<T>,
-    options?: Partial<AgentConfig> & {
-      schemaName?: string;
-      schemaDescription?: string;
-    }
-  ): Promise<StructuredAgentResponse<T>> {
-    const contextManager = useFraudeStore.getState().contextManager;
-    const messages = contextManager.addContext(input);
-    const mergedConfig = { ...this.config, ...options };
-
-    const result = await generateText({
-      model: this.model as Parameters<typeof generateText>[0]["model"],
-      messages,
-      system: mergedConfig.systemPrompt,
-      temperature: mergedConfig.temperature,
-      maxOutputTokens: mergedConfig.maxTokens,
-      output: Output.object({
-        schema,
-        name: options?.schemaName,
-        description: options?.schemaDescription,
-      }),
-    });
-
-    return {
-      object: result.output as T,
-      usage: extractUsage(result.usage),
-      finishReason: result.finishReason ?? "unknown",
-      raw: result,
-    };
+    return this.buildStreamingResponse(result, mergedConfig.abortSignal);
   }
 
   // ==========================================================================
   // Configuration
   // ==========================================================================
 
-  /**
-   * Update the agent's configuration
-   */
-  configure(options: Partial<AgentConfig>): void {
-    this.config = { ...this.config, ...options };
-
-    // If model changed, update the model instance
-    if (options.model) {
-      this.model = getModel(options.model);
-    }
+  getModel(): string {
+    return this.rawModel;
   }
 
   /**
-   * Get the current configuration
-   */
-  getConfig(): AgentConfig {
-    return { ...this.config };
-  }
-
-  /**
-   * Switch to a different model
+   * Switch to a different model (used internally by rate limit retry logic)
    */
   setModel(modelName: string): void {
     this.config.model = modelName;
     this.model = getModel(modelName);
-  }
-
-  /**
-   * Update the system prompt
-   */
-  setSystemPrompt(prompt: string): void {
-    this.config.systemPrompt = prompt;
-  }
-
-  /**
-   * Register tools for the agent to use
-   */
-  setTools(tools: AgentConfig["tools"]): void {
-    this.config.tools = tools;
   }
 
   // ==========================================================================
@@ -240,11 +326,11 @@ export default class Agent {
   // ==========================================================================
 
   private mapResponse(
-    result: Awaited<ReturnType<typeof generateText>>
+    result: Awaited<ReturnType<typeof generateText>>,
   ): AgentResponse {
     const steps: StepInfo[] =
       result.steps?.map((step, index) =>
-        this.mapStepInfo({ ...step, stepNumber: index + 1 })
+        this.mapStepInfo({ ...step, stepNumber: index + 1 }),
       ) ?? [];
     const toolCalls: ToolCallInfo[] = [];
     const toolResults: ToolResultInfo[] = [];
@@ -274,8 +360,6 @@ export default class Agent {
       | Array<Record<string, unknown>>
       | undefined;
 
-    log(`Step ${step.stepNumber}: ${JSON.stringify(step, null, 2)}`);
-
     return {
       stepNumber: (step.stepNumber as number) ?? 0,
       text: (step.text as string) ?? "",
@@ -297,16 +381,65 @@ export default class Agent {
 
   private async buildStreamingResponse(
     result: ReturnType<typeof streamText>,
-    messages: ModelMessage[]
+    abortSignal?: AbortSignal,
   ): Promise<AgentResponse> {
-    const contextManager = useFraudeStore.getState().contextManager;
-    // Wait for the stream to complete
-    const finalResult = await result;
+    // Consume the stream - required for the promise to resolve
+    log("Starting stream consumption...");
 
-    // Update conversation history
-    const responseMessages = await result.response;
-    contextManager.addContext(responseMessages.messages);
+    // Track tool calls to detect loops
+    const toolCallCounts = new Map<string, number>();
+    const LOOP_THRESHOLD = 3;
 
+    try {
+      for await (const chunk of result.fullStream) {
+        // Check for abort between chunks
+        if (abortSignal?.aborted) {
+          log("Stream consumption aborted by user");
+          const error = new Error("Aborted");
+          error.name = "AbortError";
+          throw error;
+        }
+
+        log(JSON.stringify(chunk, null, 2));
+
+        // Detect repeated tool calls (loop detection)
+        const chunkAny = chunk as Record<string, unknown>;
+        if (chunkAny.type === "tool-call") {
+          const toolName = chunkAny.toolName as string;
+          const input = chunkAny.input;
+          const key = `${toolName}:${JSON.stringify(input)}`;
+          const count = (toolCallCounts.get(key) || 0) + 1;
+          toolCallCounts.set(key, count);
+
+          if (count >= LOOP_THRESHOLD) {
+            log(
+              `WARNING: Loop detected - ${toolName} called ${count} times with identical arguments`,
+            );
+          }
+        }
+
+        const usage: TokenUsage = handleStreamChunk(
+          chunk as Record<string, unknown>,
+        );
+        await incrementModelUsage(this.rawModel, usage);
+      }
+      log("Stream consumption completed.");
+
+      // Log summary of detected loops
+      for (const [key, count] of toolCallCounts) {
+        if (count >= LOOP_THRESHOLD) {
+          log(
+            `Loop summary: "${key.substring(0, 100)}..." repeated ${count} times`,
+          );
+        }
+      }
+    } catch (error) {
+      log(`Error during stream consumption: ${error}`);
+      if (error instanceof Error) {
+        log(`Error details: ${error.message}\n${error.stack}`);
+      }
+      throw error;
+    }
     const text = await result.text;
     const usage = await result.usage;
     const finishReason = await result.finishReason;
@@ -314,7 +447,7 @@ export default class Agent {
 
     const mappedSteps: StepInfo[] =
       steps?.map((step, index) =>
-        this.mapStepInfo({ ...step, stepNumber: index + 1 })
+        this.mapStepInfo({ ...step, stepNumber: index + 1 }),
       ) ?? [];
     const toolCalls: ToolCallInfo[] = [];
     const toolResults: ToolResultInfo[] = [];
@@ -331,18 +464,7 @@ export default class Agent {
       steps: mappedSteps,
       toolCalls,
       toolResults,
-      raw: finalResult,
+      raw: result,
     };
   }
-}
-
-// ============================================================================
-// Factory Functions
-// ============================================================================
-
-/**
- * Create an agent with a specific role/persona
- */
-export function createAgent(config: AgentConfig): Agent {
-  return new Agent(config);
 }

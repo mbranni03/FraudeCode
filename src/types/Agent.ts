@@ -1,15 +1,19 @@
 import type { z } from "zod";
-import type {
-  Tool,
-  ModelMessage,
-  ToolSet,
-  AsyncIterableStream,
-  TextStreamPart,
-} from "ai";
+import type { ModelMessage, ToolSet, TextStreamPart } from "ai";
+import type { TokenUsage } from "./TokenUsage";
 
 // ============================================================================
 // Agent Configuration Types
 // ============================================================================
+
+/** Reasoning effort levels for reasoning models (e.g., OpenAI o-series, GPT-5) */
+export type ReasoningEffort =
+  | "none"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh";
 
 export interface AgentConfig {
   /** Model identifier (e.g., "llama3.1:latest", "gpt-4", etc.) */
@@ -36,8 +40,16 @@ export interface AgentConfig {
   /** Whether to automatically execute tools (default: true) */
   autoExecuteTools?: boolean;
 
-  /** Callback for streaming text chunks */
-  onTextChunk?: (chunk: string) => void;
+  /**
+   * Reasoning effort for reasoning models (OpenAI o-series, GPT-5, etc.)
+   * - 'none': No reasoning (only GPT-5.1 models)
+   * - 'minimal': Minimal reasoning
+   * - 'low': Low reasoning effort
+   * - 'medium': Medium reasoning effort (default)
+   * - 'high': High reasoning effort
+   * - 'xhigh': Extra high reasoning (only GPT-5.1-Codex-Max)
+   */
+  reasoningEffort?: ReasoningEffort;
 
   /** Callback for tool calls */
   onToolCall?: (toolCall: ToolCallInfo) => void;
@@ -48,8 +60,18 @@ export interface AgentConfig {
   /** Callback for step completion */
   onStepComplete?: (step: StepInfo) => void;
 
+  /** Callback for each raw stream chunk (for custom handling like usage tracking) */
+  onStreamChunk?: (chunk: TextStreamPart<ToolSet>) => void | Promise<void>;
+
   /** Abort signal for cancelling the request */
   abortSignal?: AbortSignal;
+
+  /**
+   * Whether to use an isolated context manager instead of the shared global one.
+   * Set to true for subagents to prevent context contamination with parent agents.
+   * Default: false (uses shared context manager)
+   */
+  useIsolatedContext?: boolean;
 }
 
 // ============================================================================
@@ -80,18 +102,12 @@ export interface StepInfo {
 // Agent Response Types
 // ============================================================================
 
-export interface AgentUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
-
 export interface AgentResponse {
   /** The final text response */
   text: string;
 
   /** Token usage statistics */
-  usage: AgentUsage;
+  usage: TokenUsage;
 
   /** Finish reason for the generation */
   finishReason: string;
@@ -109,20 +125,12 @@ export interface AgentResponse {
   raw?: unknown;
 }
 
-export interface StreamingAgentResponse {
-  /** Async iterator for text chunks */
-  stream: AsyncIterable<string> | AsyncIterableStream<TextStreamPart<ToolSet>>;
-
-  /** Promise that resolves to the full response when streaming completes */
-  response: Promise<AgentResponse>;
-}
-
 export interface StructuredAgentResponse<T> {
   /** The structured object matching the provided schema */
   object: T;
 
   /** Token usage statistics */
-  usage: AgentUsage;
+  usage: TokenUsage;
 
   /** Finish reason for the generation */
   finishReason: string;

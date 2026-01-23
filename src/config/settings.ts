@@ -3,16 +3,14 @@ import log from "../utils/logger";
 import { join } from "path";
 import { homedir, platform } from "os";
 import { rename, mkdir } from "fs/promises";
-import { ModelSchema } from "../types/Model";
+import { ModelSchema, parseModelUniqueId } from "../types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 
 const SettingsSchema = z.object({
-  lifetimeTokenUsage: z.number().default(0),
   lastOpened: z.iso.datetime().optional(),
   ollamaUrl: z.string().default("http://localhost:11434"),
-  thinkerModel: z.string().default("qwen3:8b"),
-  generalModel: z.string().default("llama3.1:latest"),
-  lightWeightModel: z.string().default("llama3.1:latest"),
+  primaryModel: z.string().default("qwen3:8b|ollama"),
+  secondaryModel: z.string().default("llama3.1:latest|ollama"),
   models: z.array(ModelSchema).default([]),
   history: z.array(z.string()).default([]),
   openrouter_api_key: z.string().optional(),
@@ -100,14 +98,14 @@ class Settings {
       case "win32":
         return join(
           process.env.APPDATA || join(home, "AppData", "Roaming"),
-          appName
+          appName,
         );
       case "darwin":
         return join(home, "Library", "Application Support", appName);
       case "linux":
         return join(
           process.env.XDG_CONFIG_HOME || join(home, ".config"),
-          appName
+          appName,
         );
       default:
         return join(home, `.${appName}`);
@@ -132,7 +130,7 @@ class Settings {
       if (!result.success) {
         console.error(
           "Invalid settings found, using defaults:",
-          result.error.format()
+          result.error.format(),
         );
         return SettingsSchema.parse({});
       }
@@ -175,10 +173,62 @@ const UpdateSettings = async (updates: Partial<Config>) => {
 
 const addHistory = async (value: string) => {
   const history = Settings.getInstance().get("history");
-  const newHistory = [value, ...history].slice(0, 50);
-  await UpdateSettings({ history: newHistory });
+  if (value.trim().toLowerCase() != history[0]?.trim().toLowerCase()) {
+    const newHistory = [value, ...history].slice(0, 50);
+    await UpdateSettings({ history: newHistory });
+  }
+};
+
+/**
+ * Increment token usage for a specific model.
+ * @param modelIdentifier - The model identifier (can be unique ID "name|type" or just "name")
+ * @param usage - Token usage data with prompt, completion, and total counts
+ */
+const incrementModelUsage = async (
+  modelIdentifier: string,
+  usage: { prompt: number; completion: number; total: number },
+): Promise<void> => {
+  if (usage.total <= 0) return;
+
+  const settings = Settings.getInstance();
+  const models = [...settings.get("models")];
+
+  // Try parsing as unique ID (name|type format)
+  const parsed = parseModelUniqueId(modelIdentifier);
+  let modelIndex: number;
+
+  if (parsed) {
+    // Match by both name and type
+    modelIndex = models.findIndex(
+      (m) => m.name === parsed.name && m.type === parsed.type,
+    );
+  } else {
+    // Fall back to name-only matching (legacy format)
+    modelIndex = models.findIndex((m) => m.name === modelIdentifier);
+  }
+
+  if (modelIndex !== -1) {
+    const model = models[modelIndex]!;
+    models[modelIndex] = {
+      ...model,
+      usage: {
+        promptTokens: (model.usage?.promptTokens ?? 0) + usage.prompt,
+        completionTokens:
+          (model.usage?.completionTokens ?? 0) + usage.completion,
+        totalTokens: (model.usage?.totalTokens ?? 0) + usage.total,
+      },
+    };
+    // log(JSON.stringify(models, null, 2));
+    await UpdateSettings({ models });
+  }
 };
 
 export default Settings;
 
-export { Settings, type Config, UpdateSettings, addHistory };
+export {
+  Settings,
+  type Config,
+  UpdateSettings,
+  addHistory,
+  incrementModelUsage,
+};

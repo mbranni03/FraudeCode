@@ -1,5 +1,7 @@
 import useFraudeStore from "@/store/useFraudeStore";
 import log from "./logger";
+import { UpdateSettings } from "@/config/settings";
+import type { TokenUsage } from "@/types/TokenUsage";
 
 interface StreamState {
   reasoningText: string;
@@ -26,7 +28,7 @@ function formatDuration(ms: number): number {
   return ms / 1000;
 }
 
-export function handleStreamChunk(chunk: Record<string, unknown>): void {
+export function handleStreamChunk(chunk: Record<string, unknown>): TokenUsage {
   const { updateOutput } = useFraudeStore.getState();
   const store = useFraudeStore.getState();
 
@@ -56,26 +58,11 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
       break;
     }
 
-    // case "tool-call": {
-    //   const toolCallId = chunk.toolCallId as string;
-    //   state.currentToolCallId = toolCallId;
-    //   state.toolCallTimestamps.set(toolCallId, store.elapsedTime);
-    //   break;
-    // }
-
-    // case "tool-result": {
-    //   const toolCallId = chunk.toolCallId as string;
-    //   const startTime =
-    //     state.toolCallTimestamps.get(toolCallId) || store.lastBreak;
-    //   const elapsed = store.elapsedTime - startTime;
-    //   const duration = formatDuration(elapsed * 100);
-
-    //   useFraudeStore.setState({ lastBreak: store.elapsedTime });
-    //   state.toolCallTimestamps.delete(toolCallId);
-    //   break;
-    // }
-
     case "text-delta":
+      const lastItem = store.outputItems[store.outputItems.length - 1];
+      if (lastItem?.type === "toolCall") {
+        state.agentText = "";
+      }
       state.agentText += chunk.text as string;
       updateOutput("agentText", state.agentText);
       break;
@@ -85,14 +72,37 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
       if (finishReason === "stop" && state.agentText) {
         // Final text output is already displayed
       }
-      break;
+
+      // Safely extract usage data using AI SDK's normalized format
+      const usage = chunk.usage as
+        | {
+            inputTokens?: number;
+            outputTokens?: number;
+            totalTokens?: number;
+          }
+        | undefined;
+
+      if (usage) {
+        return {
+          prompt: usage.inputTokens ?? 0,
+          completion: usage.outputTokens ?? 0,
+          total: usage.totalTokens ?? 0,
+        };
+      }
+
+      // Return zero usage if not available
+      return {
+        prompt: 0,
+        completion: 0,
+        total: 0,
+      };
     }
 
     case "finish": {
       const elapsed = store.elapsedTime;
       updateOutput(
         "done",
-        `Finished in ${formatDuration(elapsed * 100).toFixed(1)}s`
+        `Finished in ${formatDuration(elapsed * 100).toFixed(1)}s`,
       );
       resetState();
       break;
@@ -108,6 +118,11 @@ export function handleStreamChunk(chunk: Record<string, unknown>): void {
       // Ignore other chunk types (start-step, tool-input-*, etc.)
       break;
   }
+  return {
+    prompt: 0,
+    completion: 0,
+    total: 0,
+  };
 }
 
 export function resetStreamState() {

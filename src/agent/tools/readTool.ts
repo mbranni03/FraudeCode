@@ -3,14 +3,18 @@ import { z } from "zod";
 import path from "path";
 import { projectPath } from "@/utils";
 import useFraudeStore from "@/store/useFraudeStore";
+import pendingChanges from "@/agent/pendingChanges";
 import DESCRIPTION from "./descriptions/read.txt";
 
 const { updateOutput } = useFraudeStore.getState();
 
 const readTool = tool({
   description: DESCRIPTION,
+  strict: true,
   inputSchema: z.object({
-    filePath: z.string().describe("The path to the file to read"),
+    filePath: z
+      .string()
+      .describe("The path to the file to read. Base path is the project root."),
     offset: z.coerce
       .number()
       .describe("The line number to start reading from (0-based)")
@@ -33,19 +37,22 @@ const readTool = tool({
       filePath = path.join(process.cwd(), filePath);
     }
     const file = Bun.file(filePath);
-    if (!(await file.exists())) {
+    const isStaged = pendingChanges
+      .getChanges()
+      .some((c) => c.path === filePath);
+    if (!isStaged && !(await file.exists())) {
       updateOutput(
         "toolCall",
         JSON.stringify({
-          action: "Error Reading" + projectPath(filePath),
+          action: "Error Reading " + projectPath(filePath),
           details: "File doesn't exist",
           result: "",
         }),
-        { dontOverride: true }
+        { dontOverride: true },
       );
       throw new Error("File doesn't exist");
     }
-    const text = await file.text();
+    const text = await pendingChanges.getLatestContent(filePath);
     const lines = text.split("\n");
     const lastLine = Math.min(offset + limit, lines.length);
     const result = lines.slice(offset, lastLine).join("\n");
@@ -56,7 +63,7 @@ const readTool = tool({
         details: "#L" + (offset + 1) + "-" + lastLine,
         result: result,
       }),
-      { dontOverride: true }
+      { dontOverride: true },
     );
     if (text.trim() === "") {
       throw new Error("File is empty");

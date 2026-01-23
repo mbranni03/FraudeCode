@@ -17,6 +17,18 @@ const COMMANDS: CommandDefinition[] = [
     usage: "/usage",
   },
   {
+    name: "session",
+    description: "Manage session",
+    usage: "/session <subcommand>",
+    subcommands: [
+      {
+        name: "clear",
+        description: "Clear current session",
+        usage: "/session clear",
+      },
+    ],
+  },
+  {
     name: "model",
     description: "Set active model(s) by role",
     usage: "/model <model-name> [role]",
@@ -32,19 +44,14 @@ const COMMANDS: CommandDefinition[] = [
         usage: "/model all <model-name>",
       },
       {
-        name: "reasoning",
-        description: "Set reasoning/thinker model",
-        usage: "/model reasoning <model-name>",
+        name: "primary",
+        description: "Set primary model",
+        usage: "/model primary <model-name>",
       },
       {
-        name: "general",
-        description: "Set general purpose model",
-        usage: "/model general <model-name>",
-      },
-      {
-        name: "light",
-        description: "Set lightweight model",
-        usage: "/model light <model-name>",
+        name: "secondary",
+        description: "Set secondary model",
+        usage: "/model secondary <model-name>",
       },
     ],
   },

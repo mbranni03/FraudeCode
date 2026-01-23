@@ -1,18 +1,32 @@
 import useFraudeStore from "@/store/useFraudeStore";
 import CommandCenter from "@/commands";
-import { Agent } from "@/agent";
-import readTool from "@/agent/tools/readTool";
-import bashTool from "@/agent/tools/bashTool";
-import writeTool from "@/agent/tools/writeTool";
 import log from "./logger";
-import { handleStreamChunk, resetStreamState } from "./streamHandler";
-import editTool from "@/agent/tools/editTool";
-import grepTool from "@/agent/tools/grepTool";
-import globTool from "@/agent/tools/globTool";
-import contextSubAgentTool from "@/agent/subagents/contextSubAgent";
-import PLANNING_PROMPT from "@/agent/planning.txt";
+import { resetStreamState } from "./streamHandler";
+import pendingChanges from "@/agent/pendingChanges";
+import { getManagerAgent } from "@/agent/subagents/managerAgent";
+import {
+  getNextTodo,
+  getTodoById,
+  hasPendingTodos,
+} from "@/agent/tools/todoTool";
+import { getWorkerSubAgent } from "@/agent/subagents/workerSubAgent";
+import { getReviewerSubAgent } from "@/agent/subagents/reviewerSubAgent";
+import type { TodoItem } from "@/agent/tools/todoTool";
 
 const { updateOutput } = useFraudeStore.getState();
+
+const getTaskContext = (task: TodoItem) => {
+  const context = task.context;
+  const notes = task.notes;
+
+  return `Task: ${task.description}
+
+Context:
+${context ? `Files: ${context.files.join(", ")}\nInstructions: ${context.instructions}` : "No pre-researched context provided."}
+
+Notes:
+${notes.length > 0 ? notes.map((n, i) => `${i + 1}. ${n}`).join("\n") : "None"}`;
+};
 
 export default async function QueryHandler(query: string) {
   if (query === "exit") {
@@ -36,60 +50,84 @@ export default async function QueryHandler(query: string) {
   });
   resetStreamState();
 
-  const agent = new Agent({
-    model: "llama3.1:latest",
-
-    systemPrompt: "You are a helpful assistant.",
-    tools: { readTool, bashTool, writeTool, editTool, grepTool, globTool },
-    temperature: 0.7,
-  });
-
-  // const agent = new Agent({
-  //   model: "openai/gpt-oss-120b",
-  //   systemPrompt: PLANNING_PROMPT,
-  //   tools: { contextSubAgentTool, writeTool },
-  //   temperature: 0.7,
-  // });
+  // Helper that throws if interrupted - call between async operations
+  const checkAbort = () => {
+    if (abortController.signal.aborted) {
+      const error = new Error("Aborted");
+      error.name = "AbortError";
+      throw error;
+    }
+  };
 
   try {
-    const stream = agent.stream(query, { abortSignal: abortController.signal });
-    for await (const chunk of stream.stream) {
-      // Check if aborted between chunks
-      if (abortController.signal.aborted) {
-        log("Stream aborted by user");
-        break;
-      }
-      log(JSON.stringify(chunk, null, 2));
-      handleStreamChunk(chunk as Record<string, unknown>);
-    }
-  } catch (error) {
-    // Check if this is an AbortError - these are expected and should be handled gracefully
-    if (
-      error instanceof Error &&
-      (error.name === "AbortError" ||
-        error.message === "The operation was aborted.")
-    ) {
-      log("Stream aborted by user");
-    } else if (error instanceof DOMException && error.code === 20) {
-      // DOMException with code 20 is also an AbortError
-      log("Stream aborted by user");
-    } else {
-      log(error);
+    const response = await getManagerAgent().stream(query, {
+      abortSignal: abortController.signal,
+    });
+    checkAbort();
+
+    log("Manager Response:");
+    log(JSON.stringify(response, null, 2));
+
+    // Validate that manager created at least one todo
+    const hasTodos = await hasPendingTodos();
+    if (!hasTodos) {
+      log("Error: Manager completed without creating any tasks");
       updateOutput(
         "error",
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        "The planning agent completed without creating any tasks. This may indicate the model got stuck in a loop. Please try rephrasing your request or using a different model.",
       );
+      return;
+    }
+
+    let nextTask = await getNextTodo();
+    while (!nextTask.done && nextTask.task) {
+      checkAbort();
+
+      let taskContext = getTaskContext(nextTask.task);
+      const response = await getWorkerSubAgent().stream(taskContext, {
+        abortSignal: abortController.signal,
+      });
+      checkAbort();
+
+      log("Worker Response:");
+      log(JSON.stringify(response, null, 2));
+      const getUpdatedTask = await getTodoById(nextTask.task.id);
+      if (!getUpdatedTask) {
+        updateOutput("error", "Task not found");
+        continue;
+      }
+      taskContext = getTaskContext(getUpdatedTask);
+      const reviewResponse = await getReviewerSubAgent().stream(taskContext, {
+        abortSignal: abortController.signal,
+      });
+      checkAbort();
+
+      log("Review Response:");
+      log(JSON.stringify(reviewResponse, null, 2));
+      nextTask = await getNextTodo();
+    }
+
+    if (pendingChanges.hasChanges()) {
+      useFraudeStore.setState({ status: 3, statusText: "Reviewing Changes" });
+      updateOutput("confirmation", JSON.stringify({}));
+    } else {
+      updateOutput("done", "Task Completed");
+    }
+  } catch (e: any) {
+    if (e?.name === "AbortError" || e?.message === "Aborted") {
+      log("Query aborted by user");
+    } else {
+      log(`Error in query handler: ${e?.message}`);
+      throw e; // Re-throw non-abort errors
     }
   } finally {
-    // Always reset status when done (whether success, error, or abort)
-    updateOutput(
-      "interrupted",
-      (useFraudeStore.getState().elapsedTime / 10).toFixed(1),
-    );
-    useFraudeStore.setState({
-      status: 0,
-      abortController: null,
-      statusText: "",
-    });
+    // Cleanup unless in reviewing mode
+    if (useFraudeStore.getState().status !== 3) {
+      useFraudeStore.setState({
+        status: 0,
+        abortController: null,
+        statusText: "",
+      });
+    }
   }
 }

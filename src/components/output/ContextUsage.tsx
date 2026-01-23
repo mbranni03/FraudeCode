@@ -5,11 +5,11 @@ import useSettingsStore from "@/store/useSettingsStore";
 
 const ContextUsage = () => {
   const { contextManager } = useFraudeStore();
-  const { generalModel, models } = useSettingsStore();
+  const { primaryModel, models } = useSettingsStore();
 
   const { usedTokens, maxTokens, percentage, progressBar } = useMemo(() => {
     // Find the current model from the models list
-    const currentModel = models.find((m) => m.name === generalModel);
+    const currentModel = models.find((m) => m.name === primaryModel);
     const contextLength = currentModel?.details?.context_length || 128000; // Default fallback
 
     const used = contextManager.estimateContextTokens();
@@ -27,7 +27,7 @@ const ContextUsage = () => {
       percentage: pct,
       progressBar: bar,
     };
-  }, [contextManager, generalModel, models]);
+  }, [contextManager, primaryModel, models]);
 
   // Color based on usage percentage
   const getColor = () => {
