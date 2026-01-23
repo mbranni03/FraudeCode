@@ -46,46 +46,33 @@ class ModelCommandCenter {
     if (subcommand === "list" || args.length === 0) {
       const output = `
 Current Model Assignments:
-  Reasoning (R): ${store.thinkerModel}
-  General (G):   ${store.generalModel}
+  Primary (P):   ${store.primaryModel}
+  Secondary (S): ${store.secondaryModel}
 
 Usage:
   /model <name>              Set model for all roles
   /model <name> <role>       Set model for specific role
   /model all <name>          Set model for all roles
-  /model reasoning <name>    Set reasoning model
-  /model general <name>      Set general model
-  /model light <name>        Set lightweight model
+  /model primary <name>      Set primary model
+  /model secondary <name>    Set secondary model
 
-Roles: r|reasoning, g|general, l|light, a|all`;
+Roles: p|primary, s|secondary, a|all`;
       updateOutput("log", output);
       return;
     }
 
     // Role aliases
     const roleAliases: Record<string, string> = {
-      r: "reasoning",
-      reasoning: "reasoning",
-      g: "general",
-      general: "general",
-      l: "lightweight",
-      light: "lightweight",
+      p: "primary",
+      primary: "primary",
+      s: "secondary",
+      secondary: "secondary",
       a: "all",
       all: "all",
     };
 
-    // Check if first arg is a role command (list, all, reasoning, general, light)
-    const roleCommands = [
-      "list",
-      "all",
-      "reasoning",
-      "general",
-      "light",
-      "r",
-      "g",
-      "l",
-      "a",
-    ];
+    // Check if first arg is a role command
+    const roleCommands = ["list", "all", "primary", "secondary", "p", "s", "a"];
 
     let modelName: string;
     let role: string;
@@ -145,28 +132,24 @@ Roles: r|reasoning, g|general, l|light, a|all`;
     const finalModelName = getModelUniqueId(matchedModel);
     const displayName = getModelDisplayId(matchedModel);
     const changedRoles: string[] =
-      role === "all" ? ["reasoning", "general", "lightweight"] : [role];
+      role === "all" ? ["primary", "secondary"] : [role];
     const updates: Record<string, string> = {};
 
     switch (role) {
       case "all":
-        updates.thinkerModel = finalModelName;
-        updates.generalModel = finalModelName;
-        updates.lightWeightModel = finalModelName;
+        updates.primaryModel = finalModelName;
+        updates.secondaryModel = finalModelName;
         break;
-      case "reasoning":
-        updates.thinkerModel = finalModelName;
+      case "primary":
+        updates.primaryModel = finalModelName;
         break;
-      case "general":
-        updates.generalModel = finalModelName;
-        break;
-      case "lightweight":
-        updates.lightWeightModel = finalModelName;
+      case "secondary":
+        updates.secondaryModel = finalModelName;
         break;
       default:
         updateOutput(
           "log",
-          `Unknown role: ${role}. Use: r|reasoning, g|general, l|lightweight, a|all`,
+          `Unknown role: ${role}. Use: p|primary, s|secondary, a|all`,
         );
         return;
     }

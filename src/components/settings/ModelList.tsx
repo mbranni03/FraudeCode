@@ -19,9 +19,8 @@ const COLORS = {
 
 // Role abbreviations for compact display
 const ROLE_ABBREV: Record<string, { short: string; color: string }> = {
-  Reasoning: { short: "R", color: "#9370DB" }, // Purple
-  General: { short: "G", color: "#20B2AA" }, // Teal
-  Lightweight: { short: "L", color: "#ffc169" }, // Orange
+  Primary: { short: "P", color: "#9370DB" }, // Purple
+  Secondary: { short: "S", color: "#20B2AA" }, // Teal
 };
 
 const formatSize = (bytes: number) => {
@@ -242,13 +241,8 @@ const Legend = () => (
 );
 
 const ModelList = () => {
-  const {
-    thinkerModel,
-    generalModel,
-    lightWeightModel,
-    models,
-    syncWithSettings,
-  } = useSettingsStore();
+  const { primaryModel, secondaryModel, models, syncWithSettings } =
+    useSettingsStore();
 
   useEffect(() => {
     syncWithSettings();
@@ -256,10 +250,8 @@ const ModelList = () => {
 
   const getModelRoles = (model: Model) => {
     const roles: string[] = [];
-    if (modelMatchesReference(model, thinkerModel)) roles.push("Reasoning");
-    if (modelMatchesReference(model, generalModel)) roles.push("General");
-    if (modelMatchesReference(model, lightWeightModel))
-      roles.push("Lightweight");
+    if (modelMatchesReference(model, primaryModel)) roles.push("Primary");
+    if (modelMatchesReference(model, secondaryModel)) roles.push("Secondary");
     return roles;
   };
 
@@ -289,7 +281,7 @@ const ModelList = () => {
       openrouterModels: sortModels(openrouter),
       ollamaModels: sortModels(ollama),
     };
-  }, [models, thinkerModel, generalModel]);
+  }, [models, primaryModel, secondaryModel]);
 
   return (
     <Box flexDirection="column" padding={1}>

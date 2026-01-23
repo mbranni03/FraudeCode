@@ -32,7 +32,7 @@ const researchSubAgentTool = tool({
     // Create agent at execution time to pick up current settings
     // Use isolated context to prevent contaminating the parent agent's context
     const subagent = new Agent({
-      model: useSettingsStore.getState().lightWeightModel,
+      model: useSettingsStore.getState().secondaryModel,
       systemPrompt: prompt,
       tools: { readTool, bashTool, grepTool, globTool, lspTool },
       temperature: 0.7,

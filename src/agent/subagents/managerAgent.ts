@@ -9,12 +9,12 @@ let _managerAgent: Agent | null = null;
 
 /**
  * Get the manager agent instance.
- * Uses lazy initialization to ensure settings are loaded before reading thinkerModel.
+ * Uses lazy initialization to ensure settings are loaded before reading primaryModel.
  */
 export function getManagerAgent(): Agent {
   if (!_managerAgent) {
     _managerAgent = new Agent({
-      model: useSettingsStore.getState().thinkerModel,
+      model: useSettingsStore.getState().primaryModel,
       systemPrompt: managerPrompt,
       tools: {
         planTool,

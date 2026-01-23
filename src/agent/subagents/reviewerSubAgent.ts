@@ -12,12 +12,12 @@ let _reviewerSubAgent: Agent | null = null;
 
 /**
  * Get the reviewer subagent instance.
- * Uses lazy initialization to ensure settings are loaded before reading generalModel.
+ * Uses lazy initialization to ensure settings are loaded before reading secondaryModel.
  */
 export function getReviewerSubAgent(): Agent {
   if (!_reviewerSubAgent) {
     _reviewerSubAgent = new Agent({
-      model: useSettingsStore.getState().generalModel,
+      model: useSettingsStore.getState().secondaryModel,
       systemPrompt: ReviewerPrompt,
       tools: { readTool, grepTool, lspTool, writeTool, bashTool, todoTool },
       temperature: 0.7,

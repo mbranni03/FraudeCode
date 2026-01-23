@@ -11,12 +11,12 @@ let _workerSubAgent: Agent | null = null;
 
 /**
  * Get the worker subagent instance.
- * Uses lazy initialization to ensure settings are loaded before reading generalModel.
+ * Uses lazy initialization to ensure settings are loaded before reading primaryModel.
  */
 export function getWorkerSubAgent(): Agent {
   if (!_workerSubAgent) {
     _workerSubAgent = new Agent({
-      model: useSettingsStore.getState().generalModel,
+      model: useSettingsStore.getState().primaryModel,
       systemPrompt: WorkerPrompt,
       tools: {
         readTool,
