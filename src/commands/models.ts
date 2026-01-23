@@ -3,6 +3,8 @@ import Settings, { UpdateSettings } from "src/config/settings";
 import useFraudeStore from "src/store/useFraudeStore";
 import { groqCommandHandler } from "./groq";
 import { openRouterCommandHandler } from "./openrouter";
+import { mistralCommandHandler } from "./mistral";
+import { cerebrasCommandHandler } from "./cerebras";
 import log from "@/utils/logger";
 import {
   parseModelDisplayId,
@@ -28,6 +30,12 @@ class ModelCommandCenter {
         break;
       case "openrouter":
         await openRouterCommandHandler(command);
+        break;
+      case "mistral":
+        await mistralCommandHandler(command);
+        break;
+      case "cerebras":
+        await cerebrasCommandHandler(command);
         break;
       case "ollama":
         break;

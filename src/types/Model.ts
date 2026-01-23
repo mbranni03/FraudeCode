@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-const ProviderTypes = ["groq", "openrouter", "ollama"] as const;
+const ProviderTypes = [
+  "groq",
+  "openrouter",
+  "ollama",
+  "mistral",
+  "cerebras",
+] as const;
 export type ProviderType = (typeof ProviderTypes)[number];
 
 export const ModelSchema = z.object({

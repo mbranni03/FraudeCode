@@ -6,7 +6,7 @@ import { rename, mkdir } from "fs/promises";
 import { ModelSchema, parseModelUniqueId } from "../types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 
-const SettingsSchema = z.object({
+export const SettingsSchema = z.object({
   lastOpened: z.iso.datetime().optional(),
   ollamaUrl: z.string().default("http://localhost:11434"),
   primaryModel: z.string().default("qwen3:8b|ollama"),
@@ -15,6 +15,8 @@ const SettingsSchema = z.object({
   history: z.array(z.string()).default([]),
   openrouter_api_key: z.string().optional(),
   groq_api_key: z.string().optional(),
+  mistral_api_key: z.string().optional(),
+  cerebras_api_key: z.string().optional(),
 });
 
 type Config = z.infer<typeof SettingsSchema>;

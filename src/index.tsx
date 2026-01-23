@@ -4,6 +4,8 @@ import { resetLog } from "./utils/logger";
 import { Settings } from "./config/settings";
 import useSettingsStore from "./store/useSettingsStore";
 import OllamaClient from "@/services/ollama";
+import MistralClient from "@/services/mistral";
+import CerebrasClient from "@/services/cerebras";
 
 // Global error handlers to catch and suppress AbortErrors
 process.on("unhandledRejection", (reason) => {
@@ -39,12 +41,18 @@ process.on("uncaughtException", (error) => {
   process.exit(1);
 });
 
+const syncModels = async () => {
+  await OllamaClient.syncOllamaModels();
+  await MistralClient.syncMistralModels();
+  await CerebrasClient.syncCerebrasModels();
+};
+
 async function main() {
   resetLog();
   console.clear();
   await Settings.init();
   useSettingsStore.getState().syncWithSettings();
-  OllamaClient.syncOllamaModels();
+  syncModels();
   render(<App />);
 }
 

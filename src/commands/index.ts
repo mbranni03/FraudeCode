@@ -28,6 +28,8 @@ class CommandCenter {
       case "ollama":
       case "groq":
       case "models":
+      case "mistral":
+      case "cerebras":
         await ModelCommandCenter.processCommand(query);
         break;
       default:

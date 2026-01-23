@@ -95,6 +95,30 @@ const COMMANDS: CommandDefinition[] = [
       },
     ],
   },
+  {
+    name: "mistral",
+    description: "Manage Mistral models",
+    usage: "/mistral <subcommand>",
+    subcommands: [
+      {
+        name: "auth",
+        description: "Set Mistral API key",
+        usage: "/mistral auth <api-key>",
+      },
+    ],
+  },
+  {
+    name: "cerebras",
+    description: "Manage Cerebras models",
+    usage: "/cerebras <subcommand>",
+    subcommands: [
+      {
+        name: "auth",
+        description: "Set Cerebras API key",
+        usage: "/cerebras auth <api-key>",
+      },
+    ],
+  },
 ];
 
 export default COMMANDS;
