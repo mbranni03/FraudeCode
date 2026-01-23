@@ -302,7 +302,7 @@ export default class Agent {
       },
     });
 
-    return this.buildStreamingResponse(result, messages);
+    return this.buildStreamingResponse(result, mergedConfig.abortSignal);
   }
 
   // ==========================================================================
@@ -381,7 +381,7 @@ export default class Agent {
 
   private async buildStreamingResponse(
     result: ReturnType<typeof streamText>,
-    messages: ModelMessage[],
+    abortSignal?: AbortSignal,
   ): Promise<AgentResponse> {
     // Consume the stream - required for the promise to resolve
     log("Starting stream consumption...");
@@ -392,6 +392,14 @@ export default class Agent {
 
     try {
       for await (const chunk of result.fullStream) {
+        // Check for abort between chunks
+        if (abortSignal?.aborted) {
+          log("Stream consumption aborted by user");
+          const error = new Error("Aborted");
+          error.name = "AbortError";
+          throw error;
+        }
+
         log(JSON.stringify(chunk, null, 2));
 
         // Detect repeated tool calls (loop detection)
