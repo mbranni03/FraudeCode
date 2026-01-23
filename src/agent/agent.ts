@@ -20,16 +20,18 @@ import ContextManager from "@/agent/contextManager";
 
 function extractUsage(usage: unknown): TokenUsage {
   if (usage && typeof usage === "object") {
-    const u = usage as Record<string, unknown>;
+    const u = usage as Record<string, number | undefined>;
+    const promptTokens = u.promptTokens ?? u.inputTokens ?? 0;
+    const completionTokens = u.completionTokens ?? u.outputTokens ?? 0;
+    const totalTokens = u.totalTokens ?? promptTokens + completionTokens;
+
     return {
-      prompt: typeof u.inputTokens === "number" ? u.inputTokens : 0,
-      completion: typeof u.outputTokens === "number" ? u.outputTokens : 0,
-      total:
-        (typeof u.inputTokens === "number" ? u.inputTokens : 0) +
-        (typeof u.outputTokens === "number" ? u.outputTokens : 0),
+      promptTokens,
+      completionTokens,
+      totalTokens,
     };
   }
-  return { prompt: 0, completion: 0, total: 0 };
+  return { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
 }
 
 async function experimental_repairToolCall(failed: any) {

@@ -4,6 +4,7 @@ import { join } from "path";
 import { homedir, platform } from "os";
 import { rename, mkdir } from "fs/promises";
 import { ModelSchema, parseModelUniqueId } from "../types/Model";
+import type { TokenUsage } from "@/types/TokenUsage";
 import useSettingsStore from "@/store/useSettingsStore";
 
 export const SettingsSchema = z.object({
@@ -188,9 +189,9 @@ const addHistory = async (value: string) => {
  */
 const incrementModelUsage = async (
   modelIdentifier: string,
-  usage: { prompt: number; completion: number; total: number },
+  usage: TokenUsage,
 ): Promise<void> => {
-  if (usage.total <= 0) return;
+  if (usage.totalTokens <= 0) return;
 
   const settings = Settings.getInstance();
   const models = [...settings.get("models")];
@@ -214,10 +215,10 @@ const incrementModelUsage = async (
     models[modelIndex] = {
       ...model,
       usage: {
-        promptTokens: (model.usage?.promptTokens ?? 0) + usage.prompt,
+        promptTokens: (model.usage?.promptTokens ?? 0) + usage.promptTokens,
         completionTokens:
-          (model.usage?.completionTokens ?? 0) + usage.completion,
-        totalTokens: (model.usage?.totalTokens ?? 0) + usage.total,
+          (model.usage?.completionTokens ?? 0) + usage.completionTokens,
+        totalTokens: (model.usage?.totalTokens ?? 0) + usage.totalTokens,
       },
     };
     // log(JSON.stringify(models, null, 2));

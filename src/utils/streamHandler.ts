@@ -73,28 +73,30 @@ export function handleStreamChunk(chunk: Record<string, unknown>): TokenUsage {
         // Final text output is already displayed
       }
 
-      // Safely extract usage data using AI SDK's normalized format
+      // Safely extract usage data using AI SDK's normalized format or provider raw format
       const usage = chunk.usage as
-        | {
-            inputTokens?: number;
-            outputTokens?: number;
-            totalTokens?: number;
-          }
+        | Record<string, number | undefined>
         | undefined;
 
       if (usage) {
+        const promptTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
+        const completionTokens =
+          usage.completionTokens ?? usage.outputTokens ?? 0;
+        const totalTokens =
+          usage.totalTokens ?? promptTokens + completionTokens;
+
         return {
-          prompt: usage.inputTokens ?? 0,
-          completion: usage.outputTokens ?? 0,
-          total: usage.totalTokens ?? 0,
+          promptTokens,
+          completionTokens,
+          totalTokens,
         };
       }
 
       // Return zero usage if not available
       return {
-        prompt: 0,
-        completion: 0,
-        total: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
       };
     }
 
@@ -119,9 +121,9 @@ export function handleStreamChunk(chunk: Record<string, unknown>): TokenUsage {
       break;
   }
   return {
-    prompt: 0,
-    completion: 0,
-    total: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
   };
 }
 

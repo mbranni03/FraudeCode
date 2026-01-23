@@ -156,6 +156,8 @@ const TokenUsage = () => {
       groq: [],
       openrouter: [],
       ollama: [],
+      mistral: [],
+      cerebras: [],
     };
 
     // Aggregate
@@ -176,7 +178,7 @@ const TokenUsage = () => {
 
     // Process per provider
     const providers: ProviderUsage[] = (
-      ["groq", "openrouter", "ollama"] as ProviderType[]
+      ["groq", "openrouter", "ollama", "mistral", "cerebras"] as ProviderType[]
     )
       .map((provider) => {
         const pModels = grouped[provider] || [];

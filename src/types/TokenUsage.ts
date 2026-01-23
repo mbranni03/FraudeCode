@@ -1,5 +1,5 @@
 export interface TokenUsage {
-  total: number;
-  prompt: number;
-  completion: number;
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
 }
