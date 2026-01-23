@@ -19,6 +19,14 @@ const globTool = tool({
       ),
   }),
   execute: async ({ pattern, path }: { pattern: string; path?: string }) => {
+    updateOutput(
+      "toolCall",
+      JSON.stringify({
+        action: "Searching Files in " + path,
+        details: pattern,
+      }),
+      { dontOverride: true },
+    );
     const searchPath = path || process.cwd();
     const glob = new Glob(pattern);
     const files: { file: string; modifiedAt: number }[] = [];
@@ -33,7 +41,13 @@ const globTool = tool({
         break;
       }
     }
-
+    updateOutput(
+      "toolCall",
+      JSON.stringify({
+        action: "Found " + files.length + " Files",
+        details: pattern,
+      }),
+    );
     if (files.length === 0) return "No files found matching that pattern.";
     return files
       .sort((a, b) => b.modifiedAt - a.modifiedAt)

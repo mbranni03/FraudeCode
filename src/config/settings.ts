@@ -219,7 +219,7 @@ const incrementModelUsage = async (
         totalTokens: (model.usage?.totalTokens ?? 0) + usage.total,
       },
     };
-    log(JSON.stringify(models, null, 2));
+    // log(JSON.stringify(models, null, 2));
     await UpdateSettings({ models });
   }
 };

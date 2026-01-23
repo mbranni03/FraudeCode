@@ -6,6 +6,7 @@ import bashTool from "../tools/bashTool";
 import grepTool from "../tools/grepTool";
 import globTool from "../tools/globTool";
 import useFraudeStore from "@/store/useFraudeStore";
+import useSettingsStore from "@/store/useSettingsStore";
 import lspTool from "../tools/lspTool";
 
 const { updateOutput } = useFraudeStore.getState();
@@ -28,12 +29,15 @@ const researchSubAgentTool = tool({
       }),
       { dontOverride: true },
     );
+    // Create agent at execution time to pick up current settings
+    // Use isolated context to prevent contaminating the parent agent's context
     const subagent = new Agent({
-      model: "openai/gpt-oss-120b",
+      model: useSettingsStore.getState().lightWeightModel,
       systemPrompt: prompt,
       tools: { readTool, bashTool, grepTool, globTool, lspTool },
       temperature: 0.7,
       maxSteps: 10,
+      useIsolatedContext: true,
     });
     const result = await subagent.chat(question);
     updateOutput(

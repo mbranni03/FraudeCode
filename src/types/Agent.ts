@@ -65,6 +65,13 @@ export interface AgentConfig {
 
   /** Abort signal for cancelling the request */
   abortSignal?: AbortSignal;
+
+  /**
+   * Whether to use an isolated context manager instead of the shared global one.
+   * Set to true for subagents to prevent context contamination with parent agents.
+   * Default: false (uses shared context manager)
+   */
+  useIsolatedContext?: boolean;
 }
 
 // ============================================================================

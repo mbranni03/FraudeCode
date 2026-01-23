@@ -11,6 +11,8 @@ import log from "@/utils/logger";
 import useFraudeStore from "@/store/useFraudeStore";
 import { incrementModelUsage } from "@/config/settings";
 import type { TokenUsage } from "@/types/TokenUsage";
+import { handleStreamChunk } from "@/utils/streamHandler";
+import ContextManager from "@/agent/contextManager";
 
 // ============================================================================
 // Helper to extract usage from SDK response
@@ -199,6 +201,7 @@ export default class Agent {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private model: any;
   private rawModel: string;
+  private isolatedContextManager: ContextManager | null = null;
 
   constructor(config: AgentConfig) {
     this.config = {
@@ -210,6 +213,21 @@ export default class Agent {
     };
     this.model = getModel(config.model);
     this.rawModel = config.model;
+
+    // Create isolated context manager if requested (for subagents)
+    if (config.useIsolatedContext) {
+      this.isolatedContextManager = new ContextManager();
+    }
+  }
+
+  /**
+   * Get the appropriate context manager for this agent.
+   * Returns isolated context manager if configured, otherwise the global one.
+   */
+  private getContextManager(): ContextManager {
+    return (
+      this.isolatedContextManager ?? useFraudeStore.getState().contextManager
+    );
   }
 
   // ==========================================================================
@@ -224,7 +242,7 @@ export default class Agent {
     input: string,
     options?: Partial<AgentConfig>,
   ): Promise<AgentResponse> {
-    const contextManager = useFraudeStore.getState().contextManager;
+    const contextManager = this.getContextManager();
     const messages = await contextManager.addContext(input);
     const mergedConfig = { ...this.config, ...options };
 
@@ -258,7 +276,7 @@ export default class Agent {
     input: string,
     options?: Partial<AgentConfig>,
   ): Promise<AgentResponse> {
-    const contextManager = useFraudeStore.getState().contextManager;
+    const contextManager = this.getContextManager();
     const messages = await contextManager.addContext(input);
     const mergedConfig = { ...this.config, ...options };
 
@@ -275,12 +293,13 @@ export default class Agent {
         ? stepCountIs(mergedConfig.maxSteps)
         : undefined,
       experimental_repairToolCall,
-      onChunk: async ({ chunk }) => {
-        if (mergedConfig.onStreamChunk) {
-          await mergedConfig.onStreamChunk(chunk);
-        }
+      onStepFinish: (step) => {
+        log(`Step finished: ${step.finishReason}`);
+        contextManager.processStep(step);
       },
-      onStepFinish: contextManager.processStep,
+      onError: (error) => {
+        log(`Stream error: ${JSON.stringify(error, null, 2)}`);
+      },
     });
 
     return this.buildStreamingResponse(result, messages);
@@ -364,11 +383,23 @@ export default class Agent {
     result: ReturnType<typeof streamText>,
     messages: ModelMessage[],
   ): Promise<AgentResponse> {
-    const contextManager = useFraudeStore.getState().contextManager;
-
     // Consume the stream - required for the promise to resolve
-    for await (const _ of result.textStream) {
-      // Stream chunks are handled by onChunk callback
+    log("Starting stream consumption...");
+    try {
+      for await (const chunk of result.fullStream) {
+        log(JSON.stringify(chunk, null, 2));
+        const usage: TokenUsage = handleStreamChunk(
+          chunk as Record<string, unknown>,
+        );
+        await incrementModelUsage(this.rawModel, usage);
+      }
+      log("Stream consumption completed.");
+    } catch (error) {
+      log(`Error during stream consumption: ${error}`);
+      if (error instanceof Error) {
+        log(`Error details: ${error.message}\n${error.stack}`);
+      }
+      throw error;
     }
     const text = await result.text;
     const usage = await result.usage;

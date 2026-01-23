@@ -34,6 +34,14 @@ const grepTool = tool({
     path?: string;
     include?: string;
   }) => {
+    updateOutput(
+      "toolCall",
+      JSON.stringify({
+        action: "Searching For " + pattern,
+        details: path,
+      }),
+      { dontOverride: true },
+    );
     const cwd = path || process.cwd();
 
     // Step 1: Attempt Git Grep (Fastest + Respects .gitignore)
@@ -46,6 +54,13 @@ const grepTool = tool({
 
     // Step 3: Fallback to Bun Native (Portable, checks .gitignore manually)
     const bunResult = await runBunGrep(pattern, cwd, include);
+    updateOutput(
+      "toolCall",
+      JSON.stringify({
+        action: "Found " + bunResult.length + " Files",
+        details: pattern,
+      }),
+    );
     return formatOutput(bunResult);
   },
 });

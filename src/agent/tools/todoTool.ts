@@ -17,7 +17,7 @@ interface TaskContext {
 }
 
 // Todo item schema
-interface TodoItem {
+export interface TodoItem {
   id: string;
   description: string;
   status: "pending" | "in-progress" | "reviewing" | "completed";
@@ -56,7 +56,7 @@ const todoTool = tool({
   strict: true,
   inputSchema: z.object({
     operation: z
-      .enum(["add", "next", "update", "complete", "list", "clear"])
+      .enum(["add", "update", "complete", "list", "clear"])
       .describe("The operation to perform"),
     id: z
       .string()
@@ -110,33 +110,6 @@ const todoTool = tool({
           { dontOverride: true },
         );
         return { success: true, id: newTodo.id };
-      }
-
-      case "next": {
-        const nextTodo = state.todos.find((t) => t.status === "pending");
-        if (!nextTodo) {
-          return { done: true, message: "All tasks complete" };
-        }
-        // Mark as in-progress
-        nextTodo.status = "in-progress";
-        nextTodo.updatedAt = now;
-        await writeTodos(state);
-        updateOutput(
-          "toolCall",
-          JSON.stringify({
-            action: "Got Next Task",
-            details: nextTodo.description,
-            result: nextTodo.id,
-          }),
-          { dontOverride: true },
-        );
-        return {
-          task: {
-            id: nextTodo.id,
-            description: nextTodo.description,
-            context: nextTodo.context,
-          },
-        };
       }
 
       case "update": {
@@ -217,5 +190,26 @@ const todoTool = tool({
     }
   },
 });
+
+export const getNextTodo = async () => {
+  const state = await readTodos();
+  const nextTodo = state.todos.find((t) => t.status === "pending");
+  if (!nextTodo) {
+    return { done: true, task: null };
+  }
+  // Mark as in-progress
+  nextTodo.status = "in-progress";
+  nextTodo.updatedAt = new Date().toISOString();
+  await writeTodos(state);
+  return {
+    done: false,
+    task: nextTodo,
+  };
+};
+
+export const getTodoById = async (id: string) => {
+  const state = await readTodos();
+  return state.todos.find((t) => t.id === id);
+};
 
 export default todoTool;

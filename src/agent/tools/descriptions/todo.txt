@@ -2,7 +2,6 @@ Manage tasks for worker agents.
 
 Operations:
 - "add": Create task with description and context (files + instructions)
-- "next": Get the next pending task for a worker to execute
 - "update": Update task status or add notes
 - "complete": Mark task done with optional completion note
 - "list": Get all tasks with summary

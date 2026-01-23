@@ -72,19 +72,29 @@ export function handleStreamChunk(chunk: Record<string, unknown>): TokenUsage {
       if (finishReason === "stop" && state.agentText) {
         // Final text output is already displayed
       }
-      const usage = (
-        chunk.usage as {
-          raw: {
-            prompt_tokens: number;
-            completion_tokens: number;
-            total_tokens: number;
-          };
-        }
-      ).raw;
+
+      // Safely extract usage data using AI SDK's normalized format
+      const usage = chunk.usage as
+        | {
+            inputTokens?: number;
+            outputTokens?: number;
+            totalTokens?: number;
+          }
+        | undefined;
+
+      if (usage) {
+        return {
+          prompt: usage.inputTokens ?? 0,
+          completion: usage.outputTokens ?? 0,
+          total: usage.totalTokens ?? 0,
+        };
+      }
+
+      // Return zero usage if not available
       return {
-        prompt: usage.prompt_tokens,
-        completion: usage.completion_tokens,
-        total: usage.total_tokens,
+        prompt: 0,
+        completion: 0,
+        total: 0,
       };
     }
 
