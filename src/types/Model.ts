@@ -99,7 +99,7 @@ export function parseModelUniqueId(
   }
 
   const [name, type] = parts;
-  if (!["groq", "openrouter", "ollama"].includes(type)) {
+  if (!["groq", "openrouter", "ollama", "cerebras", "mistral"].includes(type)) {
     return null;
   }
 
