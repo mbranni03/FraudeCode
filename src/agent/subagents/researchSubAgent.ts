@@ -14,6 +14,7 @@ const { updateOutput } = useFraudeStore.getState();
 const researchSubAgentTool = tool({
   description: `Ask a specialized researcher to find information in the codebase.
     Use this BEFORE making edits to ensure you know the file structure and logic.`,
+  strict: true,
   inputSchema: z.object({
     question: z
       .string()

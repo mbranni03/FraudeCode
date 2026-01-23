@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const ProviderTypes = [
+export const ProviderTypes = [
   "groq",
   "openrouter",
   "ollama",
@@ -69,14 +69,14 @@ export function parseModelDisplayId(
   }
 
   const name = match[1];
-  const type = match[2] as ProviderType;
+  const type = match[2];
 
   // Validate the provider type
-  if (!["groq", "openrouter", "ollama"].includes(type)) {
+  if (!ProviderTypes.includes(type as ProviderType)) {
     return null;
   }
 
-  return { name, type };
+  return { name, type: type as ProviderType };
 }
 
 /**
@@ -99,7 +99,7 @@ export function parseModelUniqueId(
   }
 
   const [name, type] = parts;
-  if (!["groq", "openrouter", "ollama", "cerebras", "mistral"].includes(type)) {
+  if (!ProviderTypes.includes(type as ProviderType)) {
     return null;
   }
 
