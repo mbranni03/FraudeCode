@@ -212,4 +212,13 @@ export const getTodoById = async (id: string) => {
   return state.todos.find((t) => t.id === id);
 };
 
+/**
+ * Check if there are any pending todos without modifying state.
+ * Used to validate that the manager agent created tasks.
+ */
+export const hasPendingTodos = async (): Promise<boolean> => {
+  const state = await readTodos();
+  return state.todos.some((t) => t.status === "pending");
+};
+
 export default todoTool;

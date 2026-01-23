@@ -385,15 +385,46 @@ export default class Agent {
   ): Promise<AgentResponse> {
     // Consume the stream - required for the promise to resolve
     log("Starting stream consumption...");
+
+    // Track tool calls to detect loops
+    const toolCallCounts = new Map<string, number>();
+    const LOOP_THRESHOLD = 3;
+
     try {
       for await (const chunk of result.fullStream) {
         log(JSON.stringify(chunk, null, 2));
+
+        // Detect repeated tool calls (loop detection)
+        const chunkAny = chunk as Record<string, unknown>;
+        if (chunkAny.type === "tool-call") {
+          const toolName = chunkAny.toolName as string;
+          const input = chunkAny.input;
+          const key = `${toolName}:${JSON.stringify(input)}`;
+          const count = (toolCallCounts.get(key) || 0) + 1;
+          toolCallCounts.set(key, count);
+
+          if (count >= LOOP_THRESHOLD) {
+            log(
+              `WARNING: Loop detected - ${toolName} called ${count} times with identical arguments`,
+            );
+          }
+        }
+
         const usage: TokenUsage = handleStreamChunk(
           chunk as Record<string, unknown>,
         );
         await incrementModelUsage(this.rawModel, usage);
       }
       log("Stream consumption completed.");
+
+      // Log summary of detected loops
+      for (const [key, count] of toolCallCounts) {
+        if (count >= LOOP_THRESHOLD) {
+          log(
+            `Loop summary: "${key.substring(0, 100)}..." repeated ${count} times`,
+          );
+        }
+      }
     } catch (error) {
       log(`Error during stream consumption: ${error}`);
       if (error instanceof Error) {

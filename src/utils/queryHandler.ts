@@ -6,7 +6,7 @@ import pendingChanges from "@/agent/pendingChanges";
 import { incrementModelUsage } from "@/config/settings";
 import type { TokenUsage } from "@/types/TokenUsage";
 import { getManagerAgent } from "@/agent/subagents/managerAgent";
-import { getNextTodo, getTodoById } from "@/agent/tools/todoTool";
+import { getNextTodo, getTodoById, hasPendingTodos } from "@/agent/tools/todoTool";
 import { getWorkerSubAgent } from "@/agent/subagents/workerSubAgent";
 import { getReviewerSubAgent } from "@/agent/subagents/reviewerSubAgent";
 import type { TodoItem } from "@/agent/tools/todoTool";
@@ -53,6 +53,22 @@ export default async function QueryHandler(query: string) {
   });
   log("Manager Response:");
   log(JSON.stringify(response, null, 2));
+
+  // Validate that manager created at least one todo
+  const hasTodos = await hasPendingTodos();
+  if (!hasTodos) {
+    log("Error: Manager completed without creating any tasks");
+    updateOutput(
+      "error",
+      "The planning agent completed without creating any tasks. This may indicate the model got stuck in a loop. Please try rephrasing your request or using a different model.",
+    );
+    useFraudeStore.setState({
+      status: 0,
+      abortController: null,
+      statusText: "",
+    });
+    return;
+  }
 
   let nextTask = await getNextTodo();
   while (!nextTask.done && nextTask.task) {

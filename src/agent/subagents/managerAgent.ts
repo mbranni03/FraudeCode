@@ -22,7 +22,7 @@ export function getManagerAgent(): Agent {
         researchSubAgentTool,
       },
       temperature: 0.7,
-      maxSteps: 5,
+      maxSteps: 20,
       reasoningEffort: "high",
     });
   }
