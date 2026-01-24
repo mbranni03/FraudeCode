@@ -122,24 +122,22 @@ const modelSetCommands: Command = {
   name: "model",
   description: "Set active model(s) by role",
   usage: "/model <model-name> [role]",
+  action: setModel,
   subcommands: [
     {
       name: "all",
       description: "Set model for all roles",
       usage: "/model all <model-name>",
-      action: setModel,
     },
     {
       name: "primary",
       description: "Set primary model",
       usage: "/model primary <model-name>",
-      action: setModel,
     },
     {
       name: "secondary",
       description: "Set secondary model",
       usage: "/model secondary <model-name>",
-      action: setModel,
     },
   ],
 };

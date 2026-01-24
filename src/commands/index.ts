@@ -19,10 +19,11 @@ class CommandCenter {
           for (const sub of cmd.subcommands) {
             if (sub.name === command[0]) {
               if (sub.action) return await sub.action(command.slice(1));
+              else if (cmd.action) return await cmd.action(command);
             }
           }
         } else {
-          if (cmd.action) return await cmd.action(command.slice(1));
+          if (cmd.action) return await cmd.action(command);
         }
       }
     }
