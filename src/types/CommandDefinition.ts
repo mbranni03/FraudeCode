@@ -1,7 +1,8 @@
-export interface CommandDefinition {
+export interface Command {
   name: string;
   description: string;
-  subcommands?: CommandDefinition[];
+  subcommands?: Command[];
+  action?: (args: string[]) => void;
   usage: string;
   renderedOptions?: string[];
 }
