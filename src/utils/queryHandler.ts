@@ -64,6 +64,9 @@ export default async function QueryHandler(query: string) {
       abortSignal: abortController.signal,
     });
     checkAbort();
+    useFraudeStore.setState({
+      researchCache: {},
+    });
 
     log("Manager Response:");
     log(JSON.stringify(response, null, 2));

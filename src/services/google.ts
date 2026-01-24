@@ -27,6 +27,21 @@ class GoogleClient {
           context_length: 100000,
         },
       } as Model,
+      {
+        type: "google",
+        name: "gemini-2.5-flash-lite",
+        modified_at: new Date().toISOString(),
+        digest: "",
+        usage: {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+        },
+        details: {
+          provider: "google",
+          context_length: 100000,
+        },
+      } as Model,
     ];
     const mergedModels = [...nonGoogleModels, ...models];
     await UpdateSettings({ models: mergedModels });
