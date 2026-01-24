@@ -1,77 +1,35 @@
-import type { CommandDefinition } from "@/types/CommandDefinition";
-import { ProviderTypes, type ProviderType } from "@/types/Model";
-import ModelCommandCenter from "./models";
+import type { Command } from "@/types/CommandDefinition";
 import COMMANDS from "./COMMANDS";
-import useFraudeStore from "@/store/useFraudeStore";
-
-const { updateOutput } = useFraudeStore.getState();
 
 // Class for handling commands
 class CommandCenter {
+  private commands: Command[] = [];
+
+  constructor() {
+    this.commands = COMMANDS;
+  }
+
   processCommand = async (query: string) => {
     let command = query.slice(1).split(" ");
     const base = command.shift();
-    switch (base) {
-      case "help":
-        break;
-      case "context":
-        updateOutput("settings", "/context");
-        break;
-      case "usage":
-        updateOutput("settings", "/usage");
-        break;
-      case "session":
-        if (command[0] == "clear")
-          useFraudeStore.getState().contextManager.clearContext();
-        break;
-      case "model":
-      case "models":
-        await ModelCommandCenter.processCommand(query);
-        break;
-      default:
-        if (ProviderTypes.includes(base as ProviderType)) {
-          await ModelCommandCenter.processCommand(query);
+
+    for (const cmd of this.commands) {
+      if (cmd.name === base) {
+        if (cmd.subcommands) {
+          for (const sub of cmd.subcommands) {
+            if (sub.name === command[0]) {
+              if (sub.action) return await sub.action(command.slice(1));
+            }
+          }
+        } else {
+          if (cmd.action) return await cmd.action(command.slice(1));
         }
-        break;
+      }
     }
   };
 
-  // Get help text for commands.
-  getCommandHelp(commandName?: string): string {
-    if (commandName) {
-      const cmd = COMMANDS.find(
-        (c) => c.name.toLowerCase() === commandName.toLowerCase(),
-      );
-      if (cmd) {
-        let help = `\n/${cmd.name} - ${cmd.description}\n`;
-        if (cmd.usage) {
-          help += `  Usage: ${cmd.usage}\n`;
-        }
-        if (cmd.subcommands && cmd.subcommands.length > 0) {
-          help += `  Subcommands:\n`;
-          for (const sub of cmd.subcommands) {
-            help += `    ${sub.name} - ${sub.description}\n`;
-            if (sub.usage) {
-              help += `      Usage: ${sub.usage}\n`;
-            }
-          }
-        }
-        return help;
-      }
-      return `Unknown command: ${commandName}. Type /help for available commands.`;
-    }
-
-    // General help
-    let help = "\nAvailable Commands:\n";
-    for (const cmd of COMMANDS) {
-      help += `  /${cmd.name} - ${cmd.description}\n`;
-    }
-    help += "\nType /help <command> for detailed usage.";
-    return help;
-  }
-
-  getAllCommands(): CommandDefinition[] {
-    const templates: CommandDefinition[] = [];
+  getAllCommands(): Command[] {
+    const templates: Command[] = [];
 
     for (const cmd of COMMANDS) {
       // Add subcommands

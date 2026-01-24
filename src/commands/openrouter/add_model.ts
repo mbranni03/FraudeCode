@@ -1,42 +1,18 @@
-import { Settings, UpdateSettings } from "@/config/settings";
-import type { Model } from "@/types/Model";
-
+import type { Command } from "@/types/CommandDefinition";
+import { UpdateSettings } from "@/config/settings";
 import useFraudeStore from "@/store/useFraudeStore";
 import OpenRouterClient from "@/services/openrouter";
+import type { Model } from "@/types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 
 const { updateOutput } = useFraudeStore.getState();
 
-export const openRouterCommandHandler = async (command: string[]) => {
-  try {
-    const base = command.shift();
-    switch (base) {
-      case "add":
-        const model = command.shift();
-        if (!model) {
-          updateOutput("error", "No model specified (OpenRouter)");
-          return;
-        }
-        await addOpenRouterModel(model);
-        break;
-      case "auth":
-        const apiKey = command.shift();
-        if (!apiKey) {
-          updateOutput("error", "No API key specified (OpenRouter)");
-          return;
-        }
-        await openRouterAuth(apiKey);
-        break;
-      default:
-        updateOutput("error", "Unknown command (OpenRouter)");
-        break;
-    }
-  } catch (err) {
-    updateOutput("error", `${err} (OpenRouter)`);
+const addOpenRouterModel = async (args: string[]) => {
+  const model = args[0];
+  if (!model) {
+    updateOutput("error", "No model specified (OpenRouter)");
+    return;
   }
-};
-
-export const addOpenRouterModel = async (model: string) => {
   const data: any = await OpenRouterClient.getModelData(model);
   const modelData = data.data;
 
@@ -44,9 +20,6 @@ export const addOpenRouterModel = async (model: string) => {
     throw new Error(`No data found for OpenRouter model ${model}`);
   }
 
-  // Map OpenRouter data to our Model schema
-  // The endpoint returns endpoints array "endpoints": [...]
-  // We'll take the first endpoint or aggregate info
   const endpoint = modelData.endpoints?.[0];
 
   const newModel: Model = {
@@ -81,7 +54,11 @@ export const addOpenRouterModel = async (model: string) => {
   updateOutput("log", "OpenRouter model added: " + model);
 };
 
-export const openRouterAuth = async (apiKey: string) => {
-  await UpdateSettings({ openrouter_api_key: apiKey });
-  updateOutput("log", "OpenRouter API key set");
+const addOpenRouterModelCommand: Command = {
+  name: "add",
+  description: "Add OpenRouter model",
+  usage: "/openrouter add <model>",
+  action: addOpenRouterModel,
 };
+
+export default addOpenRouterModelCommand;
