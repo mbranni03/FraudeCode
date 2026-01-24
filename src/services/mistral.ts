@@ -61,7 +61,16 @@ class MistralClient {
         } as Model;
       })
       .filter((m) => m.name.includes("latest"));
-    const mergedModels = [...nonMistralModels, ...models];
+    const updatedModels = [];
+    for (const model of models) {
+      const existingModel = nonMistralModels.find((m) => m.name === model.name);
+      if (existingModel) {
+        updatedModels.push({ ...existingModel, ...model });
+      } else {
+        updatedModels.push(model);
+      }
+    }
+    const mergedModels = [...nonMistralModels, ...updatedModels];
     await UpdateSettings({ models: mergedModels });
   }
 }

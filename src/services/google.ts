@@ -43,7 +43,16 @@ class GoogleClient {
         },
       } as Model,
     ];
-    const mergedModels = [...nonGoogleModels, ...models];
+    const updatedModels = [];
+    for (const model of models) {
+      const existingModel = nonGoogleModels.find((m) => m.name === model.name);
+      if (existingModel) {
+        updatedModels.push({ ...existingModel, ...model });
+      } else {
+        updatedModels.push(model);
+      }
+    }
+    const mergedModels = [...nonGoogleModels, ...updatedModels];
     await UpdateSettings({ models: mergedModels });
   }
 }

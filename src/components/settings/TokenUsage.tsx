@@ -2,6 +2,7 @@ import { Box, Text } from "ink";
 import { useMemo } from "react";
 import { type Model, type ProviderType, ProviderTypes } from "@/types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
+import log from "@/utils/logger";
 
 // Minimalist Theme
 const THEME = {
@@ -146,6 +147,7 @@ const ProviderSection = ({ usage }: { usage: ProviderUsage }) => {
 
 const TokenUsage = () => {
   const { models } = useSettingsStore();
+  log(JSON.stringify(models, null, 2));
 
   const stats = useMemo(() => {
     let globalTotal = 0;

@@ -50,7 +50,18 @@ class CerebrasClient {
           },
         }) as Model,
     );
-    const mergedModels = [...nonCerebrasModels, ...models];
+    const updatedModels = [];
+    for (const model of models) {
+      const existingModel = nonCerebrasModels.find(
+        (m) => m.name === model.name,
+      );
+      if (existingModel) {
+        updatedModels.push({ ...existingModel, ...model });
+      } else {
+        updatedModels.push(model);
+      }
+    }
+    const mergedModels = [...nonCerebrasModels, ...updatedModels];
     await UpdateSettings({ models: mergedModels });
   }
 }
