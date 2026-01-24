@@ -119,6 +119,18 @@ const COMMANDS: CommandDefinition[] = [
       },
     ],
   },
+  {
+    name: "google",
+    description: "Manage Google models",
+    usage: "/google <subcommand>",
+    subcommands: [
+      {
+        name: "auth",
+        description: "Set Google API key",
+        usage: "/google auth <api-key>",
+      },
+    ],
+  },
 ];
 
 export default COMMANDS;

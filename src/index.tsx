@@ -6,6 +6,7 @@ import useSettingsStore from "./store/useSettingsStore";
 import OllamaClient from "@/services/ollama";
 import MistralClient from "@/services/mistral";
 import CerebrasClient from "@/services/cerebras";
+import GoogleClient from "@/services/google";
 
 // Global error handlers to catch and suppress AbortErrors
 process.on("unhandledRejection", (reason) => {
@@ -45,6 +46,7 @@ const syncModels = async () => {
   await OllamaClient.syncOllamaModels();
   await MistralClient.syncMistralModels();
   await CerebrasClient.syncCerebrasModels();
+  await GoogleClient.syncGoogleModels();
 };
 
 async function main() {

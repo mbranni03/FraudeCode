@@ -1,6 +1,9 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGroq } from "@ai-sdk/groq";
 import { createOllama } from "ollama-ai-provider-v2";
+import { createCerebras } from "@ai-sdk/cerebras";
+import { createMistral } from "@ai-sdk/mistral";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import useSettingsStore from "@/store/useSettingsStore";
 import { type ProviderType, parseModelUniqueId } from "@/types/Model";
 
@@ -46,6 +49,21 @@ export function getModel(modelIdentifier: string) {
         apiKey: getSettings().openrouter_api_key,
       });
       return openrouter(name);
+    case "cerebras":
+      const cerebras = createCerebras({
+        apiKey: getSettings().cerebras_api_key,
+      });
+      return cerebras(name);
+    case "mistral":
+      const mistral = createMistral({
+        apiKey: getSettings().mistral_api_key,
+      });
+      return mistral(name);
+    case "google":
+      const google = createGoogleGenerativeAI({
+        apiKey: getSettings().google_api_key,
+      });
+      return google(name);
     default:
       throw new Error(`Unknown provider: ${type}`);
   }

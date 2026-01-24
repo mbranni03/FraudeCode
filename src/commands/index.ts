@@ -1,4 +1,5 @@
 import type { CommandDefinition } from "@/types/CommandDefinition";
+import { ProviderTypes, type ProviderType } from "@/types/Model";
 import ModelCommandCenter from "./models";
 import COMMANDS from "./COMMANDS";
 import useFraudeStore from "@/store/useFraudeStore";
@@ -24,19 +25,13 @@ class CommandCenter {
           useFraudeStore.getState().contextManager.clearContext();
         break;
       case "model":
-      case "openrouter":
-      case "ollama":
-      case "groq":
       case "models":
-      case "mistral":
-      case "cerebras":
         await ModelCommandCenter.processCommand(query);
         break;
       default:
-        // updateOutput(
-        //   "log",
-        //   `Unknown command: /${base}. Type /help for available commands.`
-        // );
+        if (ProviderTypes.includes(base as ProviderType)) {
+          await ModelCommandCenter.processCommand(query);
+        }
         break;
     }
   };

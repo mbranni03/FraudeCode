@@ -5,14 +5,26 @@ import { groqCommandHandler } from "./groq";
 import { openRouterCommandHandler } from "./openrouter";
 import { mistralCommandHandler } from "./mistral";
 import { cerebrasCommandHandler } from "./cerebras";
-import log from "@/utils/logger";
+import { googleCommandHandler } from "./google";
 import {
+  type ProviderType,
+  ProviderTypes,
   parseModelDisplayId,
   getModelDisplayId,
   getModelUniqueId,
 } from "@/types/Model";
 
 const { updateOutput } = useFraudeStore.getState();
+
+const providerHandlers: Partial<
+  Record<ProviderType, (command: string[]) => Promise<void>>
+> = {
+  groq: groqCommandHandler,
+  openrouter: openRouterCommandHandler,
+  mistral: mistralCommandHandler,
+  cerebras: cerebrasCommandHandler,
+  google: googleCommandHandler,
+};
 
 class ModelCommandCenter {
   processCommand = async (query: string) => {
@@ -25,21 +37,14 @@ class ModelCommandCenter {
       case "models":
         updateOutput("settings", "/models");
         break;
-      case "groq":
-        await groqCommandHandler(command);
-        break;
-      case "openrouter":
-        await openRouterCommandHandler(command);
-        break;
-      case "mistral":
-        await mistralCommandHandler(command);
-        break;
-      case "cerebras":
-        await cerebrasCommandHandler(command);
-        break;
-      case "ollama":
-        break;
       default:
+        if (
+          base &&
+          ProviderTypes.includes(base as ProviderType) &&
+          providerHandlers[base as ProviderType]
+        ) {
+          await providerHandlers[base as ProviderType]!(command);
+        }
         break;
     }
   };
