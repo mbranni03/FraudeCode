@@ -1,4 +1,6 @@
 import { generateText, streamText, stepCountIs, type ModelMessage } from "ai";
+import path from "path";
+import fs from "fs";
 import { getModel } from "@/providers/providers";
 import type {
   AgentConfig,
@@ -32,6 +34,37 @@ function extractUsage(usage: unknown): TokenUsage {
     };
   }
   return { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+}
+
+function resolveFileReferences(input: string): string {
+  // Replace @path/to/file with absolute path
+  return input.replace(/@([^\s]+)/g, (match, ref) => {
+    try {
+      // Remove trailing punctuation that shouldn't be part of the path
+      const matchPunct = ref.match(/([.,;?!:]+)$/);
+      let possiblePath = ref;
+      let suffix = "";
+
+      if (matchPunct) {
+        suffix = matchPunct[1];
+        possiblePath = ref.substring(0, ref.length - suffix.length);
+      }
+
+      const fullPath = path.resolve(process.cwd(), possiblePath);
+      if (fs.existsSync(fullPath)) {
+        return fullPath + suffix;
+      }
+
+      // Fallback: check raw ref in case punctuation is part of filename
+      const fullPathOriginal = path.resolve(process.cwd(), ref);
+      if (fs.existsSync(fullPathOriginal)) {
+        return fullPathOriginal;
+      }
+    } catch {
+      // ignore
+    }
+    return match;
+  });
 }
 
 async function experimental_repairToolCall(failed: any) {
@@ -245,7 +278,8 @@ export default class Agent {
     options?: Partial<AgentConfig>,
   ): Promise<AgentResponse> {
     const contextManager = this.getContextManager();
-    const messages = await contextManager.addContext(input);
+    const processedInput = resolveFileReferences(input);
+    const messages = await contextManager.addContext(processedInput);
     const mergedConfig = { ...this.config, ...options };
 
     const result = await generateText({
@@ -279,7 +313,8 @@ export default class Agent {
     options?: Partial<AgentConfig>,
   ): Promise<AgentResponse> {
     const contextManager = this.getContextManager();
-    const messages = await contextManager.addContext(input);
+    const processedInput = resolveFileReferences(input);
+    const messages = await contextManager.addContext(processedInput);
     const mergedConfig = { ...this.config, ...options };
 
     const result = streamText({
