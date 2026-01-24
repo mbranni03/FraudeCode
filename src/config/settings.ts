@@ -18,6 +18,7 @@ export const SettingsSchema = z.object({
   groq_api_key: z.string().optional(),
   mistral_api_key: z.string().optional(),
   cerebras_api_key: z.string().optional(),
+  google_api_key: z.string().optional(),
 });
 
 type Config = z.infer<typeof SettingsSchema>;

@@ -5,7 +5,7 @@ import { groqCommandHandler } from "./groq";
 import { openRouterCommandHandler } from "./openrouter";
 import { mistralCommandHandler } from "./mistral";
 import { cerebrasCommandHandler } from "./cerebras";
-import log from "@/utils/logger";
+import { googleCommandHandler } from "./google";
 import {
   type ProviderType,
   ProviderTypes,
@@ -23,6 +23,7 @@ const providerHandlers: Partial<
   openrouter: openRouterCommandHandler,
   mistral: mistralCommandHandler,
   cerebras: cerebrasCommandHandler,
+  google: googleCommandHandler,
 };
 
 class ModelCommandCenter {

@@ -6,6 +6,7 @@
       "name": "fraudecode",
       "dependencies": {
         "@ai-sdk/cerebras": "^2.0.20",
+        "@ai-sdk/google": "^3.0.13",
         "@ai-sdk/groq": "^3.0.7",
         "@ai-sdk/mistral": "^3.0.12",
         "@huggingface/transformers": "^3.8.1",
@@ -42,6 +43,8 @@
     "@ai-sdk/cerebras": ["@ai-sdk/cerebras@2.0.20", "", { "dependencies": { "@ai-sdk/openai-compatible": "2.0.18", "@ai-sdk/provider": "3.0.5", "@ai-sdk/provider-utils": "4.0.9" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-U47NcmycHxX9tOV26A/OHz7+Mykg0p5GrqV0kmwGtu7nzTqwTQpIWVLAhFtYd/zNRp70b/1T2y9JlD+WtMTxvQ=="],
 
     "@ai-sdk/gateway": ["@ai-sdk/gateway@3.0.13", "", { "dependencies": { "@ai-sdk/provider": "3.0.2", "@ai-sdk/provider-utils": "4.0.5", "@vercel/oidc": "3.1.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-g7nE4PFtngOZNZSy1lOPpkC+FAiHxqBJXqyRMEG7NUrEVZlz5goBdtHg1YgWRJIX776JTXAmbOI5JreAKVAsVA=="],
+
+    "@ai-sdk/google": ["@ai-sdk/google@3.0.13", "", { "dependencies": { "@ai-sdk/provider": "3.0.5", "@ai-sdk/provider-utils": "4.0.9" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-HYCh8miS4FLxOIpjo/BmoFVMO5BuxNpHVVDQkoJotoH8ZSFftkJJGGayIxQT/Lwx9GGvVVCOQ+lCdBBAnkl1sA=="],
 
     "@ai-sdk/groq": ["@ai-sdk/groq@3.0.7", "", { "dependencies": { "@ai-sdk/provider": "3.0.2", "@ai-sdk/provider-utils": "4.0.5" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-KRI0Og3gVemuBgN5rac3FAUT2qTFPV6Vxm2VS0ua/yWYFLWpOs7E7I5FsjY/yy1ujFGk5ccVYttDD39rgP+FBA=="],
 

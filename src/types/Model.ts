@@ -6,6 +6,7 @@ export const ProviderTypes = [
   "ollama",
   "mistral",
   "cerebras",
+  "google",
 ] as const;
 export type ProviderType = (typeof ProviderTypes)[number];
 
