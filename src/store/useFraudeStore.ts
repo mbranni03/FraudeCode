@@ -18,6 +18,7 @@ interface FraudeStore {
   lastBreak: number;
   statusText?: string;
   contextManager: ContextManager;
+  researchCache?: Record<string, string>;
   abortController: AbortController | null;
   pendingModelSelection: ModelSelectionRequest | null;
   interruptAgent: () => void;
@@ -45,6 +46,7 @@ const useFraudeStore = create<FraudeStore>((set, get) => ({
   lastBreak: 0,
   statusText: "",
   contextManager: new ContextManager(),
+  researchCache: undefined,
   abortController: null,
   pendingModelSelection: null,
   interruptAgent: () => {

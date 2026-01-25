@@ -1,33 +1,33 @@
 import { Box, Text } from "ink";
-import type { CommandDefinition } from "@/types/CommandDefinition";
+import type { Command } from "@/types/CommandDefinition";
+import { THEME } from "@/theme";
 
 export default function CommandSuggestions({
   selectedIndex,
   filteredTemplates,
 }: {
   selectedIndex: number;
-  filteredTemplates: CommandDefinition[];
+  filteredTemplates: Command[];
 }) {
   return (
     <Box
       flexDirection="column"
       paddingX={2}
-      borderStyle="single"
-      borderColor="gray"
-      width={68}
-      marginLeft={1}
+      borderStyle="round"
+      borderColor={THEME.border}
+      width={70}
     >
       <Text dimColor>Commands (Tab accepts ghost text):</Text>
       {filteredTemplates.map((cmd, i) => (
         <Box key={cmd.usage}>
           <Text
-            color={i === selectedIndex ? "cyan" : "gray"}
+            color={i === selectedIndex ? THEME.primaryLight : THEME.dim}
             bold={i === selectedIndex}
           >
             {i === selectedIndex ? "› " : "  "}
             {cmd.usage}
           </Text>
-          <Text color="gray"> - {cmd.description}</Text>
+          <Text color={THEME.dim}> - {cmd.description}</Text>
         </Box>
       ))}
       {/* Show role hint if selected command has [role] */}

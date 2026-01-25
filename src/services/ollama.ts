@@ -54,7 +54,7 @@ class OllamaClient {
 
       for (const model of availableModels) {
         const existing = savedModels.find(
-          (m) => m.name === model.name && m.type === "ollama"
+          (m) => m.name === model.name && m.type === "ollama",
         );
         if (existing && existing.details?.context_length) {
           mergedOllamaModels.push(existing);
@@ -77,6 +77,11 @@ class OllamaClient {
           const enhancedModel: Model = {
             ...model,
             capabilities: details.capabilities || model.capabilities || [],
+            usage: existing?.usage || {
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+            },
             details: {
               ...model.details,
               ...details.details,

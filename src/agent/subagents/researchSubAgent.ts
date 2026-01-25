@@ -9,8 +9,6 @@ import useFraudeStore from "@/store/useFraudeStore";
 import useSettingsStore from "@/store/useSettingsStore";
 import lspTool from "../tools/lspTool";
 
-const { updateOutput } = useFraudeStore.getState();
-
 const researchSubAgentTool = tool({
   description: `Ask a specialized researcher to find information in the codebase.
     Use this BEFORE making edits to ensure you know the file structure and logic.`,
@@ -21,6 +19,7 @@ const researchSubAgentTool = tool({
       .describe("The specific question about the code to answer."),
   }),
   execute: async ({ question }) => {
+    const { updateOutput, researchCache } = useFraudeStore.getState();
     updateOutput(
       "toolCall",
       JSON.stringify({
@@ -30,8 +29,17 @@ const researchSubAgentTool = tool({
       }),
       { dontOverride: true },
     );
-    // Create agent at execution time to pick up current settings
-    // Use isolated context to prevent contaminating the parent agent's context
+    if (researchCache?.[question]) {
+      updateOutput(
+        "toolCall",
+        JSON.stringify({
+          action: "Explored context",
+          details: question,
+          result: researchCache[question],
+        }),
+      );
+      return researchCache[question];
+    }
     const subagent = new Agent({
       model: useSettingsStore.getState().secondaryModel,
       systemPrompt: prompt,
@@ -49,6 +57,12 @@ const researchSubAgentTool = tool({
         result: result.text,
       }),
     );
+    useFraudeStore.setState({
+      researchCache: {
+        ...researchCache,
+        [question]: result.text,
+      },
+    });
     return result.text;
   },
 });
@@ -60,6 +74,6 @@ You are a read-only research assistant.
 Your goal is to answer the user's question by exploring the file system.
 - You cannot edit files.
 - Be aggressive with your tools to find answers.
-- Return a CONCISE summary of your findings (file paths, line numbers, and logic explanations).
-- Do not output code unless asked, just explain where it is.
+- When finding code relevant to the question, extract the *signature* (function names, params, types) and *critical logic*.
+- Do not dump entire files, but provide enough technical detail that a developer could call this function without seeing the code.
 `;

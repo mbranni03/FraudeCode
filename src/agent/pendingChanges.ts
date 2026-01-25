@@ -1,6 +1,7 @@
 import { structuredPatch } from "diff";
 import { projectPath } from "@/utils";
 import log from "@/utils/logger";
+import { unlink } from "node:fs/promises";
 
 export interface Hunk {
   oldStart: number;
@@ -27,6 +28,7 @@ export interface PendingChange {
   newContent: string;
   diff: DiffPatch;
   feedback?: string;
+  hidden?: boolean;
 }
 
 class PendingChangesManager {
@@ -36,8 +38,30 @@ class PendingChangesManager {
     path: string,
     newContent: string,
     type: "edit" | "write",
+    options?: { hidden?: boolean },
   ): Promise<PendingChange> {
-    const originalContent = await this.getLatestContent(path);
+    // Normalize to absolute path
+    if (!path.startsWith("/")) {
+      path = `${process.cwd()}/${path}`;
+    }
+
+    // Clean up any double slashes or .
+    // Ideally use path.resolve but simple string concat is often enough or import path module
+    const { resolve } = await import("path");
+    path = resolve(path);
+
+    // Check if there are existing changes for this path
+    const changesList = Array.from(this.changes.values());
+    const latestChange = changesList.reverse().find((c) => c.path === path);
+    // Inherit hidden status if strictly true (was created hidden)
+    // If explicitly provided in options, use that. Otherwise use inherited.
+    const isHidden = options?.hidden ?? latestChange?.hidden;
+
+    const originalContent = latestChange
+      ? latestChange.newContent
+      : (await Bun.file(path).exists())
+        ? await Bun.file(path).text()
+        : "";
 
     // Create unified diff
     // For new files, originalContent is empty string.
@@ -59,6 +83,7 @@ class PendingChangesManager {
       originalContent: type === "edit" ? originalContent : null,
       newContent,
       diff,
+      hidden: isHidden,
     };
 
     this.changes.set(change.id, change);
@@ -70,12 +95,13 @@ class PendingChangesManager {
   }
 
   public getChanges(): PendingChange[] {
-    return Array.from(this.changes.values());
+    return Array.from(this.changes.values()).filter((c) => !c.hidden);
   }
 
   public getAllChangesGrouped(): Record<string, PendingChange[]> {
     const grouped: Record<string, PendingChange[]> = {};
     for (const change of this.changes.values()) {
+      if (change.hidden) continue;
       if (!grouped[change.path]) {
         grouped[change.path] = [];
       }
@@ -85,7 +111,7 @@ class PendingChangesManager {
   }
 
   public hasChanges(): boolean {
-    return this.changes.size > 0;
+    return Array.from(this.changes.values()).some((c) => !c.hidden);
   }
 
   public async applyChange(id: string): Promise<boolean> {
@@ -106,8 +132,67 @@ class PendingChangesManager {
   }
 
   public async applyAll(): Promise<void> {
-    for (const id of this.changes.keys()) {
+    for (const [id, change] of this.changes) {
+      if (change.hidden) continue;
       await this.applyChange(id);
+    }
+  }
+
+  public async applyChangeTemporary(id: string): Promise<boolean> {
+    const change = this.changes.get(id);
+    if (!change) return false;
+
+    try {
+      await Bun.write(change.path, change.newContent);
+      // Differs from applyChange: DOES NOT DELETE from this.changes
+      log(`Temporarily applied change to ${change.path}`);
+      return true;
+    } catch (error) {
+      if (change) {
+        log(`Failed to apply temporary change to ${change.path}: ${error}`);
+      }
+      return false;
+    }
+  }
+
+  public async applyAllTemporary(): Promise<void> {
+    log(`applyAllTemporary called with ${this.changes.size} changes`);
+    for (const id of this.changes.keys()) {
+      await this.applyChangeTemporary(id);
+    }
+  }
+
+  public async restoreChange(id: string): Promise<boolean> {
+    const change = this.changes.get(id);
+    if (!change) return false;
+
+    try {
+      if (change.originalContent === null) {
+        // It was a new file, so delete it
+        const file = Bun.file(change.path);
+        if (await file.exists()) {
+          await unlink(change.path);
+        }
+      } else {
+        // Restore original content
+        await Bun.write(change.path, change.originalContent);
+      }
+      // Note: We do NOT delete the change from the map, because we are just reverting the disk state
+      // but keeping the "pending change" in memory (e.g. for further editing or final apply).
+      log(`Restored ${change.path}`);
+      return true;
+    } catch (error) {
+      log(`Failed to restore ${change.path}: ${error}`);
+      return false;
+    }
+  }
+
+  public async restoreAll(): Promise<void> {
+    log(`restoreAll called with ${this.changes.size} changes`);
+    // Restore in reverse order to correct handle multiple changes to the same file
+    const ids = Array.from(this.changes.keys()).reverse();
+    for (const id of ids) {
+      await this.restoreChange(id);
     }
   }
 
@@ -137,6 +222,8 @@ class PendingChangesManager {
    */
   public async getLatestContent(path: string): Promise<string> {
     // Check pending changes first (reverse order to find latest)
+    // We include hidden changes here because the agent (e.g., test runner)
+    // needs to see the "current state" including temporary files it just created.
     const changes = Array.from(this.changes.values()).reverse();
     const latestChange = changes.find((c) => c.path === path);
 

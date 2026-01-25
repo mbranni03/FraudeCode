@@ -3,6 +3,7 @@ import { Select } from "@inkjs/ui";
 import React from "react";
 import useSettingsStore from "@/store/useSettingsStore";
 import useFraudeStore from "@/store/useFraudeStore";
+import { THEME } from "@/theme";
 
 export default function ModelSelectView() {
   const { models } = useSettingsStore();
@@ -41,30 +42,28 @@ export default function ModelSelectView() {
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor="yellow"
-      padding={1}
+      borderStyle="single"
+      borderColor={THEME.warning}
+      paddingX={1}
     >
-      <Text bold color="yellow">
-        ⚠ Rate Limit Exceeded - Select Alternative Model
-      </Text>
+      <Text color={THEME.warning}>⚠ Rate Limit Exceeded</Text>
       <Box marginY={1} flexDirection="column">
         <Text>
-          The model{" "}
-          <Text bold color="red">
+          Model{" "}
+          <Text bold color={THEME.error}>
             {originalModel}
           </Text>{" "}
-          has hit its rate limit after multiple retries.
+          hit its rate limit.
         </Text>
       </Box>
       <Box marginBottom={1}>
         <Text dimColor wrap="wrap">
-          Error: {errorMessage.slice(0, 200)}
-          {errorMessage.length > 200 ? "..." : ""}
+          {errorMessage.slice(0, 150)}
+          {errorMessage.length > 150 ? "..." : ""}
         </Text>
       </Box>
-      <Text>Select an alternative model to continue, or cancel:</Text>
-      <Box marginTop={1}>
+      <Text>Select an alternative model:</Text>
+      <Box marginTop={0}>
         <Select options={options} onChange={handleSelect} />
       </Box>
     </Box>

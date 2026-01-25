@@ -21,8 +21,10 @@ class CommandCenter {
               if (sub.action) return await sub.action(command.slice(1));
             }
           }
+          // If no subcommand matched, use the base command's action if it exists
+          if (cmd.action) return await cmd.action(command);
         } else {
-          if (cmd.action) return await cmd.action(command.slice(1));
+          if (cmd.action) return await cmd.action(command);
         }
       }
     }

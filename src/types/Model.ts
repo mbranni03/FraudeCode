@@ -13,9 +13,9 @@ export type ProviderType = (typeof ProviderTypes)[number];
 export const ModelSchema = z.object({
   type: z.enum(ProviderTypes).default("ollama"),
   name: z.string(),
-  modified_at: z.string(),
+  modified_at: z.string().optional().default(new Date().toISOString()),
   size: z.number().optional(),
-  digest: z.string(),
+  digest: z.string().optional().default(""),
   capabilities: z.array(z.string()).optional(),
   usage: z
     .object({
@@ -28,14 +28,18 @@ export const ModelSchema = z.object({
       completionTokens: 0,
       totalTokens: 0,
     }),
-  details: z.object({
-    format: z.string().optional(),
-    family: z.string().optional(),
-    families: z.array(z.string()).optional(),
-    parameter_size: z.string().optional(),
-    quantization_level: z.string().optional(),
-    context_length: z.number().optional(),
-  }),
+  details: z
+    .object({
+      format: z.string().optional(),
+      family: z.string().optional(),
+      families: z.array(z.string()).optional(),
+      parameter_size: z.string().optional(),
+      quantization_level: z.string().optional(),
+      context_length: z.number().optional(),
+    })
+    .catchall(z.any())
+    .optional()
+    .default({}),
 });
 
 export type Model = z.infer<typeof ModelSchema>;

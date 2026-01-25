@@ -10,7 +10,9 @@ class GoogleClient {
       return;
     }
     const savedModels = getSettings().models;
-    const nonGoogleModels = savedModels.filter((m) => m.type !== "google");
+    const existingGoogleModels = savedModels.filter((m) => m.type === "google");
+    const otherModels = savedModels.filter((m) => m.type !== "google");
+
     const models: Model[] = [
       {
         type: "google",
@@ -27,8 +29,35 @@ class GoogleClient {
           context_length: 100000,
         },
       } as Model,
-    ];
-    const mergedModels = [...nonGoogleModels, ...models];
+      {
+        type: "google",
+        name: "gemini-2.5-flash-lite",
+        modified_at: new Date().toISOString(),
+        digest: "",
+        usage: {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+        },
+        details: {
+          provider: "google",
+          context_length: 100000,
+        },
+      } as Model,
+    ].map((model) => {
+      const existing = existingGoogleModels.find((m) => m.name === model.name);
+      if (existing) {
+        return {
+          ...model,
+          digest: existing.digest || "",
+          usage: existing.usage || model.usage,
+          details: { ...model.details, ...existing.details },
+        };
+      }
+      return model;
+    });
+
+    const mergedModels = [...otherModels, ...models];
     await UpdateSettings({ models: mergedModels });
   }
 }

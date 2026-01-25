@@ -1,12 +1,10 @@
 import { Box, Text } from "ink";
+import { THEME } from "@/theme";
 
 const CommentView = ({ comment }: { comment: string }) => {
   return (
-    <Box paddingTop={1}>
-      <Text color="rgb(255, 140, 0)">~</Text>
-      <Box paddingLeft={1}>
-        <Text dimColor>{comment}</Text>
-      </Box>
+    <Box marginY={0}>
+      <Text color={THEME.dim}># {comment}</Text>
     </Box>
   );
 };

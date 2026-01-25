@@ -1,4 +1,5 @@
 import { Box, Text } from "ink";
+import { THEME } from "@/theme";
 
 export default function FileSuggestions({
   selectedIndex,
@@ -11,16 +12,15 @@ export default function FileSuggestions({
     <Box
       flexDirection="column"
       paddingX={2}
-      borderStyle="single"
-      borderColor="blue" // Distinct color for files
-      width={68}
-      marginLeft={1}
+      borderStyle="round"
+      borderColor={THEME.border} // Distinct color for files
+      width={70}
     >
       <Text dimColor>Files (Tab to select):</Text>
       {suggestions.map((file, i) => (
         <Box key={file}>
           <Text
-            color={i === selectedIndex ? "cyan" : "gray"}
+            color={i === selectedIndex ? THEME.primaryLight : THEME.dim}
             bold={i === selectedIndex}
           >
             {i === selectedIndex ? "› " : "  "}

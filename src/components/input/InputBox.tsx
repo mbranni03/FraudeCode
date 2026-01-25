@@ -12,6 +12,7 @@ import { getFileSuggestions } from "@/utils/fileSuggestions";
 import { shortenPath } from "@/utils";
 
 import { getModelDisplayId } from "@/types/Model";
+import { THEME } from "@/theme";
 
 const InputBoxComponent = () => {
   const { exit } = useApp();
@@ -80,15 +81,6 @@ const InputBoxComponent = () => {
         return s.usage.startsWith(currentInput);
       })
       .slice(0, MAX_VISIBLE_SUGGESTIONS);
-    if (
-      filteredTemplates.length === 1 &&
-      (filteredTemplates[0]?.usage.toLowerCase() ===
-        currentInput.toLowerCase() ||
-        filteredTemplates[0]?.renderedOptions?.find(
-          (option) => option.toLowerCase() === currentInput.toLowerCase(),
-        ))
-    )
-      return [];
     return filteredTemplates;
   }, [suggestions, currentInput]);
 
@@ -274,14 +266,15 @@ const InputBoxComponent = () => {
   if (status === 3) return null;
 
   return (
-    <Box flexDirection="column" padding={1}>
-      <Text>Type something and press enter or type "exit" to exit:</Text>
-      <Box borderStyle="round" borderColor="white" paddingX={1} width={70}>
-        <Text bold>&gt; </Text>
+    <Box flexDirection="column">
+      <Box paddingX={0}>
+        <Text bold color={THEME.primary}>
+          &gt;{" "}
+        </Text>
         <Box flexGrow={1}>
           <TextInput
             key={inputKey}
-            placeholder="Enter command or query..."
+            placeholder="Type a command or ask a question..."
             onChange={handleChange}
             suggestions={dynamicSuggestions}
             defaultValue={currentInput}
@@ -289,34 +282,36 @@ const InputBoxComponent = () => {
           />
         </Box>
       </Box>
-      {dropdownSuggestions.length > 0 ? (
-        <CommandSuggestions
-          selectedIndex={selectedIndex}
-          filteredTemplates={dropdownSuggestions}
-        />
-      ) : (
-        <Box width={70} justifyContent="space-between" paddingX={1}>
-          {fileDropdownSuggestions.length > 0 ? (
-            <FileSuggestions
-              selectedIndex={selectedIndex - scrollOffset}
-              suggestions={fileDropdownSuggestions.slice(
-                scrollOffset,
-                scrollOffset + MAX_VISIBLE_SUGGESTIONS,
-              )}
-            />
-          ) : (
-            <>
-              <Text color="gray">{shortenPath(process.cwd())}</Text>
-              <Text color="cyan">
-                <Text bold>
-                  {getExecutionMode(useFraudeStore.getState().executionMode)}{" "}
-                  (Tab to Change)
+      <Box marginTop={1}>
+        {dropdownSuggestions.length > 0 ? (
+          <CommandSuggestions
+            selectedIndex={selectedIndex}
+            filteredTemplates={dropdownSuggestions}
+          />
+        ) : (
+          <Box width={70} justifyContent="space-between" paddingX={1}>
+            {fileDropdownSuggestions.length > 0 ? (
+              <FileSuggestions
+                selectedIndex={selectedIndex - scrollOffset}
+                suggestions={fileDropdownSuggestions.slice(
+                  scrollOffset,
+                  scrollOffset + MAX_VISIBLE_SUGGESTIONS,
+                )}
+              />
+            ) : (
+              <>
+                <Text color={THEME.dim}>{shortenPath(process.cwd())}</Text>
+                <Text color={THEME.primaryLight}>
+                  <Text bold>
+                    {getExecutionMode(useFraudeStore.getState().executionMode)}{" "}
+                    [Tab]
+                  </Text>
                 </Text>
-              </Text>
-            </>
-          )}
-        </Box>
-      )}
+              </>
+            )}
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 };

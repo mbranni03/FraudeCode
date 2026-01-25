@@ -133,10 +133,31 @@ class Settings {
 
       if (!result.success) {
         console.error(
-          "Invalid settings found, using defaults:",
+          "Invalid settings found, attempting to merge with defaults:",
           result.error.format(),
         );
-        return SettingsSchema.parse({});
+
+        // Backup the invalid settings file just in case
+        try {
+          await Bun.write(
+            `${settingsPath}.bak`,
+            JSON.stringify(rawData, null, 2),
+          );
+          console.log(`Backed up invalid settings to ${settingsPath}.bak`);
+        } catch (backupError) {
+          console.error("Failed to backup settings:", backupError);
+        }
+
+        // Return a merge of defaults and raw data to preserve what we can
+        // We ensure critical fields like 'models' are at least the right type
+        const defaults = SettingsSchema.parse({});
+        const merged = { ...defaults, ...rawData };
+
+        // Safety checks for critical types to prevent runtime crashes
+        if (!Array.isArray(merged.models)) merged.models = defaults.models;
+        if (!Array.isArray(merged.history)) merged.history = defaults.history;
+
+        return merged as Config;
       }
 
       return result.data;

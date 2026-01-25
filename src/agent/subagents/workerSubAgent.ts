@@ -4,6 +4,7 @@ import grepTool from "../tools/grepTool";
 import writeTool from "../tools/writeTool";
 import editTool from "../tools/editTool";
 import bashTool from "../tools/bashTool";
+import todoTool from "../tools/todoTool";
 import useSettingsStore from "@/store/useSettingsStore";
 import WorkerPrompt from "../prompts/WorkerPrompt.txt";
 
@@ -24,9 +25,10 @@ export function getWorkerSubAgent(): Agent {
         writeTool,
         editTool,
         bashTool,
+        todoTool,
       },
       temperature: 0.7,
-      maxSteps: 5,
+      maxSteps: 10,
       useIsolatedContext: true,
     });
   }

@@ -1,4 +1,5 @@
 import { Box, Text } from "ink";
+import { THEME } from "@/theme";
 
 interface ReasoningViewProps {
   content: string;
@@ -10,15 +11,11 @@ export default function ReasoningView({
   duration,
 }: ReasoningViewProps) {
   return (
-    <Box flexDirection="column">
-      <Text dimColor italic>
-        {content}
+    <Box flexDirection="column" marginY={0}>
+      <Text color={THEME.dim}>
+        [thinking] {content}
+        {duration ? ` (${duration.toFixed(1)}s)` : ""}
       </Text>
-      {duration ? (
-        <Text dimColor bold>
-          Thought for {duration.toFixed(1)}s
-        </Text>
-      ) : null}
     </Box>
   );
 }

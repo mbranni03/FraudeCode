@@ -101,11 +101,11 @@ export function handleStreamChunk(chunk: Record<string, unknown>): TokenUsage {
     }
 
     case "finish": {
-      const elapsed = store.elapsedTime;
-      updateOutput(
-        "done",
-        `Finished in ${formatDuration(elapsed * 100).toFixed(1)}s`,
-      );
+      // const elapsed = store.elapsedTime;
+      // updateOutput(
+      //   "done",
+      //   `Finished in ${formatDuration(elapsed * 100).toFixed(1)}s`,
+      // );
       resetState();
       break;
     }
