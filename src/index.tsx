@@ -7,6 +7,7 @@ import OllamaClient from "@/services/ollama";
 import MistralClient from "@/services/mistral";
 import CerebrasClient from "@/services/cerebras";
 import GoogleClient from "@/services/google";
+import CommandCenter from "@/commands";
 
 // Global error handlers to catch and suppress AbortErrors
 process.on("unhandledRejection", (reason) => {
@@ -54,6 +55,7 @@ async function main() {
   console.clear();
   await Settings.init();
   useSettingsStore.getState().syncWithSettings();
+  await CommandCenter.loadPlugins();
   syncModels();
   render(<App />);
 }

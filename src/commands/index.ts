@@ -1,5 +1,6 @@
 import type { Command } from "@/types/CommandDefinition";
 import COMMANDS from "./COMMANDS";
+import log from "@/utils/logger";
 
 // Class for handling commands
 class CommandCenter {
@@ -7,6 +8,18 @@ class CommandCenter {
 
   constructor() {
     this.commands = COMMANDS;
+  }
+
+  async loadPlugins() {
+    try {
+      const { PluginLoader } = await import("@/services/PluginLoader");
+      const loader = new PluginLoader();
+      const pluginCommands = await loader.loadPlugins();
+      this.commands = [...this.commands, ...pluginCommands];
+      log(`Loaded ${pluginCommands.length} plugin commands.`);
+    } catch (error) {
+      log("Error loading plugins:", error);
+    }
   }
 
   processCommand = async (query: string) => {
@@ -33,7 +46,7 @@ class CommandCenter {
   getAllCommands(): Command[] {
     const templates: Command[] = [];
 
-    for (const cmd of COMMANDS) {
+    for (const cmd of this.commands) {
       // Add subcommands
       if (cmd.subcommands) {
         for (const sub of cmd.subcommands) {
