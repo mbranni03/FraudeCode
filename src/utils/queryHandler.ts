@@ -15,6 +15,15 @@ import type { TodoItem } from "@/agent/tools/todoTool";
 
 const { updateOutput } = useFraudeStore.getState();
 
+const checkAbort = () => {
+  const abortController = useFraudeStore.getState().abortController;
+  if (abortController?.signal.aborted) {
+    const error = new Error("Aborted");
+    error.name = "AbortError";
+    throw error;
+  }
+};
+
 const getTaskContext = (task: TodoItem) => {
   const context = task.context;
   const notes = task.notes;
@@ -30,6 +39,102 @@ Notes:
 ${notes.length > 0 ? notes.map((n, i) => `${i + 1}. ${n}`).join("\n") : "None"}`;
 };
 
+const fastMode = async (query: string) => {
+  const abortController = useFraudeStore.getState().abortController;
+  if (!abortController) {
+    throw new Error("No abort controller found");
+  }
+  const response = await getManagerAgent().stream(query, {
+    abortSignal: abortController.signal,
+  });
+  checkAbort();
+
+  log("Manager Response:");
+  log(JSON.stringify(response, null, 2));
+};
+
+const planMode = async (query: string) => {
+  const abortController = useFraudeStore.getState().abortController;
+  if (!abortController) {
+    throw new Error("No abort controller found");
+  }
+  const response = await getManagerAgent().stream(query, {
+    abortSignal: abortController.signal,
+  });
+  checkAbort();
+
+  log("Manager Response:");
+  log(JSON.stringify(response, null, 2));
+
+  let nextTask = await getNextTodo();
+  while (!nextTask.done && nextTask.task) {
+    checkAbort();
+
+    let taskContext = getTaskContext(nextTask.task);
+    updateOutput("log", "Working on task: " + nextTask.task.description);
+    const response = await getWorkerSubAgent().stream(taskContext, {
+      abortSignal: abortController.signal,
+    });
+    checkAbort();
+
+    log("Worker Response:");
+    log(JSON.stringify(response, null, 2));
+    const taskAfterWorker = await getTodoById(nextTask.task.id);
+    if (taskAfterWorker && taskAfterWorker.status === "in-progress") {
+      log(
+        "Worker finished but didn't update status. Auto-advancing to 'reviewing'.",
+      );
+    }
+
+    const getUpdatedTask = await getTodoById(nextTask.task.id);
+    if (!getUpdatedTask) {
+      updateOutput("error", "Task not found");
+      continue;
+    }
+    taskContext = getTaskContext(getUpdatedTask);
+    updateOutput(
+      "log",
+      "Reviewing changes for task: " + nextTask.task.description,
+    );
+    const reviewResponse = await getReviewerSubAgent().stream(taskContext, {
+      abortSignal: abortController.signal,
+    });
+    checkAbort();
+
+    log("Review Response:");
+    log(JSON.stringify(reviewResponse, null, 2));
+
+    // SAFETY CHECK: Did the reviewer complete the task?
+    const postReviewTask = await getTodoById(nextTask.task.id);
+    if (
+      postReviewTask &&
+      postReviewTask.status !== "completed" &&
+      postReviewTask.status !== "pending"
+    ) {
+      log(
+        "Warning: Reviewer did not complete or reject task. Auto-completing to proceed.",
+      );
+      break;
+    }
+
+    nextTask = await getNextTodo();
+  }
+};
+
+const askMode = async (query: string) => {
+  const abortController = useFraudeStore.getState().abortController;
+  if (!abortController) {
+    throw new Error("No abort controller found");
+  }
+  const response = await getManagerAgent().stream(query, {
+    abortSignal: abortController.signal,
+  });
+  checkAbort();
+
+  log("Manager Response:");
+  log(JSON.stringify(response, null, 2));
+};
+
 export default async function QueryHandler(query: string) {
   if (query === "exit") {
     process.exit(0);
@@ -41,105 +146,28 @@ export default async function QueryHandler(query: string) {
   }
   log(`User Query: ${query}`);
 
-  // Create an AbortController for this query
-  const abortController = new AbortController();
   useFraudeStore.setState({
     status: 1,
     elapsedTime: 0,
     lastBreak: 0,
-    abortController,
+    abortController: new AbortController(),
     statusText: "Pondering",
   });
   resetStreamState();
-
-  // Helper that throws if interrupted - call between async operations
-  const checkAbort = () => {
-    if (abortController.signal.aborted) {
-      const error = new Error("Aborted");
-      error.name = "AbortError";
-      throw error;
-    }
-  };
 
   try {
     useFraudeStore.setState({
       researchCache: {},
     });
-    const response = await getManagerAgent().stream(query, {
-      abortSignal: abortController.signal,
-    });
-    checkAbort();
-
-    log("Manager Response:");
-    log(JSON.stringify(response, null, 2));
-
-    const hasTodos = await hasPendingTodos();
-    if (!hasTodos) {
-      updateOutput(
-        "error",
-        "Error: Manager completed without creating any tasks",
-      );
-      log("Error: Manager completed without creating any tasks");
-      useFraudeStore.setState({
-        status: 0,
-        abortController: null,
-        statusText: "",
-      });
-      return;
-    }
-
-    let nextTask = await getNextTodo();
-    while (!nextTask.done && nextTask.task) {
-      checkAbort();
-
-      let taskContext = getTaskContext(nextTask.task);
-      updateOutput("log", "Working on task: " + nextTask.task.description);
-      const response = await getWorkerSubAgent().stream(taskContext, {
-        abortSignal: abortController.signal,
-      });
-      checkAbort();
-
-      log("Worker Response:");
-      log(JSON.stringify(response, null, 2));
-      const taskAfterWorker = await getTodoById(nextTask.task.id);
-      if (taskAfterWorker && taskAfterWorker.status === "in-progress") {
-        log(
-          "Worker finished but didn't update status. Auto-advancing to 'reviewing'.",
-        );
-      }
-
-      const getUpdatedTask = await getTodoById(nextTask.task.id);
-      if (!getUpdatedTask) {
-        updateOutput("error", "Task not found");
-        continue;
-      }
-      taskContext = getTaskContext(getUpdatedTask);
-      updateOutput(
-        "log",
-        "Reviewing changes for task: " + nextTask.task.description,
-      );
-      const reviewResponse = await getReviewerSubAgent().stream(taskContext, {
-        abortSignal: abortController.signal,
-      });
-      checkAbort();
-
-      log("Review Response:");
-      log(JSON.stringify(reviewResponse, null, 2));
-
-      // SAFETY CHECK: Did the reviewer complete the task?
-      const postReviewTask = await getTodoById(nextTask.task.id);
-      if (
-        postReviewTask &&
-        postReviewTask.status !== "completed" &&
-        postReviewTask.status !== "pending"
-      ) {
-        log(
-          "Warning: Reviewer did not complete or reject task. Auto-completing to proceed.",
-        );
-        break;
-      }
-
-      nextTask = await getNextTodo();
+    if (useFraudeStore.getState().executionMode == 0) {
+      // Fast Mode
+      await fastMode(query);
+    } else if (useFraudeStore.getState().executionMode == 1) {
+      // Planning Mode
+      await planMode(query);
+    } else if (useFraudeStore.getState().executionMode == 2) {
+      // Ask Mode
+      await askMode(query);
     }
 
     if (pendingChanges.hasChanges()) {
