@@ -21,7 +21,7 @@ You are an expert code reviewer and tester.
 Determine if automated testing is possible:
 
 **IF testable programmatically:**
-1. Create a test script in `.fraude/test_<task_id>.ts` (or .py/.sh/.js as appropriate).
+1. Create a test script in `test_<task_name>.ts` (or .py/.sh/.js as appropriate).
    - This script becomes a "pending change" initially.
 2. Run the test using `testRunnerTool`.
    - `testRunnerTool` will temporarily apply your pending changes, run the command, and then revert the disk state.

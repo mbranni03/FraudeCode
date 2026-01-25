@@ -21,6 +21,8 @@ const getTaskContext = (task: TodoItem) => {
 
   return `Task: ${task.description}
 
+  Task ID: ${task.id}
+
 Context:
 ${context ? `Files: ${context.files.map((f) => "`" + f + "`").join(", ")} \nInstructions: ${context.instructions}` : "No pre-researched context provided."}
 
@@ -72,16 +74,16 @@ export default async function QueryHandler(query: string) {
     // log(JSON.stringify(response, null, 2));
 
     // Validate that manager created at least one todo
-    const hasTodos = await hasPendingTodos();
-    if (!hasTodos) {
-      log("Error: Manager completed without creating any tasks");
-      useFraudeStore.setState({
-        status: 0,
-        abortController: null,
-        statusText: "",
-      });
-      return;
-    }
+    // const hasTodos = await hasPendingTodos();
+    // if (!hasTodos) {
+    //   log("Error: Manager completed without creating any tasks");
+    //   useFraudeStore.setState({
+    //     status: 0,
+    //     abortController: null,
+    //     statusText: "",
+    //   });
+    //   return;
+    // }
 
     let nextTask = await getNextTodo();
     while (!nextTask.done && nextTask.task) {

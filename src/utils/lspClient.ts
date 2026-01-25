@@ -1,752 +1,757 @@
-import * as rpc from "vscode-jsonrpc/node";
-import * as lsp from "vscode-languageserver-protocol";
-import { spawn, type ChildProcess } from "child_process";
+import * as ts from "typescript";
+import Parser = require("web-tree-sitter");
 import path from "path";
+import fs from "fs";
 
 /**
- * Language Server configurations
- * Maps file extensions to language server commands
+ * Common interface for all language providers
  */
-const LANGUAGE_SERVERS: Record<
-  string,
-  { command: string[]; languageId: string }
-> = {
-  // TypeScript/JavaScript - use local typescript from node_modules
-  ts: {
-    command: ["npx", "typescript-language-server", "--stdio"],
-    languageId: "typescript",
-  },
-  tsx: {
-    command: ["npx", "typescript-language-server", "--stdio"],
-    languageId: "typescriptreact",
-  },
-  js: {
-    command: ["npx", "typescript-language-server", "--stdio"],
-    languageId: "javascript",
-  },
-  jsx: {
-    command: ["npx", "typescript-language-server", "--stdio"],
-    languageId: "javascriptreact",
-  },
+export interface LanguageProvider {
+  isSupported(extension: string): boolean;
+  getDiagnostics(
+    filePath: string,
+    content: string,
+  ): Promise<{ errors: string[]; warnings: string[] }>;
+  findDefinition(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ): Promise<{ file: string; line: number; preview?: string } | null>;
+  findReferences(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ): Promise<Array<{ file: string; line: number }>>;
+  getDocumentSymbols(
+    filePath: string,
+    content: string,
+  ): Promise<
+    Array<{ name: string; kind: string; line: number; children?: any[] }>
+  >;
 
-  // Python
-  py: { command: ["pyright-langserver", "--stdio"], languageId: "python" },
+  // Added missing methods
+  getSymbolInfo(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ): Promise<string | null>;
+  findImplementation(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ): Promise<Array<{ file: string; line: number; preview?: string }>>;
 
-  // Rust
-  rs: { command: ["rust-analyzer"], languageId: "rust" },
-
-  // Go
-  go: { command: ["gopls"], languageId: "go" },
-
-  // C/C++
-  c: { command: ["clangd"], languageId: "c" },
-  cpp: { command: ["clangd"], languageId: "cpp" },
-  h: { command: ["clangd"], languageId: "c" },
-  hpp: { command: ["clangd"], languageId: "cpp" },
-
-  // JSON
-  json: {
-    command: ["npx", "vscode-json-languageserver", "--stdio"],
-    languageId: "json",
-  },
-
-  // CSS/SCSS
-  css: {
-    command: ["npx", "vscode-css-languageserver", "--stdio"],
-    languageId: "css",
-  },
-  scss: {
-    command: ["npx", "vscode-css-languageserver", "--stdio"],
-    languageId: "scss",
-  },
-
-  // HTML
-  html: {
-    command: ["npx", "vscode-html-languageserver", "--stdio"],
-    languageId: "html",
-  },
-};
-
-interface ServerInstance {
-  connection: rpc.MessageConnection;
-  proc: ChildProcess;
-  documentVersions: Map<string, number>;
+  // Optional advanced features
+  prepareCallHierarchy?(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ): Promise<Array<{ name: string; kind: string; file: string; line: number }>>;
+  getIncomingCalls?(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ): Promise<Array<{ name: string; file: string; line: number }>>;
+  getOutgoingCalls?(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ): Promise<Array<{ name: string; file: string; line: number }>>;
+  searchWorkspaceSymbols?(
+    query: string,
+  ): Promise<Array<{ name: string; kind: string; file: string; line: number }>>;
 }
 
-export class UniversalLSPClient {
-  private servers: Map<string, ServerInstance> = new Map();
-  private rootPath: string;
-  private pendingDiagnostics: Map<string, lsp.Diagnostic[]> = new Map();
+/**
+ * ----------------------------------------------------------------------
+ * TIER 1: TypeScript Provider (High Fidelity)
+ * Uses the TypeScript Compiler API to provide rich analysis for TS/JS files.
+ * ----------------------------------------------------------------------
+ */
+class TypeScriptProvider implements LanguageProvider {
+  private service: ts.LanguageService;
+  private files: Map<string, { version: number; content: string }> = new Map();
 
-  constructor(rootPath: string = process.cwd()) {
-    this.rootPath = rootPath;
-  }
-
-  /**
-   * Get or create a language server for the given file extension
-   */
-  private async getServer(ext: string): Promise<ServerInstance | null> {
-    const config = LANGUAGE_SERVERS[ext];
-    if (!config) return null;
-
-    // Use languageId as key to share servers for same language
-    const serverKey = config.languageId;
-
-    if (this.servers.has(serverKey)) {
-      return this.servers.get(serverKey)!;
-    }
-
-    try {
-      const proc = spawn(config.command[0]!, config.command.slice(1), {
-        cwd: this.rootPath,
-        shell: true,
-        stdio: ["pipe", "pipe", "inherit"],
-      });
-
-      // Handle spawn errors immediately
-      proc.on("error", (err) => {
-        console.error(`Failed to spawn language server for ${ext}:`, err);
-        this.servers.delete(serverKey);
-      });
-
-      // Check if process exits immediately (e.g. command not found)
-      proc.on("exit", (code) => {
-        if (code !== 0 && code !== null) {
-          console.error(`Language server for ${ext} exited with code ${code}`);
-          this.servers.delete(serverKey);
+  constructor(private rootPath: string) {
+    const registry = ts.createDocumentRegistry();
+    const serviceHost: ts.LanguageServiceHost = {
+      getScriptFileNames: () => Array.from(this.files.keys()),
+      getScriptVersion: (fileName) =>
+        this.files.get(fileName)?.version.toString() || "0",
+      getScriptSnapshot: (fileName) => {
+        const file = this.files.get(fileName);
+        if (file) {
+          return ts.ScriptSnapshot.fromString(file.content);
         }
-      });
-
-      const connection = rpc.createMessageConnection(
-        new rpc.StreamMessageReader(proc.stdout!),
-        new rpc.StreamMessageWriter(proc.stdin!),
-      );
-
-      connection.listen();
-
-      // Initialize the server with timeout
-      try {
-        const initPromise = connection.sendRequest("initialize", {
-          processId: process.pid,
-          rootUri: `file://${this.rootPath}`,
-          capabilities: {
-            textDocument: {
-              publishDiagnostics: { relatedInformation: true },
-              synchronization: { dynamicRegistration: true },
-              completion: { completionItem: { snippetSupport: false } },
-              hover: { contentFormat: ["markdown", "plaintext"] },
-              definition: { linkSupport: true },
-              references: {},
-              implementation: { linkSupport: true },
-              documentSymbol: {
-                hierarchicalDocumentSymbolSupport: true,
-              },
-              callHierarchy: { dynamicRegistration: false },
-            },
-            workspace: {
-              symbol: { dynamicRegistration: false },
-            },
-          },
-          workspaceFolders: [{ name: "root", uri: `file://${this.rootPath}` }],
-        });
-
-        // timeout after 5 seconds
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(
-            () => reject(new Error("LSP initialization timed out")),
-            5000,
+        if (fs.existsSync(fileName)) {
+          return ts.ScriptSnapshot.fromString(
+            fs.readFileSync(fileName, "utf-8"),
           );
-        });
-
-        await Promise.race([initPromise, timeoutPromise]);
-      } catch (e: any) {
-        console.error(
-          `Failed to initialize language server for ${ext}:`,
-          e.message,
-        );
-        proc.kill();
-        this.servers.delete(serverKey);
-        return null;
-      }
-
-      await connection.sendNotification("initialized", {});
-
-      // Listen for diagnostics
-      connection.onNotification(
-        "textDocument/publishDiagnostics",
-        (params: { uri: string; diagnostics: lsp.Diagnostic[] }) => {
-          this.pendingDiagnostics.set(params.uri, params.diagnostics);
-        },
-      );
-
-      const instance: ServerInstance = {
-        connection,
-        proc,
-        documentVersions: new Map(),
-      };
-
-      this.servers.set(serverKey, instance);
-      return instance;
-    } catch (error) {
-      console.error(`Failed to start language server for ${ext}:`, error);
-      return null;
-    }
-  }
-
-  private getExtension(filePath: string): string {
-    return filePath.split(".").pop() || "";
-  }
-
-  private getLanguageId(filePath: string): string {
-    const ext = this.getExtension(filePath);
-    return LANGUAGE_SERVERS[ext]?.languageId || "plaintext";
-  }
-
-  private async openDocument(
-    server: ServerInstance,
-    filePath: string,
-    content: string,
-  ): Promise<string> {
-    const uri = `file://${path.resolve(this.rootPath, filePath)}`;
-    const version = (server.documentVersions.get(uri) || 0) + 1;
-    server.documentVersions.set(uri, version);
-
-    await server.connection.sendNotification("textDocument/didOpen", {
-      textDocument: {
-        uri,
-        languageId: this.getLanguageId(filePath),
-        version,
-        text: content,
+        }
+        return undefined;
       },
-    });
+      getCurrentDirectory: () => this.rootPath,
+      getCompilationSettings: () => ({
+        target: ts.ScriptTarget.ESNext,
+        module: ts.ModuleKind.CommonJS,
+        allowJs: true,
+        jsx: ts.JsxEmit.React,
+        strict: true,
+        moduleResolution: ts.ModuleResolutionKind.NodeJs,
+        esModuleInterop: true,
+        skipLibCheck: true,
+        resolveJsonModule: true,
+      }),
+      getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+      fileExists: ts.sys.fileExists,
+      readFile: ts.sys.readFile,
+      readDirectory: ts.sys.readDirectory,
+    };
 
-    return uri;
+    this.service = ts.createLanguageService(serviceHost, registry);
   }
 
-  /**
-   * Check if a language is supported
-   */
-  isSupported(filePath: string): boolean {
-    return this.getExtension(filePath) in LANGUAGE_SERVERS;
+  isSupported(ext: string): boolean {
+    return ["ts", "tsx", "js", "jsx"].includes(ext);
   }
 
-  /**
-   * Get list of supported extensions
-   */
-  getSupportedExtensions(): string[] {
-    return Object.keys(LANGUAGE_SERVERS);
-  }
-
-  /**
-   * Analyze a file for errors and warnings
-   */
-  async getDiagnostics(
-    filePath: string,
-    content: string,
-  ): Promise<{ errors: string[]; warnings: string[] }> {
-    const ext = this.getExtension(filePath);
-    const server = await this.getServer(ext);
-
-    if (!server) {
-      return { errors: [], warnings: [] };
+  private updateFile(filePath: string, content: string) {
+    const current = this.files.get(filePath);
+    if (!current || current.content !== content) {
+      this.files.set(filePath, {
+        version: (current?.version || 0) + 1,
+        content,
+      });
     }
+  }
 
-    const uri = await this.openDocument(server, filePath, content);
+  async getDiagnostics(filePath: string, content: string) {
+    this.updateFile(filePath, content);
 
-    // Wait for diagnostics with timeout
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const syntactic = this.service.getSyntacticDiagnostics(filePath);
+    const semantic = this.service.getSemanticDiagnostics(filePath);
 
-    const diagnostics = this.pendingDiagnostics.get(uri) || [];
-
+    const all = [...syntactic, ...semantic];
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    for (const d of diagnostics) {
-      const msg = `Line ${d.range.start.line + 1}: ${d.message}`;
-      if (d.severity === 1) {
-        errors.push(msg);
+    for (const d of all) {
+      const line = d.file
+        ? d.file.getLineAndCharacterOfPosition(d.start!).line + 1
+        : 0;
+      const msg = ts.flattenDiagnosticMessageText(d.messageText, "\n");
+      const fmt = `Line ${line}: ${msg}`;
+      if (d.category === ts.DiagnosticCategory.Error) {
+        errors.push(fmt);
       } else {
-        warnings.push(msg);
+        warnings.push(fmt);
       }
     }
 
     return { errors, warnings };
   }
 
-  /**
-   * Find where a symbol is defined
-   */
   async findDefinition(
     filePath: string,
     content: string,
     line: number,
     character: number,
-  ): Promise<{ file: string; line: number; preview?: string } | null> {
-    const ext = this.getExtension(filePath);
-    const server = await this.getServer(ext);
+  ) {
+    this.updateFile(filePath, content);
+    const sourceFile = this.service.getProgram()?.getSourceFile(filePath);
+    if (!sourceFile) return null;
 
-    if (!server) return null;
-
-    const uri = await this.openDocument(server, filePath, content);
-
-    const result = await server.connection.sendRequest(
-      "textDocument/definition",
-      {
-        textDocument: { uri },
-        position: { line: line - 1, character: character - 1 },
-      },
+    const pos = sourceFile.getPositionOfLineAndCharacter(
+      line - 1,
+      character - 1,
     );
+    const defs = this.service.getDefinitionAtPosition(filePath, pos);
 
-    if (!result) return null;
+    if (!defs || defs.length === 0) return null;
+    const def = defs[0];
+    if (!def) return null;
 
-    const location = Array.isArray(result) ? result[0] : result;
-    if (!location) return null;
+    const defFile = def.fileName;
+    const defStart = def.textSpan.start;
 
-    const targetUri = (location as any).uri || (location as any).targetUri;
-    const range = (location as any).range || (location as any).targetRange;
+    let fileContent = "";
+    if (this.files.has(defFile)) {
+      fileContent = this.files.get(defFile)!.content;
+    } else if (fs.existsSync(defFile)) {
+      fileContent = fs.readFileSync(defFile, "utf-8");
+    }
 
-    if (!targetUri) return null;
+    if (!fileContent) return null;
 
-    const targetFile = targetUri.replace("file://", "");
-    const targetLine = range?.start?.line ? range.start.line + 1 : 1;
+    const tempSource = ts.createSourceFile(
+      defFile,
+      fileContent,
+      ts.ScriptTarget.Latest,
+    );
+    const linePos = tempSource.getLineAndCharacterOfPosition(defStart);
 
-    // Try to get a preview of the definition
-    let preview: string | undefined;
-    try {
-      const defContent = await Bun.file(targetFile).text();
-      const lines = defContent.split("\n");
-      preview = lines
-        .slice(Math.max(0, targetLine - 1), targetLine + 2)
-        .join("\n");
-    } catch {}
+    const lines = fileContent.split("\n");
+    const preview = lines
+      .slice(Math.max(0, linePos.line - 1), linePos.line + 2)
+      .join("\n");
 
-    return { file: targetFile, line: targetLine, preview };
+    return {
+      file: defFile,
+      line: linePos.line + 1,
+      preview,
+    };
   }
 
-  /**
-   * Get documentation/type info for a symbol
-   */
   async getSymbolInfo(
     filePath: string,
     content: string,
     line: number,
     character: number,
-  ): Promise<string | null> {
-    const ext = this.getExtension(filePath);
-    const server = await this.getServer(ext);
+  ) {
+    this.updateFile(filePath, content);
+    const sourceFile = this.service.getProgram()?.getSourceFile(filePath);
+    if (!sourceFile) return null;
 
-    if (!server) return null;
+    const pos = sourceFile.getPositionOfLineAndCharacter(
+      line - 1,
+      character - 1,
+    );
+    const info = this.service.getQuickInfoAtPosition(filePath, pos);
 
-    const uri = await this.openDocument(server, filePath, content);
+    if (!info) return null;
 
-    const result = (await server.connection.sendRequest("textDocument/hover", {
-      textDocument: { uri },
-      position: { line: line - 1, character: character - 1 },
-    })) as {
-      contents?: { value?: string; kind?: string } | string | Array<any>;
-    } | null;
+    const displayParts = ts.displayPartsToString(info.displayParts);
+    const doc = ts.displayPartsToString(info.documentation);
 
-    if (!result || !result.contents) return null;
-
-    // Parse various hover content formats
-    if (typeof result.contents === "string") {
-      return result.contents;
-    }
-
-    if (Array.isArray(result.contents)) {
-      return result.contents
-        .map((c) => (typeof c === "string" ? c : c.value || ""))
-        .join("\n");
-    }
-
-    return result.contents.value || JSON.stringify(result.contents);
+    return `${displayParts}\n${doc}`;
   }
 
-  /**
-   * Find all references to a symbol
-   */
-  async findReferences(
-    filePath: string,
-    content: string,
-    line: number,
-    character: number,
-  ): Promise<Array<{ file: string; line: number }>> {
-    const ext = this.getExtension(filePath);
-    const server = await this.getServer(ext);
-
-    if (!server) return [];
-
-    const uri = await this.openDocument(server, filePath, content);
-
-    // Give the server time to index the file for references
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const result = (await server.connection.sendRequest(
-      "textDocument/references",
-      {
-        textDocument: { uri },
-        position: { line: line - 1, character: character - 1 },
-        context: { includeDeclaration: true },
-      },
-    )) as Array<{ uri: string; range: { start: { line: number } } }> | null;
-
-    if (!result) return [];
-
-    return result.map((ref) => ({
-      file: ref.uri.replace("file://", ""),
-      line: ref.range.start.line + 1,
-    }));
-  }
-
-  /**
-   * Find implementations of an interface or abstract method
-   */
   async findImplementation(
     filePath: string,
     content: string,
     line: number,
     character: number,
-  ): Promise<Array<{ file: string; line: number; preview?: string }>> {
-    const ext = this.getExtension(filePath);
-    const server = await this.getServer(ext);
+  ) {
+    this.updateFile(filePath, content);
+    const sourceFile = this.service.getProgram()?.getSourceFile(filePath);
+    if (!sourceFile) return [];
 
-    if (!server) return [];
-
-    const uri = await this.openDocument(server, filePath, content);
-
-    const result = await server.connection.sendRequest(
-      "textDocument/implementation",
-      {
-        textDocument: { uri },
-        position: { line: line - 1, character: character - 1 },
-      },
+    const pos = sourceFile.getPositionOfLineAndCharacter(
+      line - 1,
+      character - 1,
     );
+    const impls = this.service.getImplementationAtPosition(filePath, pos);
 
-    if (!result) return [];
+    if (!impls) return [];
 
-    const locations = Array.isArray(result) ? result : [result];
-    const implementations: Array<{
-      file: string;
-      line: number;
-      preview?: string;
-    }> = [];
-
-    for (const location of locations) {
-      const targetUri = (location as any).uri || (location as any).targetUri;
-      const range = (location as any).range || (location as any).targetRange;
-
-      if (!targetUri) continue;
-
-      const targetFile = targetUri.replace("file://", "");
-      const targetLine = range?.start?.line ? range.start.line + 1 : 1;
-
-      let preview: string | undefined;
-      try {
-        const defContent = await Bun.file(targetFile).text();
-        const lines = defContent.split("\n");
-        preview = lines
-          .slice(Math.max(0, targetLine - 1), targetLine + 2)
-          .join("\n");
-      } catch {}
-
-      implementations.push({ file: targetFile, line: targetLine, preview });
-    }
-
-    return implementations;
-  }
-
-  /**
-   * Get all symbols (functions, classes, variables) in a document
-   */
-  async getDocumentSymbols(
-    filePath: string,
-    content: string,
-  ): Promise<
-    Array<{ name: string; kind: string; line: number; children?: any[] }>
-  > {
-    const ext = this.getExtension(filePath);
-    const server = await this.getServer(ext);
-
-    if (!server) return [];
-
-    const uri = await this.openDocument(server, filePath, content);
-
-    const result = (await server.connection.sendRequest(
-      "textDocument/documentSymbol",
-      { textDocument: { uri } },
-    )) as Array<any> | null;
-
-    if (!result) return [];
-
-    const symbolKindMap: Record<number, string> = {
-      1: "File",
-      2: "Module",
-      3: "Namespace",
-      4: "Package",
-      5: "Class",
-      6: "Method",
-      7: "Property",
-      8: "Field",
-      9: "Constructor",
-      10: "Enum",
-      11: "Interface",
-      12: "Function",
-      13: "Variable",
-      14: "Constant",
-      15: "String",
-      16: "Number",
-      17: "Boolean",
-      18: "Array",
-      19: "Object",
-      20: "Key",
-      21: "Null",
-      22: "EnumMember",
-      23: "Struct",
-      24: "Event",
-      25: "Operator",
-      26: "TypeParameter",
-    };
-
-    const mapSymbol = (
-      sym: any,
-    ): { name: string; kind: string; line: number; children?: any[] } => {
-      const range = sym.range || sym.location?.range;
-      const line = range?.start?.line ? range.start.line + 1 : 1;
-      const kind = symbolKindMap[sym.kind] || `Kind${sym.kind}`;
-      const mapped: {
-        name: string;
-        kind: string;
-        line: number;
-        children?: any[];
-      } = {
-        name: sym.name,
-        kind,
-        line,
-      };
-      if (sym.children && Array.isArray(sym.children)) {
-        mapped.children = sym.children.map(mapSymbol);
-      }
-      return mapped;
-    };
-
-    return result.map(mapSymbol);
-  }
-
-  /**
-   * Search for symbols across the entire workspace
-   */
-  async searchWorkspaceSymbols(
-    query: string,
-    filePath: string, // Used to determine which language server to use
-  ): Promise<
-    Array<{ name: string; kind: string; file: string; line: number }>
-  > {
-    const ext = this.getExtension(filePath);
-    const server = await this.getServer(ext);
-
-    if (!server) return [];
-
-    const result = (await server.connection.sendRequest("workspace/symbol", {
-      query,
-    })) as Array<any> | null;
-
-    if (!result) return [];
-
-    const symbolKindMap: Record<number, string> = {
-      1: "File",
-      2: "Module",
-      3: "Namespace",
-      4: "Package",
-      5: "Class",
-      6: "Method",
-      7: "Property",
-      8: "Field",
-      9: "Constructor",
-      10: "Enum",
-      11: "Interface",
-      12: "Function",
-      13: "Variable",
-      14: "Constant",
-      15: "String",
-      16: "Number",
-      17: "Boolean",
-      18: "Array",
-      19: "Object",
-      20: "Key",
-      21: "Null",
-      22: "EnumMember",
-      23: "Struct",
-      24: "Event",
-      25: "Operator",
-      26: "TypeParameter",
-    };
-
-    return result.map((sym) => {
-      const location = sym.location;
-      const file = location?.uri?.replace("file://", "") || "";
-      const line = location?.range?.start?.line
-        ? location.range.start.line + 1
+    return impls.map((impl) => {
+      const implSource = this.service
+        .getProgram()
+        ?.getSourceFile(impl.fileName);
+      const line = implSource
+        ? implSource.getLineAndCharacterOfPosition(impl.textSpan.start).line + 1
         : 1;
-      const kind = symbolKindMap[sym.kind] || `Kind${sym.kind}`;
-      return { name: sym.name, kind, file, line };
+      return { file: impl.fileName, line };
     });
   }
 
-  /**
-   * Get call hierarchy item at a position
-   */
+  async findReferences(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ) {
+    this.updateFile(filePath, content);
+    const sourceFile = this.service.getProgram()?.getSourceFile(filePath);
+    if (!sourceFile) return [];
+
+    const pos = sourceFile.getPositionOfLineAndCharacter(
+      line - 1,
+      character - 1,
+    );
+    const refs = this.service.getReferencesAtPosition(filePath, pos);
+
+    if (!refs) return [];
+
+    return refs.map((ref) => {
+      const refSource = this.service.getProgram()?.getSourceFile(ref.fileName);
+      const line = refSource
+        ? refSource.getLineAndCharacterOfPosition(ref.textSpan.start).line + 1
+        : 1;
+      return { file: ref.fileName, line };
+    });
+  }
+
+  async getDocumentSymbols(filePath: string, content: string) {
+    this.updateFile(filePath, content);
+    const navTree = this.service.getNavigationTree(filePath);
+
+    const convert = (node: ts.NavigationTree): any => {
+      const sourceFile = this.service.getProgram()?.getSourceFile(filePath);
+      const line =
+        sourceFile && node.spans && node.spans[0]
+          ? sourceFile.getLineAndCharacterOfPosition(node.spans[0].start).line +
+            1
+          : 1;
+
+      return {
+        name: node.text,
+        kind: node.kind,
+        line,
+        children: node.childItems?.map(convert),
+      };
+    };
+
+    return navTree.childItems?.map(convert) || [];
+  }
+}
+
+/**
+ * ----------------------------------------------------------------------
+ * TIER 2: Tree-Sitter Provider (Structure & Symbols)
+ * ----------------------------------------------------------------------
+ */
+class TreeSitterProvider implements LanguageProvider {
+  private parser: any = null;
+  private lang: any = null;
+  private isReady = false;
+
+  constructor(
+    private languageName: string,
+    private wasmPath: string,
+  ) {
+    this.init();
+  }
+
+  private async init() {
+    try {
+      if (!fs.existsSync(this.wasmPath)) return;
+      await (Parser as any).init();
+      this.lang = await (Parser as any).Language.load(this.wasmPath);
+      this.parser = new (Parser as any)();
+      this.parser.setLanguage(this.lang);
+      this.isReady = true;
+    } catch (e) {
+      // Fail silently, fallback will take over
+    }
+  }
+
+  isSupported(ext: string): boolean {
+    return this.isReady;
+  }
+
+  async getDiagnostics() {
+    return { errors: [], warnings: [] };
+  }
+
+  async findDefinition(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ) {
+    if (!this.parser || !this.lang) return null;
+    const tree = this.parser.parse(content);
+
+    // Simple heuristic: search for definition of symbol at cursor
+    // Need exact logic for determining symbol at cursor for TS (row/col)
+    // Assume we can get the text
+    const lines = content.split("\n");
+    const docLine = lines[line - 1] || "";
+    // Crude extraction of word
+    const match = docLine.slice(0, character).match(/[a-zA-Z0-9_]+$/);
+    const suffix = docLine.slice(character).match(/^[a-zA-Z0-9_]+/);
+    const word = (match ? match[0] : "") + (suffix ? suffix[0] : "");
+    if (!word) return null;
+
+    const symbols = await this.getDocumentSymbols(filePath, content);
+    const found = this.findSymbolRecursive(symbols, word);
+    if (found) {
+      const preview = lines
+        .slice(Math.max(0, found.line - 1), found.line + 2)
+        .join("\n");
+      return { file: filePath, line: found.line, preview };
+    }
+    return null;
+  }
+
+  private findSymbolRecursive(symbols: any[], name: string): any {
+    for (const s of symbols) {
+      if (s.name === name) return s;
+      if (s.children) {
+        const found = this.findSymbolRecursive(s.children, name);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  async getSymbolInfo(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ) {
+    const def = await this.findDefinition(filePath, content, line, character);
+    if (def && def.preview) {
+      return `Definition:\n${def.preview}`;
+    }
+    return null;
+  }
+
+  async findImplementation(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ) {
+    return []; // Not implemented for TreeSitter yet
+  }
+
+  async findReferences() {
+    return [];
+  }
+
+  async getDocumentSymbols(filePath: string, content: string) {
+    if (!this.parser || !this.lang) return [];
+    const tree = this.parser.parse(content);
+
+    let queryScm = "";
+    if (this.languageName === "python") {
+      queryScm = `
+        (function_definition name: (identifier) @name) @def
+        (class_definition name: (identifier) @name) @def
+      `;
+    }
+
+    try {
+      const query = this.lang.query(queryScm);
+      const matches = query.matches(tree.rootNode);
+
+      return matches.map((m: any) => {
+        const nameNode = m.captures.find((c: any) => c.name === "name")?.node;
+        const defNode = m.captures.find((c: any) => c.name === "def")?.node;
+
+        return {
+          name: nameNode?.text || "anonymous",
+          kind: defNode?.type.includes("class") ? "Class" : "Function",
+          line: (defNode?.startPosition.row || 0) + 1,
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+}
+
+/**
+ * ----------------------------------------------------------------------
+ * TIER 3: Regex Provider (Fallback)
+ * ----------------------------------------------------------------------
+ */
+class RegexProvider implements LanguageProvider {
+  private config: Record<
+    string,
+    {
+      defPattern: RegExp;
+      kindMap: (match: RegExpMatchArray) => string;
+      nameIdx: number;
+      extensions: string[];
+    }
+  > = {
+    python: {
+      defPattern: /^\s*(?:async\s+)?(def|class)\s+([a-zA-Z_][a-zA-Z0-9_]*)/gm,
+      kindMap: (m) => (m[1] === "class" ? "Class" : "Function"),
+      nameIdx: 2,
+      extensions: ["py"],
+    },
+    rust: {
+      defPattern:
+        /^\s*(?:pub\s+)?(fn|struct|enum|trait|impl)\s+([a-zA-Z_][a-zA-Z0-9_]*)/gm,
+      kindMap: (m) => {
+        const type = m[1] || "";
+        return type.charAt(0).toUpperCase() + type.slice(1);
+      },
+      nameIdx: 2,
+      extensions: ["rs"],
+    },
+    go: {
+      defPattern: /^\s*func\s+(?:.*?\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\(/gm,
+      kindMap: () => "Function",
+      nameIdx: 1,
+      extensions: ["go"],
+    },
+    default: {
+      defPattern: /^\s*(function|class|interface)\s+([a-zA-Z_][a-zA-Z0-9_]*)/gm,
+      kindMap: (m) => m[1] || "Unknown",
+      nameIdx: 2,
+      extensions: [],
+    },
+  };
+
+  isSupported(ext: string): boolean {
+    return true;
+  }
+
+  private getConfig(ext: string) {
+    for (const key in this.config) {
+      if (this.config[key]!.extensions.includes(ext)) {
+        return this.config[key]!;
+      }
+    }
+    return this.config.default!;
+  }
+
+  async getDiagnostics() {
+    return { errors: [], warnings: [] };
+  }
+
+  async findDefinition(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ) {
+    const lines = content.split("\n");
+    const docLine = lines[line - 1];
+    if (!docLine) return null;
+
+    // Extract word at cursor
+    const match = docLine.slice(0, character).match(/[a-zA-Z0-9_]+$/);
+    const suffix = docLine.slice(character).match(/^[a-zA-Z0-9_]+/);
+    const word = (match ? match[0] : "") + (suffix ? suffix[0] : "");
+    if (!word) return null;
+
+    const ext = filePath.split(".").pop() || "";
+    const cfg = this.getConfig(ext);
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineContent = lines[i]!;
+      if (lineContent.includes(word)) {
+        const regex = new RegExp(cfg.defPattern.source, "gm");
+        let match;
+        while ((match = regex.exec(lineContent)) !== null) {
+          if (match[cfg.nameIdx] === word) {
+            const preview = lines.slice(Math.max(0, i - 1), i + 2).join("\n");
+            return { file: filePath, line: i + 1, preview };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  async getSymbolInfo(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ) {
+    const def = await this.findDefinition(filePath, content, line, character);
+    if (def) return `Defined at line ${def.line}`;
+    return null;
+  }
+
+  async findImplementation() {
+    return [];
+  }
+
+  async findReferences(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ) {
+    const lines = content.split("\n");
+    const docLine = lines[line - 1];
+    if (!docLine) return [];
+
+    const match = docLine.slice(0, character).match(/[a-zA-Z0-9_]+$/);
+    const suffix = docLine.slice(character).match(/^[a-zA-Z0-9_]+/);
+    const word = (match ? match[0] : "") + (suffix ? suffix[0] : "");
+    if (!word) return [];
+
+    const refs: Array<{ file: string; line: number }> = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i]!.includes(word)) {
+        refs.push({ file: filePath, line: i + 1 });
+      }
+    }
+    return refs;
+  }
+
+  async getDocumentSymbols(filePath: string, content: string) {
+    const ext = filePath.split(".").pop() || "";
+    const cfg = this.getConfig(ext);
+
+    const symbols: any[] = [];
+    const lines = content.split("\n");
+
+    for (let i = 0; i < lines.length; i++) {
+      const regex = new RegExp(cfg.defPattern.source, "g");
+      let match;
+      while ((match = regex.exec(lines[i]!)) !== null) {
+        symbols.push({
+          name: match[cfg.nameIdx],
+          kind: cfg.kindMap(match),
+          line: i + 1,
+        });
+      }
+    }
+
+    return symbols;
+  }
+}
+
+/**
+ * ----------------------------------------------------------------------
+ * CLIENT: Universal LSP Client
+ * ----------------------------------------------------------------------
+ */
+export class UniversalLSPClient {
+  private tsProvider: TypeScriptProvider;
+  private pyProvider: TreeSitterProvider;
+  private regexProvider: RegexProvider;
+
+  constructor(private rootPath: string = process.cwd()) {
+    this.tsProvider = new TypeScriptProvider(rootPath);
+    this.regexProvider = new RegexProvider();
+
+    const pythonWasm = path.resolve(
+      rootPath,
+      "parsers/tree-sitter-python.wasm",
+    );
+    this.pyProvider = new TreeSitterProvider("python", pythonWasm);
+  }
+
+  private async getProvider(filePath: string): Promise<LanguageProvider> {
+    const ext = filePath.split(".").pop() || "";
+
+    if (this.tsProvider.isSupported(ext)) {
+      return this.tsProvider;
+    }
+
+    if (ext === "py" && this.pyProvider.isSupported(ext)) {
+      return this.pyProvider;
+    }
+
+    return this.regexProvider;
+  }
+
+  async getDiagnostics(filePath: string, content: string) {
+    const provider = await this.getProvider(filePath);
+    return provider.getDiagnostics(filePath, content);
+  }
+
+  async findDefinition(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ) {
+    const provider = await this.getProvider(filePath);
+    return provider.findDefinition(filePath, content, line, character);
+  }
+
+  async findReferences(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ) {
+    const provider = await this.getProvider(filePath);
+    return provider.findReferences(filePath, content, line, character);
+  }
+
+  async getDocumentSymbols(filePath: string, content: string) {
+    const provider = await this.getProvider(filePath);
+    return provider.getDocumentSymbols(filePath, content);
+  }
+
+  async getSymbolInfo(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ) {
+    const provider = await this.getProvider(filePath);
+    return provider.getSymbolInfo(filePath, content, line, character);
+  }
+
+  async findImplementation(
+    filePath: string,
+    content: string,
+    line: number,
+    character: number,
+  ) {
+    const provider = await this.getProvider(filePath);
+    return provider.findImplementation(filePath, content, line, character);
+  }
+
   async prepareCallHierarchy(
     filePath: string,
     content: string,
     line: number,
     character: number,
-  ): Promise<
-    Array<{ name: string; kind: string; file: string; line: number }>
-  > {
-    const ext = this.getExtension(filePath);
-    const server = await this.getServer(ext);
-
-    if (!server) return [];
-
-    const uri = await this.openDocument(server, filePath, content);
-
-    const result = (await server.connection.sendRequest(
-      "textDocument/prepareCallHierarchy",
-      {
-        textDocument: { uri },
-        position: { line: line - 1, character: character - 1 },
-      },
-    )) as Array<any> | null;
-
-    if (!result) return [];
-
-    const symbolKindMap: Record<number, string> = {
-      1: "File",
-      2: "Module",
-      3: "Namespace",
-      4: "Package",
-      5: "Class",
-      6: "Method",
-      7: "Property",
-      8: "Field",
-      9: "Constructor",
-      10: "Enum",
-      11: "Interface",
-      12: "Function",
-      13: "Variable",
-      14: "Constant",
-    };
-
-    return result.map((item) => ({
-      name: item.name,
-      kind: symbolKindMap[item.kind] || `Kind${item.kind}`,
-      file: item.uri?.replace("file://", "") || "",
-      line: item.range?.start?.line ? item.range.start.line + 1 : 1,
-    }));
+  ) {
+    const provider = await this.getProvider(filePath);
+    return provider.prepareCallHierarchy
+      ? provider.prepareCallHierarchy(filePath, content, line, character)
+      : [];
   }
 
-  /**
-   * Find all functions/methods that call the function at a position
-   */
   async getIncomingCalls(
     filePath: string,
     content: string,
     line: number,
     character: number,
-  ): Promise<Array<{ name: string; file: string; line: number }>> {
-    const ext = this.getExtension(filePath);
-    const server = await this.getServer(ext);
-
-    if (!server) return [];
-
-    const uri = await this.openDocument(server, filePath, content);
-
-    // First, prepare the call hierarchy
-    const prepareResult = (await server.connection.sendRequest(
-      "textDocument/prepareCallHierarchy",
-      {
-        textDocument: { uri },
-        position: { line: line - 1, character: character - 1 },
-      },
-    )) as Array<any> | null;
-
-    if (!prepareResult || prepareResult.length === 0) return [];
-
-    const item = prepareResult[0];
-
-    const result = (await server.connection.sendRequest(
-      "callHierarchy/incomingCalls",
-      { item },
-    )) as Array<any> | null;
-
-    if (!result) return [];
-
-    return result.map((call) => ({
-      name: call.from?.name || "unknown",
-      file: call.from?.uri?.replace("file://", "") || "",
-      line: call.from?.range?.start?.line ? call.from.range.start.line + 1 : 1,
-    }));
+  ) {
+    const provider = await this.getProvider(filePath);
+    return provider.getIncomingCalls
+      ? provider.getIncomingCalls(filePath, content, line, character)
+      : [];
   }
 
-  /**
-   * Find all functions/methods called by the function at a position
-   */
   async getOutgoingCalls(
     filePath: string,
     content: string,
     line: number,
     character: number,
-  ): Promise<Array<{ name: string; file: string; line: number }>> {
-    const ext = this.getExtension(filePath);
-    const server = await this.getServer(ext);
-
-    if (!server) return [];
-
-    const uri = await this.openDocument(server, filePath, content);
-
-    // First, prepare the call hierarchy
-    const prepareResult = (await server.connection.sendRequest(
-      "textDocument/prepareCallHierarchy",
-      {
-        textDocument: { uri },
-        position: { line: line - 1, character: character - 1 },
-      },
-    )) as Array<any> | null;
-
-    if (!prepareResult || prepareResult.length === 0) return [];
-
-    const item = prepareResult[0];
-
-    const result = (await server.connection.sendRequest(
-      "callHierarchy/outgoingCalls",
-      { item },
-    )) as Array<any> | null;
-
-    if (!result) return [];
-
-    return result.map((call) => ({
-      name: call.to?.name || "unknown",
-      file: call.to?.uri?.replace("file://", "") || "",
-      line: call.to?.range?.start?.line ? call.to.range.start.line + 1 : 1,
-    }));
+  ) {
+    const provider = await this.getProvider(filePath);
+    return provider.getOutgoingCalls
+      ? provider.getOutgoingCalls(filePath, content, line, character)
+      : [];
   }
 
-  /**
-   * Shutdown all running servers
-   */
-  async shutdown(): Promise<void> {
-    for (const [, server] of this.servers) {
-      try {
-        await server.connection.sendRequest("shutdown");
-        await server.connection.sendNotification("exit");
-        server.proc.kill();
-      } catch {}
-    }
-    this.servers.clear();
+  async searchWorkspaceSymbols(query: string, filePath: string) {
+    const provider = await this.getProvider(filePath);
+    return provider.searchWorkspaceSymbols
+      ? provider.searchWorkspaceSymbols(query)
+      : [];
+  }
+
+  isSupported(filePath: string): boolean {
+    return true;
+  }
+
+  getSupportedExtensions(): string[] {
+    return ["ts", "js", "py", "rs", "go", "*"];
+  }
+
+  shutdown() {
+    // No-op
   }
 }
 
-// Singleton instance
 let clientInstance: UniversalLSPClient | null = null;
 
 export function getLSPClient(rootPath?: string): UniversalLSPClient {
@@ -757,10 +762,7 @@ export function getLSPClient(rootPath?: string): UniversalLSPClient {
 }
 
 export function resetLSPClient(): void {
-  if (clientInstance) {
-    clientInstance.shutdown().catch(() => {});
-    clientInstance = null;
-  }
+  clientInstance = null;
 }
 
 export default UniversalLSPClient;

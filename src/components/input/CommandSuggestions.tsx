@@ -1,12 +1,12 @@
 import { Box, Text } from "ink";
-import type { CommandDefinition } from "@/types/CommandDefinition";
+import type { Command } from "@/types/CommandDefinition";
 
 export default function CommandSuggestions({
   selectedIndex,
   filteredTemplates,
 }: {
   selectedIndex: number;
-  filteredTemplates: CommandDefinition[];
+  filteredTemplates: Command[];
 }) {
   return (
     <Box
