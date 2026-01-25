@@ -21,10 +21,13 @@ You are an expert code reviewer and tester.
 Determine if automated testing is possible:
 
 **IF testable programmatically:**
-1. Create a test script in `.fraude/test_<task_id>.ts` (or .sh/.js as appropriate)
-2. Run the test using `bashTool`
+1. Create a test script in `.fraude/test_<task_id>.ts` (or .py/.sh/.js as appropriate).
+   - This script becomes a "pending change" initially.
+2. Run the test using `testRunnerTool`.
+   - `testRunnerTool` will temporarily apply your pending changes, run the command, and then revert the disk state.
+   - This ensures you are testing the code AS MODIFIED but keeping the environment clean.
 3. Capture and analyze output
-4. Delete the test file after execution
+4. Delete the test file after execution (using `writeTool` to write empty/null if needed or via pending changes management, but simply marking the task complete handles final cleanup usually. If you created a file, it's pending, so just don't commit it if it's junk).
 
 **IF NOT testable programmatically** (UI changes, config changes, env-dependent):
 1. Document what manual verification is needed

@@ -103,6 +103,20 @@ export class UniversalLSPClient {
         stdio: ["pipe", "pipe", "inherit"],
       });
 
+      // Handle spawn errors immediately
+      proc.on("error", (err) => {
+        console.error(`Failed to spawn language server for ${ext}:`, err);
+        this.servers.delete(serverKey);
+      });
+
+      // Check if process exits immediately (e.g. command not found)
+      proc.on("exit", (code) => {
+        if (code !== 0 && code !== null) {
+          console.error(`Language server for ${ext} exited with code ${code}`);
+          this.servers.delete(serverKey);
+        }
+      });
+
       const connection = rpc.createMessageConnection(
         new rpc.StreamMessageReader(proc.stdout!),
         new rpc.StreamMessageWriter(proc.stdin!),
@@ -110,30 +124,50 @@ export class UniversalLSPClient {
 
       connection.listen();
 
-      // Initialize the server
-      await connection.sendRequest("initialize", {
-        processId: process.pid,
-        rootUri: `file://${this.rootPath}`,
-        capabilities: {
-          textDocument: {
-            publishDiagnostics: { relatedInformation: true },
-            synchronization: { dynamicRegistration: true },
-            completion: { completionItem: { snippetSupport: false } },
-            hover: { contentFormat: ["markdown", "plaintext"] },
-            definition: { linkSupport: true },
-            references: {},
-            implementation: { linkSupport: true },
-            documentSymbol: {
-              hierarchicalDocumentSymbolSupport: true,
+      // Initialize the server with timeout
+      try {
+        const initPromise = connection.sendRequest("initialize", {
+          processId: process.pid,
+          rootUri: `file://${this.rootPath}`,
+          capabilities: {
+            textDocument: {
+              publishDiagnostics: { relatedInformation: true },
+              synchronization: { dynamicRegistration: true },
+              completion: { completionItem: { snippetSupport: false } },
+              hover: { contentFormat: ["markdown", "plaintext"] },
+              definition: { linkSupport: true },
+              references: {},
+              implementation: { linkSupport: true },
+              documentSymbol: {
+                hierarchicalDocumentSymbolSupport: true,
+              },
+              callHierarchy: { dynamicRegistration: false },
             },
-            callHierarchy: { dynamicRegistration: false },
+            workspace: {
+              symbol: { dynamicRegistration: false },
+            },
           },
-          workspace: {
-            symbol: { dynamicRegistration: false },
-          },
-        },
-        workspaceFolders: [{ name: "root", uri: `file://${this.rootPath}` }],
-      });
+          workspaceFolders: [{ name: "root", uri: `file://${this.rootPath}` }],
+        });
+
+        // timeout after 5 seconds
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(
+            () => reject(new Error("LSP initialization timed out")),
+            5000,
+          );
+        });
+
+        await Promise.race([initPromise, timeoutPromise]);
+      } catch (e: any) {
+        console.error(
+          `Failed to initialize language server for ${ext}:`,
+          e.message,
+        );
+        proc.kill();
+        this.servers.delete(serverKey);
+        return null;
+      }
 
       await connection.sendNotification("initialized", {});
 

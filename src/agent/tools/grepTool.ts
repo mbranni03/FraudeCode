@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import useFraudeStore from "@/store/useFraudeStore";
+import pendingChanges from "@/agent/pendingChanges";
 import DESCRIPTION from "./descriptions/grep.txt";
 
 const { updateOutput } = useFraudeStore.getState();
@@ -42,7 +43,9 @@ const grepTool = tool({
       }),
       { dontOverride: true },
     );
-    const cwd = path || process.cwd();
+    // Resolve path to absolute and normalize to handling trailing slashes/dots
+    const { resolve } = await import("path");
+    const cwd = path ? resolve(process.cwd(), path) : process.cwd();
 
     // Step 1: Attempt Git Grep (Fastest + Respects .gitignore)
     const gitResult = await runGitGrep(pattern, cwd, include);
@@ -50,18 +53,63 @@ const grepTool = tool({
 
     // Step 2: Attempt System Grep (Fast, Standard)
     const sysResult = await runSystemGrep(pattern, cwd, include);
-    if (sysResult) return formatOutput(sysResult);
 
-    // Step 3: Fallback to Bun Native (Portable, checks .gitignore manually)
-    const bunResult = await runBunGrep(pattern, cwd, include);
+    // Combine results (prefer git/system, fallback to bun)
+    let results = sysResult || (await runBunGrep(pattern, cwd, include));
+
+    if (gitResult) {
+      results = gitResult;
+    }
+
+    // --- Merge with Pending Changes ---
+    const regex = new RegExp(pattern);
+    const changes = pendingChanges.getChanges();
+    const processedFiles = new Set<string>();
+
+    for (const change of changes) {
+      // Skip if not in cwd or doesn't match include pattern (basic check)
+      // ideally we use minimatch here but for now basic string check
+      if (!change.path.startsWith(cwd)) continue;
+
+      processedFiles.add(change.path);
+
+      // Does the NEW content match?
+      if (regex.test(change.newContent)) {
+        // Add/Overwrite matches for this file
+        // First remove existing matches for this file from disk results
+        results = results.filter((r) => r.file !== change.path);
+
+        // Add new matches
+        const lines = change.newContent.split("\n");
+        lines.forEach((line, idx) => {
+          if (regex.test(line)) {
+            results.push({
+              file: change.path,
+              line: idx + 1,
+              content: line.trim(),
+              mtime: Date.now(), // It's fresh
+            });
+          }
+        });
+      } else {
+        // If known file but new content DOESN'T match, remove it from results
+        results = results.filter((r) => r.file !== change.path);
+      }
+    }
+
+    // Sort combined results
+    results.sort((a, b) => b.mtime - a.mtime);
+
     updateOutput(
       "toolCall",
       JSON.stringify({
-        action: "Found " + bunResult.length + " Files",
+        action: "Found " + results.length + " Match(es)",
         details: pattern,
       }),
+      { dontOverride: true },
     );
-    return formatOutput(bunResult);
+
+    return formatOutput(results);
   },
 });
 

@@ -1,9 +1,13 @@
 import { tool } from "ai";
 import { z } from "zod";
+import path from "path";
 import { getLSPClient } from "@/utils/lspClient";
 import pendingChanges from "@/agent/pendingChanges";
 import { projectPath } from "@/utils";
+import useFraudeStore from "@/store/useFraudeStore";
 import DESCRIPTION from "./descriptions/lsp.txt";
+
+const { updateOutput } = useFraudeStore.getState();
 
 /**
  * Find a symbol's position in the file content
@@ -88,8 +92,15 @@ const lspTool = tool({
       .describe("Which occurrence of the symbol to use (default: 1 = first)"),
   }),
   execute: async ({ command, filePath, symbol, query, occurrence = 1 }) => {
-    const client = getLSPClient(projectPath(""));
-    const fullPath = projectPath(filePath);
+    const client = getLSPClient(process.cwd());
+    // Resolve path, handling @/ alias which maps to project root
+    let fullPath = filePath;
+    if (fullPath.startsWith("@/")) {
+      fullPath = fullPath.replace("@/", "");
+      fullPath = path.resolve(process.cwd(), fullPath);
+    } else {
+      fullPath = path.resolve(process.cwd(), filePath);
+    }
 
     // Get file content including pending changes
     const content = await pendingChanges.getLatestContent(fullPath);
@@ -104,6 +115,7 @@ const lspTool = tool({
     }
 
     try {
+      let result = "";
       switch (command) {
         case "analyze": {
           const { errors, warnings } = await client.getDiagnostics(
@@ -112,7 +124,8 @@ const lspTool = tool({
           );
 
           if (errors.length === 0 && warnings.length === 0) {
-            return "✓ No errors or warnings found.";
+            result = "✓ No errors or warnings found.";
+            break;
           }
 
           const parts: string[] = [];
@@ -126,7 +139,8 @@ const lspTool = tool({
               `WARNINGS (${warnings.length}):\n${warnings.map((w) => `  ⚠ ${w}`).join("\n")}`,
             );
           }
-          return parts.join("\n\n");
+          result = parts.join("\n\n");
+          break;
         }
 
         case "lookup": {
@@ -150,11 +164,11 @@ const lspTool = tool({
             return `No definition found for '${symbol}'. It may be a built-in or the LSP couldn't resolve it.`;
           }
 
-          let result = `DEFINITION OF '${symbol}':\n  File: ${def.file}\n  Line: ${def.line}`;
+          result = `DEFINITION OF '${symbol}':\n  File: ${def.file}\n  Line: ${def.line}`;
           if (def.preview) {
             result += `\n\nCODE:\n${def.preview}`;
           }
-          return result;
+          break;
         }
 
         case "info": {
@@ -178,7 +192,8 @@ const lspTool = tool({
             return `No type information found for '${symbol}'.`;
           }
 
-          return `INFO FOR '${symbol}':\n${info}`;
+          result = `INFO FOR '${symbol}':\n${info}`;
+          break;
         }
 
         case "references": {
@@ -214,7 +229,8 @@ const lspTool = tool({
             ([file, lines]) => `  ${file}: lines ${lines.join(", ")}`,
           );
 
-          return `REFERENCES TO '${symbol}' (${refs.length} total):\n${parts.join("\n")}`;
+          result = `REFERENCES TO '${symbol}' (${refs.length} total):\n${parts.join("\n")}`;
+          break;
         }
 
         case "implementation": {
@@ -240,14 +256,15 @@ const lspTool = tool({
 
           const parts = impls.map((impl) => {
             const shortPath = impl.file.replace(projectPath(""), "");
-            let result = `  ${shortPath}:${impl.line}`;
+            let res = `  ${shortPath}:${impl.line}`;
             if (impl.preview) {
-              result += `\n    ${impl.preview.split("\n")[0]}`;
+              res += `\n    ${impl.preview.split("\n")[0]}`;
             }
-            return result;
+            return res;
           });
 
-          return `IMPLEMENTATIONS OF '${symbol}' (${impls.length} total):\n${parts.join("\n")}`;
+          result = `IMPLEMENTATIONS OF '${symbol}' (${impls.length} total):\n${parts.join("\n")}`;
+          break;
         }
 
         case "symbols": {
@@ -261,17 +278,18 @@ const lspTool = tool({
             sym: { name: string; kind: string; line: number; children?: any[] },
             indent: string = "",
           ): string => {
-            let result = `${indent}${sym.kind} ${sym.name} (line ${sym.line})`;
+            let res = `${indent}${sym.kind} ${sym.name} (line ${sym.line})`;
             if (sym.children && sym.children.length > 0) {
               for (const child of sym.children) {
-                result += "\n" + formatSymbol(child, indent + "  ");
+                res += "\n" + formatSymbol(child, indent + "  ");
               }
             }
-            return result;
+            return res;
           };
 
           const lines = symbols.map((s) => formatSymbol(s));
-          return `SYMBOLS IN ${filePath} (${symbols.length} top-level):\n${lines.join("\n")}`;
+          result = `SYMBOLS IN ${filePath} (${symbols.length} top-level):\n${lines.join("\n")}`;
+          break;
         }
 
         case "workspace_symbols": {
@@ -290,11 +308,11 @@ const lspTool = tool({
             return `  ${s.kind} ${s.name} - ${shortPath}:${s.line}`;
           });
 
-          let result = `WORKSPACE SYMBOLS MATCHING '${query}' (${symbols.length} found):\n${lines.join("\n")}`;
+          result = `WORKSPACE SYMBOLS MATCHING '${query}' (${symbols.length} found):\n${lines.join("\n")}`;
           if (symbols.length > 50) {
             result += `\n  ... and ${symbols.length - 50} more`;
           }
-          return result;
+          break;
         }
 
         case "call_hierarchy": {
@@ -323,7 +341,8 @@ const lspTool = tool({
             return `  ${item.kind} ${item.name} - ${shortPath}:${item.line}`;
           });
 
-          return `CALL HIERARCHY FOR '${symbol}':\n${lines.join("\n")}`;
+          result = `CALL HIERARCHY FOR '${symbol}':\n${lines.join("\n")}`;
+          break;
         }
 
         case "incoming_calls": {
@@ -352,7 +371,8 @@ const lspTool = tool({
             return `  ${call.name} - ${shortPath}:${call.line}`;
           });
 
-          return `FUNCTIONS CALLING '${symbol}' (${calls.length} total):\n${lines.join("\n")}`;
+          result = `FUNCTIONS CALLING '${symbol}' (${calls.length} total):\n${lines.join("\n")}`;
+          break;
         }
 
         case "outgoing_calls": {
@@ -381,12 +401,25 @@ const lspTool = tool({
             return `  ${call.name} - ${shortPath}:${call.line}`;
           });
 
-          return `FUNCTIONS CALLED BY '${symbol}' (${calls.length} total):\n${lines.join("\n")}`;
+          result = `FUNCTIONS CALLED BY '${symbol}' (${calls.length} total):\n${lines.join("\n")}`;
+          break;
         }
 
         default:
           return "Unknown command.";
       }
+
+      updateOutput(
+        "toolCall",
+        JSON.stringify({
+          action: `LSP: ${command}`,
+          details: `${projectPath(filePath)} ${symbol ? `(${symbol})` : ""}`,
+          result: result,
+        }),
+        { dontOverride: true },
+      );
+
+      return result;
     } catch (err: any) {
       return `LSP Error: ${err.message}`;
     }

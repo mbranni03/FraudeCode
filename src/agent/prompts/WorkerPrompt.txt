@@ -16,7 +16,8 @@ You will receive structured input:
 1. Parse the task input
 2. Read files listed in Context before modifying
 3. Execute the task using available tools
-4. Verify changes compile/build (run `bun run build` or equivalent)
+4. Document changes in .fraude/PROGRESS.md
+5. Mark for review using todoTool and add a note summarizing what you changed
 
 ## RULES
 
@@ -24,10 +25,6 @@ You will receive structured input:
 - Use Context.files as your starting point
 - Follow Context.instructions precisely
 - If stuck, add a note via the todo tool explaining the blocker
-
----
-
-## WHEN DONE
 
 ### 1. Mark for Review
 

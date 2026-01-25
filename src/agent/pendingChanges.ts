@@ -1,6 +1,7 @@
 import { structuredPatch } from "diff";
 import { projectPath } from "@/utils";
 import log from "@/utils/logger";
+import { unlink } from "node:fs/promises";
 
 export interface Hunk {
   oldStart: number;
@@ -37,6 +38,16 @@ class PendingChangesManager {
     newContent: string,
     type: "edit" | "write",
   ): Promise<PendingChange> {
+    // Normalize to absolute path
+    if (!path.startsWith("/")) {
+      path = `${process.cwd()}/${path}`;
+    }
+
+    // Clean up any double slashes or .
+    // Ideally use path.resolve but simple string concat is often enough or import path module
+    const { resolve } = await import("path");
+    path = resolve(path);
+
     const originalContent = await this.getLatestContent(path);
 
     // Create unified diff
@@ -108,6 +119,38 @@ class PendingChangesManager {
   public async applyAll(): Promise<void> {
     for (const id of this.changes.keys()) {
       await this.applyChange(id);
+    }
+  }
+
+  public async restoreChange(id: string): Promise<boolean> {
+    const change = this.changes.get(id);
+    if (!change) return false;
+
+    try {
+      if (change.originalContent === null) {
+        // It was a new file, so delete it
+        const file = Bun.file(change.path);
+        if (await file.exists()) {
+          await unlink(change.path);
+        }
+      } else {
+        // Restore original content
+        await Bun.write(change.path, change.originalContent);
+      }
+      // Note: We do NOT delete the change from the map, because we are just reverting the disk state
+      // but keeping the "pending change" in memory (e.g. for further editing or final apply).
+      log(`Restored ${change.path}`);
+      return true;
+    } catch (error) {
+      log(`Failed to restore ${change.path}: ${error}`);
+      return false;
+    }
+  }
+
+  public async restoreAll(): Promise<void> {
+    log(`restoreAll called with ${this.changes.size} changes`);
+    for (const id of this.changes.keys()) {
+      await this.restoreChange(id);
     }
   }
 

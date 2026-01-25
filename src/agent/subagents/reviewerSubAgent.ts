@@ -2,10 +2,10 @@ import { Agent } from "@/agent";
 import readTool from "../tools/readTool";
 import grepTool from "../tools/grepTool";
 import lspTool from "../tools/lspTool";
-import bashTool from "../tools/bashTool";
 import writeTool from "../tools/writeTool";
 import useSettingsStore from "@/store/useSettingsStore";
 import todoTool from "../tools/todoTool";
+import testRunnerTool from "../tools/testRunnerTool";
 import ReviewerPrompt from "../prompts/ReviewerPrompt.txt";
 
 let _reviewerSubAgent: Agent | null = null;
@@ -19,7 +19,14 @@ export function getReviewerSubAgent(): Agent {
     _reviewerSubAgent = new Agent({
       model: useSettingsStore.getState().secondaryModel,
       systemPrompt: ReviewerPrompt,
-      tools: { readTool, grepTool, lspTool, writeTool, bashTool, todoTool },
+      tools: {
+        readTool,
+        grepTool,
+        lspTool,
+        writeTool,
+        todoTool,
+        testRunnerTool,
+      },
       temperature: 0.7,
       maxSteps: 10,
       useIsolatedContext: true,
