@@ -85,11 +85,13 @@ const ProviderSection = ({
   models,
   primaryModelRef,
   secondaryModelRef,
+  showAll = false,
 }: {
   provider: string;
   models: Model[];
   primaryModelRef: string;
   secondaryModelRef: string;
+  showAll?: boolean;
 }) => {
   // Show all active models + up to 5 others
   const { visibleModels, hiddenCount } = useMemo(() => {
@@ -112,17 +114,17 @@ const ProviderSection = ({
     // Combine: Active first, then top 3 others
     // If we have very few active models, show more others to fill space, but let's keep it simple.
     // Let's just show up to 5 'others'.
-    const visibleOthers = others.slice(0, 5);
+    const visibleOthers = showAll ? others : others.slice(0, 5);
     return {
       visibleModels: [...active, ...visibleOthers],
       hiddenCount: others.length - visibleOthers.length,
     };
-  }, [models, primaryModelRef, secondaryModelRef]);
+  }, [models, primaryModelRef, secondaryModelRef, showAll]);
 
   if (models.length === 0) return null;
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
+    <Box flexDirection="column">
       <Text color={THEME.dim} bold>
         {provider.toUpperCase()}
       </Text>
@@ -154,7 +156,6 @@ const CurrentConfig = ({
 }) => (
   <Box
     flexDirection="column"
-    marginBottom={1}
     borderStyle="single"
     borderColor={THEME.border}
     paddingX={1}
@@ -174,7 +175,13 @@ const CurrentConfig = ({
   </Box>
 );
 
-const ModelList = () => {
+const ModelList = ({
+  providerFilter,
+  showAll = false,
+}: {
+  providerFilter?: string;
+  showAll?: boolean;
+}) => {
   const { primaryModel, secondaryModel, models, syncWithSettings } =
     useSettingsStore();
 
@@ -188,6 +195,12 @@ const ModelList = () => {
     models.forEach((m) => {
       // Clean up provider name
       let type = (m.type || "ollama").toLowerCase();
+
+      // Filter by provider if requested
+      if (providerFilter && type !== providerFilter.toLowerCase()) {
+        return;
+      }
+
       // Skip ollama embedding models
       if (
         type === "ollama" &&
@@ -200,17 +213,21 @@ const ModelList = () => {
       g[type].push(m);
     });
     return g;
-  }, [models]);
+  }, [models, providerFilter]);
 
   if (models.length === 0) {
-    return <Text color={THEME.dim}>No models found.</Text>;
+    return (
+      <Text color={THEME.dim}>
+        No models found{providerFilter ? ` for ${providerFilter}` : ""}.
+      </Text>
+    );
   }
 
   return (
-    <Box flexDirection="column" padding={1}>
+    <Box flexDirection="column" gap={1}>
       <CurrentConfig primary={primaryModel} secondary={secondaryModel} />
 
-      <Box flexDirection="column">
+      <Box flexDirection="column" gap={1}>
         {Object.entries(groups).map(([provider, providerModels]) => (
           <ProviderSection
             key={provider}
@@ -218,15 +235,18 @@ const ModelList = () => {
             models={providerModels}
             primaryModelRef={primaryModel}
             secondaryModelRef={secondaryModel}
+            showAll={showAll || !!providerFilter}
           />
         ))}
       </Box>
 
-      <Box marginTop={1}>
-        <Text color={THEME.dim}>
-          Use <Text color="white">/model &lt;name&gt;</Text> to switch
-        </Text>
-      </Box>
+      {!providerFilter && (
+        <Box marginTop={1}>
+          <Text color={THEME.dim}>
+            Use <Text color="white">/model &lt;name&gt;</Text> to switch
+          </Text>
+        </Box>
+      )}
     </Box>
   );
 };

@@ -6,6 +6,7 @@ import groqCommands from "./groq";
 import googleCommands from "./google";
 import mistralCommands from "./mistral";
 import modelsCommands from "./models";
+import ollamaCommand from "./ollama";
 import sessionCommands from "./session";
 import usageCommand from "./usage";
 
@@ -14,6 +15,7 @@ const COMMANDS: Command[] = [
   sessionCommands,
   modelCommands, //starts with model
   modelsCommands, //starts with models
+  ollamaCommand,
   openRouterCommands,
   cerebrasCommands,
   groqCommands,

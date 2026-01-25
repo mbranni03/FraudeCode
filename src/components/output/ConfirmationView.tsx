@@ -49,12 +49,7 @@ export default function ConfirmationView() {
 
   if (status === "applied") {
     return (
-      <Box
-        borderStyle="single"
-        borderColor={THEME.success}
-        paddingX={1}
-        marginY={1}
-      >
+      <Box borderStyle="single" borderColor={THEME.success} paddingX={1}>
         <Text color={THEME.success}>✓ Changes applied</Text>
       </Box>
     );
@@ -62,12 +57,7 @@ export default function ConfirmationView() {
 
   if (status === "rejected") {
     return (
-      <Box
-        borderStyle="single"
-        borderColor={THEME.error}
-        paddingX={1}
-        marginY={1}
-      >
+      <Box borderStyle="single" borderColor={THEME.error} paddingX={1}>
         <Text color={THEME.error}>✗ Changes rejected</Text>
       </Box>
     );
@@ -149,7 +139,7 @@ export default function ConfirmationView() {
   ];
 
   return (
-    <Box flexDirection="column" marginY={1}>
+    <Box flexDirection="column">
       <Text bold color={THEME.primary}>
         Pending Changes
       </Text>

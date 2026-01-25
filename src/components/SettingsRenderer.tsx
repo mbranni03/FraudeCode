@@ -5,9 +5,14 @@ import ContextUsage from "./output/ContextUsage";
 import TokenUsage from "./settings/TokenUsage";
 
 export default memo(function SettingsRenderer({ item }: { item: OutputItem }) {
-  switch (item.content) {
-    case "/models":
-      return <ModelList />;
+  const content = item.content;
+
+  if (content.startsWith("/models")) {
+    const provider = content.split(":")[1];
+    return <ModelList providerFilter={provider} showAll={!!provider} />;
+  }
+
+  switch (content) {
     case "/context":
       return <ContextUsage />;
     case "/usage":

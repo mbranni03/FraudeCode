@@ -266,7 +266,7 @@ const InputBoxComponent = () => {
   if (status === 3) return null;
 
   return (
-    <Box flexDirection="column" marginTop={1}>
+    <Box flexDirection="column">
       <Box paddingX={0}>
         <Text bold color={THEME.primary}>
           &gt;{" "}

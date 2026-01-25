@@ -19,9 +19,10 @@ class CommandCenter {
           for (const sub of cmd.subcommands) {
             if (sub.name === command[0]) {
               if (sub.action) return await sub.action(command.slice(1));
-              else if (cmd.action) return await cmd.action(command);
             }
           }
+          // If no subcommand matched, use the base command's action if it exists
+          if (cmd.action) return await cmd.action(command);
         } else {
           if (cmd.action) return await cmd.action(command);
         }

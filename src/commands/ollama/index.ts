@@ -1,31 +1,29 @@
 import type { Command } from "@/types/CommandDefinition";
-import googleAuthCommand from "./auth";
-
 import useFraudeStore from "@/store/useFraudeStore";
 
 const { updateOutput } = useFraudeStore.getState();
 
-const googleCommands: Command = {
-  name: "google",
-  description: "Manage Google models",
-  usage: "/google <subcommand>",
+const ollamaCommand: Command = {
+  name: "ollama",
+  description: "Manage Ollama models",
+  usage: "/ollama [subcommand]",
   action: async (args: string[]) => {
     if (args.length === 0 || args[0] === "list" || args[0] === "models") {
-      updateOutput("settings", "/models:google");
+      updateOutput("settings", "/models:ollama");
       return;
     }
+    // Future: handle other ollama subcommands like pull, rm, etc.
   },
   subcommands: [
-    googleAuthCommand,
     {
       name: "list",
-      description: "List Google models",
-      usage: "/google list",
+      description: "List Ollama models",
+      usage: "/ollama list",
       action: async () => {
-        updateOutput("settings", "/models:google");
+        updateOutput("settings", "/models:ollama");
       },
     },
   ],
 };
 
-export default googleCommands;
+export default ollamaCommand;
