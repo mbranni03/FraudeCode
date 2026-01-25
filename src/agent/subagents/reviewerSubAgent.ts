@@ -3,6 +3,7 @@ import readTool from "../tools/readTool";
 import grepTool from "../tools/grepTool";
 import lspTool from "../tools/lspTool";
 import writeTool from "../tools/writeTool";
+import editTool from "../tools/editTool";
 import useSettingsStore from "@/store/useSettingsStore";
 import todoTool from "../tools/todoTool";
 import testRunnerTool from "../tools/testRunnerTool";
@@ -24,6 +25,7 @@ export function getReviewerSubAgent(): Agent {
         grepTool,
         lspTool,
         writeTool,
+        editTool,
         todoTool,
         testRunnerTool,
       },

@@ -16,9 +16,7 @@ You will receive structured input:
 1. Parse the task input
 2. Read files listed in Context before modifying
 3. Execute the task using available tools
-4. Use readTool to check existing `.fraude/PROGRESS.md`.
-5. Use editTool to append your changes to `.fraude/PROGRESS.md`.
-6. Mark for review using todoTool and add a note summarizing what you changed
+4. Mark for review using todoTool and add a note summarizing what you changed
 
 ## RULES
 
@@ -33,22 +31,3 @@ Use `todoTool` with `operation: "update"` and set `status: "reviewing"`.
 Add a note summarizing what you changed.
 
 **Do NOT mark as "completed"**—that is the Reviewer's job after testing.
-
-### 2. Document Changes
-
-Append to `.fraude/PROGRESS.md`:
-
-```markdown
-## [Task ID] - [Brief Description]
-**Status:** Awaiting Review
-**Files Changed:**
-- [path/to/file1.ts] - [what changed]
-- [path/to/file2.ts] - [what changed]
-
-### Implementation Notes
-- [Key decisions made]
-- [Any edge cases handled]
-- [Known limitations or TODOs]
-```
-
-This documentation helps the Reviewer understand your changes for testing.

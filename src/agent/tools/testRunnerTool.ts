@@ -39,7 +39,7 @@ const testRunnerTool = tool({
 
     try {
       // 1. Apply Changes
-      await pendingChanges.applyAll();
+      await pendingChanges.applyAllTemporary();
 
       // 2. Run Command
       try {

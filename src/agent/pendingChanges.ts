@@ -122,6 +122,30 @@ class PendingChangesManager {
     }
   }
 
+  public async applyChangeTemporary(id: string): Promise<boolean> {
+    const change = this.changes.get(id);
+    if (!change) return false;
+
+    try {
+      await Bun.write(change.path, change.newContent);
+      // Differs from applyChange: DOES NOT DELETE from this.changes
+      log(`Temporarily applied change to ${change.path}`);
+      return true;
+    } catch (error) {
+      if (change) {
+        log(`Failed to apply temporary change to ${change.path}: ${error}`);
+      }
+      return false;
+    }
+  }
+
+  public async applyAllTemporary(): Promise<void> {
+    log(`applyAllTemporary called with ${this.changes.size} changes`);
+    for (const id of this.changes.keys()) {
+      await this.applyChangeTemporary(id);
+    }
+  }
+
   public async restoreChange(id: string): Promise<boolean> {
     const change = this.changes.get(id);
     if (!change) return false;
