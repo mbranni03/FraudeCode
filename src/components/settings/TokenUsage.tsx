@@ -4,15 +4,17 @@ import { type Model, type ProviderType, ProviderTypes } from "@/types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 import log from "@/utils/logger";
 
-// Minimalist Theme
+import { THEME as SHARED_THEME } from "@/theme";
+
+// Minimalist Theme mapped to Shared Theme
 const THEME = {
-  text: "white",
-  dim: "gray",
-  accent: "cyan",
-  error: "red",
-  header: "#87CEEB", // Light Blue
-  barFilled: "cyan",
-  barEmpty: "gray",
+  text: SHARED_THEME.text,
+  dim: SHARED_THEME.dim,
+  accent: SHARED_THEME.primaryLight,
+  error: SHARED_THEME.error,
+  header: SHARED_THEME.text,
+  barFilled: SHARED_THEME.primary,
+  barEmpty: SHARED_THEME.border,
 };
 
 // Format token count with K/M suffix (Compact)
@@ -229,27 +231,25 @@ const TokenUsage = () => {
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       {/* Header Stats */}
       <Box
-        borderStyle="round"
+        borderStyle="single"
         borderColor={THEME.dim}
         paddingX={1}
         marginBottom={1}
         justifyContent="space-between"
       >
-        <Text color={THEME.text} bold>
-          Stats Overview
+        <Text color={THEME.header} bold>
+          USAGE STATS
         </Text>
         <Box gap={2}>
           <Text>
-            Total:{" "}
-            <Text color={THEME.accent} bold>
+            TOTAL:{" "}
+            <Text color={SHARED_THEME.primary} bold>
               {formatTokens(stats.globalTotal)}
             </Text>
           </Text>
+          <Text color={THEME.dim}>P: {formatTokens(stats.globalPrompt)}</Text>
           <Text color={THEME.dim}>
-            Prompt: {formatTokens(stats.globalPrompt)}
-          </Text>
-          <Text color={THEME.dim}>
-            Compl: {formatTokens(stats.globalCompletion)}
+            C: {formatTokens(stats.globalCompletion)}
           </Text>
         </Box>
       </Box>

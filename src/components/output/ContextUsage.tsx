@@ -2,6 +2,7 @@ import { Box, Text } from "ink";
 import { useMemo } from "react";
 import useFraudeStore from "@/store/useFraudeStore";
 import useSettingsStore from "@/store/useSettingsStore";
+import { THEME } from "@/theme";
 
 const ContextUsage = () => {
   const { contextManager } = useFraudeStore();
@@ -31,10 +32,10 @@ const ContextUsage = () => {
 
   // Color based on usage percentage
   const getColor = () => {
-    if (percentage >= 90) return "#FF4444"; // Red - critical
-    if (percentage >= 70) return "#FFA500"; // Orange - warning
-    if (percentage >= 50) return "#FFD700"; // Yellow - moderate
-    return "#20B2AA"; // Teal - healthy
+    if (percentage >= 90) return THEME.error;
+    if (percentage >= 70) return THEME.primaryDim;
+    if (percentage >= 50) return THEME.warning;
+    return THEME.info;
   };
 
   const formatTokens = (tokens: number) => {
@@ -45,17 +46,14 @@ const ContextUsage = () => {
   };
 
   return (
-    <Box flexDirection="column">
-      <Box gap={1}>
-        <Text color="rgb(255, 105, 180)">⛁</Text>
-        <Text color={getColor()}>{progressBar}</Text>
-        <Text>
-          <Text color={getColor()} bold>
-            {formatTokens(usedTokens)}
-          </Text>
-          <Text color="gray"> / {formatTokens(maxTokens)}</Text>
-          <Text color={getColor()}> ({percentage.toFixed(1)}%)</Text>
-        </Text>
+    <Box flexDirection="row" gap={1}>
+      <Text color={THEME.dim}>[</Text>
+      <Text color={getColor()}>{progressBar}</Text>
+      <Text color={THEME.dim}>]</Text>
+      <Box paddingLeft={1}>
+        <Text color={THEME.text}>{formatTokens(usedTokens)}</Text>
+        <Text color={THEME.dim}>/{formatTokens(maxTokens)}</Text>
+        <Text color={getColor()}> {percentage.toFixed(0)}%</Text>
       </Box>
     </Box>
   );

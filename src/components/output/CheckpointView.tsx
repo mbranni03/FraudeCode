@@ -1,14 +1,11 @@
 import { Box, Text } from "ink";
 import type { OutputItem } from "@/types/OutputItem";
+import { THEME } from "@/theme";
 
 const CheckpointView = ({ item }: { item: OutputItem }) => {
   return (
     <Box flexDirection="column">
-      {item.content && (
-        <Text bold color="rgb(255, 105, 180)">
-          {item.content}
-        </Text>
-      )}
+      {item.content && <Text color={THEME.primaryDim}>{item.content}</Text>}
     </Box>
   );
 };

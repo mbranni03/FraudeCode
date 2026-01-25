@@ -12,6 +12,7 @@ import ToolCallView from "./output/ToolCallView";
 import DiffView from "./output/DiffView";
 import ConfirmationView from "./output/ConfirmationView";
 import ModelSelectView from "./output/ModelSelectView";
+import { THEME } from "../theme";
 
 function renderItem(item: OutputItem) {
   switch (item.type) {
@@ -20,11 +21,7 @@ function renderItem(item: OutputItem) {
     case "interrupted":
       return <Text dimColor>Interrupted ({item.content}s)</Text>;
     case "done":
-      return (
-        <Text bold color="rgb(255, 105, 180)">
-          {item.content}
-        </Text>
-      );
+      return <Text color={THEME.primaryDim}>{item.content}</Text>;
     case "error":
       return <ErrorView error={item.content} />;
     case "command":

@@ -1,4 +1,5 @@
 import { Box, Text } from "ink";
+import { THEME } from "@/theme";
 
 interface ToolCallViewProps {
   action: string;
@@ -21,17 +22,22 @@ export default function ToolCallView({
     : null;
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" marginY={0}>
       <Box>
-        <Text color="rgb(255, 140, 0)">•</Text>
+        <Text color={THEME.primary}>◇</Text>
         <Text> </Text>
-        <Text bold>{action}</Text>
-        {details && <Text dimColor>({details})</Text>}
-        {duration && <Text dimColor> · {duration}</Text>}
+        <Text color={THEME.text}>{action}</Text>
+        {details && (
+          <Text color={THEME.dim}>
+            {" "}
+            {details.length > 50 ? details.slice(0, 47) + "..." : details}
+          </Text>
+        )}
+        {duration && <Text color={THEME.dim}> {duration}</Text>}
       </Box>
       {resultPreview && (
         <Box paddingLeft={2}>
-          <Text dimColor>→ {resultPreview}</Text>
+          <Text color={THEME.dim}>↳ {resultPreview}</Text>
         </Box>
       )}
     </Box>

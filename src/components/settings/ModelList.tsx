@@ -7,14 +7,16 @@ import {
 } from "@/types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 
-// Simplified Theme
+import { THEME as SHARED_THEME } from "@/theme";
+
+// Simplified Theme mapped to Shared Theme
 const THEME = {
-  active: "#34d399", // Emerald 400 - Success/Active
-  primary: "#60a5fa", // Blue 400
-  secondary: "#a78bfa", // Violet 400
-  text: "white",
-  dim: "gray",
-  border: "gray",
+  active: SHARED_THEME.primary,
+  primary: SHARED_THEME.primary,
+  secondary: SHARED_THEME.primaryDim,
+  text: SHARED_THEME.text,
+  dim: SHARED_THEME.dim,
+  border: SHARED_THEME.border,
 };
 
 const formatContext = (contextLength: number | undefined) => {
@@ -153,21 +155,21 @@ const CurrentConfig = ({
   <Box
     flexDirection="column"
     marginBottom={1}
-    borderStyle="round"
-    borderColor={THEME.dim}
+    borderStyle="single"
+    borderColor={THEME.border}
     paddingX={1}
   >
-    <Box flexDirection="row" justifyContent="space-between">
+    <Box flexDirection="row" gap={2}>
       <Text color={THEME.primary} bold>
-        Primary
+        PRIMARY
       </Text>
-      <Text>{primary}</Text>
+      <Text color={THEME.text}>{primary}</Text>
     </Box>
-    <Box flexDirection="row" justifyContent="space-between">
+    <Box flexDirection="row" gap={2}>
       <Text color={THEME.secondary} bold>
-        Secondary
+        SECONDARY
       </Text>
-      <Text>{secondary}</Text>
+      <Text color={THEME.text}>{secondary}</Text>
     </Box>
   </Box>
 );

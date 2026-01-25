@@ -26,7 +26,7 @@ export default function App() {
   return !started ? (
     <IntroComponent />
   ) : (
-    <Box flexDirection="column">
+    <Box flexDirection="column" paddingX={2} paddingY={1}>
       <OutputRenderer />
       {status === 0 && <InputBox />}
       {status === 1 && <LoaderComponent />}

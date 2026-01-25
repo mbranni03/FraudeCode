@@ -1,6 +1,7 @@
 import { Box, Text } from "ink";
 import React from "react";
 import { type DiffPatch } from "@/agent/pendingChanges";
+import { THEME } from "@/theme";
 
 interface DiffViewProps {
   diff?: string;
@@ -26,15 +27,15 @@ export default function DiffView({ diff, patches }: DiffViewProps) {
                       borderTop={false}
                       borderLeft={false}
                       borderRight={false}
-                      borderColor="gray"
+                      borderColor={THEME.border}
                       marginY={0}
                     />
                   )}
                   {/* Hunk Header */}
                   <Box>
-                    <Text dimColor>
-                      @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},
-                      {hunk.newLines} @@
+                    <Text color={THEME.primary}>
+                      ┌─ {hunk.oldStart},{hunk.oldLines} → {hunk.newStart},
+                      {hunk.newLines}
                     </Text>
                   </Box>
 
@@ -45,16 +46,16 @@ export default function DiffView({ diff, patches }: DiffViewProps) {
 
                     const content = line.substring(1);
                     let displayNum = "";
-                    let color = "white";
+                    let color = THEME.text;
 
                     if (type === "remove") {
                       displayNum = oldLn.toString();
                       oldLn++;
-                      color = "red";
+                      color = THEME.error;
                     } else if (type === "add") {
                       displayNum = newLn.toString();
                       newLn++;
-                      color = "green";
+                      color = THEME.success;
                     } else {
                       displayNum = newLn.toString();
                       oldLn++;
@@ -64,14 +65,16 @@ export default function DiffView({ diff, patches }: DiffViewProps) {
                     return (
                       <Box key={lIndex}>
                         <Box
-                          width={5}
+                          width={4}
                           marginRight={1}
                           justifyContent="flex-end"
                         >
-                          <Text dimColor>{displayNum}</Text>
+                          <Text color={THEME.dim}>{displayNum}</Text>
                         </Box>
                         <Box>
-                          <Text color={color}>{content}</Text>
+                          <Text bold={type !== "context"} color={color}>
+                            {content}
+                          </Text>
                         </Box>
                       </Box>
                     );
@@ -158,7 +161,7 @@ export default function DiffView({ diff, patches }: DiffViewProps) {
                 borderTop={false}
                 borderLeft={false}
                 borderRight={false}
-                borderColor="gray"
+                borderColor={THEME.border}
                 marginY={0}
               >
                 {/* Visual separator for chunks */}
@@ -172,19 +175,21 @@ export default function DiffView({ diff, patches }: DiffViewProps) {
             : "";
 
           // Determine color
-          let color = "white";
-          if (item.type === "add") color = "green";
-          if (item.type === "remove") color = "red";
+          let color = THEME.text;
+          if (item.type === "add") color = THEME.success;
+          if (item.type === "remove") color = THEME.error;
 
           const displayNum = item.type === "remove" ? oldLineNum : lineNum;
 
           return (
             <Box key={index}>
-              <Box width={5} marginRight={1} justifyContent="flex-end">
-                <Text dimColor>{displayNum}</Text>
+              <Box width={4} marginRight={1} justifyContent="flex-end">
+                <Text color={THEME.dim}>{displayNum}</Text>
               </Box>
               <Box>
-                <Text color={color}>{item.content}</Text>
+                <Text bold={item.type !== "context"} color={color}>
+                  {item.content}
+                </Text>
               </Box>
             </Box>
           );

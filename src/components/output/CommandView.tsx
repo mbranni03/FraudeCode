@@ -1,12 +1,11 @@
 import { Box, Text } from "ink";
+import { THEME } from "@/theme";
 
 const CommandView = ({ command }: { command: string }) => {
   return (
-    <Box paddingTop={1}>
-      <Text color="rgb(255, 105, 180)">&gt;</Text>
-      <Box paddingLeft={1}>
-        <Text dimColor>{command}</Text>
-      </Box>
+    <Box marginY={0}>
+      <Text color={THEME.dim}>$ </Text>
+      <Text color={THEME.text}>{command}</Text>
     </Box>
   );
 };

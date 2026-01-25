@@ -2,14 +2,11 @@ import { Box, Text } from "ink";
 import { useEffect, useState } from "react";
 import useFraudeStore from "../store/useFraudeStore";
 import type { TokenUsage } from "@/types/TokenUsage";
+import { THEME } from "../theme";
 
 const LoaderComponent = () => {
   const [i, setFrame] = useState(0);
-  const frames = (text: string) => [
-    `·  ${text}.  `,
-    `•  ${text}.. `,
-    `●  ${text}...`,
-  ];
+  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
   const { status, elapsedTime, statusText } = useFraudeStore();
 
@@ -18,15 +15,13 @@ const LoaderComponent = () => {
 
     if (status === 1) {
       timer = setInterval(() => {
-        setFrame((prevIndex) => (prevIndex + 1) % 3);
+        setFrame((prevIndex) => (prevIndex + 1) % frames.length);
 
-        // Use getState() to avoid stale closure and get the most recent timeElapsed
         const currentElapsed = useFraudeStore.getState().elapsedTime;
-
         useFraudeStore.setState({
           elapsedTime: currentElapsed + 1,
         });
-      }, 100);
+      }, 80);
     }
 
     return () => {
@@ -36,18 +31,17 @@ const LoaderComponent = () => {
     };
   }, [status]);
 
-  const currentStatusText = statusText || "Pondering";
-  const currentFrames = frames(currentStatusText);
+  const currentStatusText = statusText || "Agent is working";
 
   return (
-    <Box marginY={1}>
-      <Text>
-        <Text color="rgb(255, 105, 180)">{currentFrames[i]} </Text>
-        <Text>
-          ({(elapsedTime / 10).toFixed(1)}s · <Text bold>esc</Text> to
-          interrupt)
+    <Box marginY={0}>
+      <Text color={THEME.primary}>{frames[i]} </Text>
+      <Text color={THEME.text}>{currentStatusText}</Text>
+      <Box paddingLeft={1}>
+        <Text color={THEME.dim}>
+          ({(elapsedTime / 10).toFixed(1)}s · ESC to interrupt)
         </Text>
-      </Text>
+      </Box>
     </Box>
   );
 };
