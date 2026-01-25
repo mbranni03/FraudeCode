@@ -2,11 +2,10 @@ import { Agent } from "@/agent";
 import readTool from "../tools/readTool";
 import grepTool from "../tools/grepTool";
 import lspTool from "../tools/lspTool";
-import writeTool from "../tools/writeTool";
-import editTool from "../tools/editTool";
 import useSettingsStore from "@/store/useSettingsStore";
 import todoTool from "../tools/todoTool";
 import testRunnerTool from "../tools/testRunnerTool";
+import testTool from "../tools/testTool";
 import ReviewerPrompt from "../prompts/ReviewerPrompt.txt";
 
 let _reviewerSubAgent: Agent | null = null;
@@ -24,8 +23,7 @@ export function getReviewerSubAgent(): Agent {
         readTool,
         grepTool,
         lspTool,
-        writeTool,
-        editTool,
+        testTool,
         todoTool,
         testRunnerTool,
       },

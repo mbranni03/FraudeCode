@@ -28,6 +28,7 @@ export interface PendingChange {
   newContent: string;
   diff: DiffPatch;
   feedback?: string;
+  hidden?: boolean;
 }
 
 class PendingChangesManager {
@@ -37,6 +38,7 @@ class PendingChangesManager {
     path: string,
     newContent: string,
     type: "edit" | "write",
+    options?: { hidden?: boolean },
   ): Promise<PendingChange> {
     // Normalize to absolute path
     if (!path.startsWith("/")) {
@@ -48,7 +50,18 @@ class PendingChangesManager {
     const { resolve } = await import("path");
     path = resolve(path);
 
-    const originalContent = await this.getLatestContent(path);
+    // Check if there are existing changes for this path
+    const changesList = Array.from(this.changes.values());
+    const latestChange = changesList.reverse().find((c) => c.path === path);
+    // Inherit hidden status if strictly true (was created hidden)
+    // If explicitly provided in options, use that. Otherwise use inherited.
+    const isHidden = options?.hidden ?? latestChange?.hidden;
+
+    const originalContent = latestChange
+      ? latestChange.newContent
+      : (await Bun.file(path).exists())
+        ? await Bun.file(path).text()
+        : "";
 
     // Create unified diff
     // For new files, originalContent is empty string.
@@ -70,6 +83,7 @@ class PendingChangesManager {
       originalContent: type === "edit" ? originalContent : null,
       newContent,
       diff,
+      hidden: isHidden,
     };
 
     this.changes.set(change.id, change);
@@ -81,12 +95,13 @@ class PendingChangesManager {
   }
 
   public getChanges(): PendingChange[] {
-    return Array.from(this.changes.values());
+    return Array.from(this.changes.values()).filter((c) => !c.hidden);
   }
 
   public getAllChangesGrouped(): Record<string, PendingChange[]> {
     const grouped: Record<string, PendingChange[]> = {};
     for (const change of this.changes.values()) {
+      if (change.hidden) continue;
       if (!grouped[change.path]) {
         grouped[change.path] = [];
       }
@@ -96,7 +111,7 @@ class PendingChangesManager {
   }
 
   public hasChanges(): boolean {
-    return this.changes.size > 0;
+    return Array.from(this.changes.values()).some((c) => !c.hidden);
   }
 
   public async applyChange(id: string): Promise<boolean> {
@@ -117,7 +132,8 @@ class PendingChangesManager {
   }
 
   public async applyAll(): Promise<void> {
-    for (const id of this.changes.keys()) {
+    for (const [id, change] of this.changes) {
+      if (change.hidden) continue;
       await this.applyChange(id);
     }
   }
@@ -173,7 +189,9 @@ class PendingChangesManager {
 
   public async restoreAll(): Promise<void> {
     log(`restoreAll called with ${this.changes.size} changes`);
-    for (const id of this.changes.keys()) {
+    // Restore in reverse order to correct handle multiple changes to the same file
+    const ids = Array.from(this.changes.keys()).reverse();
+    for (const id of ids) {
       await this.restoreChange(id);
     }
   }
@@ -204,6 +222,8 @@ class PendingChangesManager {
    */
   public async getLatestContent(path: string): Promise<string> {
     // Check pending changes first (reverse order to find latest)
+    // We include hidden changes here because the agent (e.g., test runner)
+    // needs to see the "current state" including temporary files it just created.
     const changes = Array.from(this.changes.values()).reverse();
     const latestChange = changes.find((c) => c.path === path);
 
