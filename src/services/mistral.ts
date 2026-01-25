@@ -34,7 +34,11 @@ class MistralClient {
     }
     const data = (await response.json()) as MistralModelsResponse;
     const savedModels = getSettings().models;
-    const nonMistralModels = savedModels.filter((m) => m.type !== "mistral");
+    const existingMistralModels = savedModels.filter(
+      (m) => m.type === "mistral",
+    );
+    const otherModels = savedModels.filter((m) => m.type !== "mistral");
+
     const models: Model[] = data.data
       .map((model) => {
         const capabilities: string[] = [];
@@ -43,13 +47,16 @@ class MistralClient {
             capabilities.push(key);
           }
         });
+
+        const existing = existingMistralModels.find((m) => m.name === model.id);
+
         return {
           type: "mistral",
           name: model.id,
           modified_at: new Date(model.created * 1000).toISOString(),
-          digest: "",
+          digest: existing?.digest || "",
           capabilities,
-          usage: {
+          usage: existing?.usage || {
             promptTokens: 0,
             completionTokens: 0,
             totalTokens: 0,
@@ -57,20 +64,13 @@ class MistralClient {
           details: {
             provider: model.owned_by,
             context_length: model.max_context_length,
+            ...existing?.details,
           },
         } as Model;
       })
       .filter((m) => m.name.includes("latest"));
-    const updatedModels = [];
-    for (const model of models) {
-      const existingModel = nonMistralModels.find((m) => m.name === model.name);
-      if (existingModel) {
-        updatedModels.push({ ...existingModel, ...model });
-      } else {
-        updatedModels.push(model);
-      }
-    }
-    const mergedModels = [...nonMistralModels, ...updatedModels];
+
+    const mergedModels = [...otherModels, ...models];
     await UpdateSettings({ models: mergedModels });
   }
 }

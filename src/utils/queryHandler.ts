@@ -62,28 +62,31 @@ export default async function QueryHandler(query: string) {
   };
 
   try {
-    // useFraudeStore.setState({
-    //   researchCache: {},
-    // });
-    // const response = await getManagerAgent().stream(query, {
-    //   abortSignal: abortController.signal,
-    // });
-    // checkAbort();
+    useFraudeStore.setState({
+      researchCache: {},
+    });
+    const response = await getManagerAgent().stream(query, {
+      abortSignal: abortController.signal,
+    });
+    checkAbort();
 
-    // log("Manager Response:");
-    // log(JSON.stringify(response, null, 2));
+    log("Manager Response:");
+    log(JSON.stringify(response, null, 2));
 
-    // Validate that manager created at least one todo
-    // const hasTodos = await hasPendingTodos();
-    // if (!hasTodos) {
-    //   log("Error: Manager completed without creating any tasks");
-    //   useFraudeStore.setState({
-    //     status: 0,
-    //     abortController: null,
-    //     statusText: "",
-    //   });
-    //   return;
-    // }
+    const hasTodos = await hasPendingTodos();
+    if (!hasTodos) {
+      updateOutput(
+        "error",
+        "Error: Manager completed without creating any tasks",
+      );
+      log("Error: Manager completed without creating any tasks");
+      useFraudeStore.setState({
+        status: 0,
+        abortController: null,
+        statusText: "",
+      });
+      return;
+    }
 
     let nextTask = await getNextTodo();
     while (!nextTask.done && nextTask.task) {

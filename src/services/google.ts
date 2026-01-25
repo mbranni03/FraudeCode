@@ -10,7 +10,9 @@ class GoogleClient {
       return;
     }
     const savedModels = getSettings().models;
-    const nonGoogleModels = savedModels.filter((m) => m.type !== "google");
+    const existingGoogleModels = savedModels.filter((m) => m.type === "google");
+    const otherModels = savedModels.filter((m) => m.type !== "google");
+
     const models: Model[] = [
       {
         type: "google",
@@ -42,17 +44,20 @@ class GoogleClient {
           context_length: 100000,
         },
       } as Model,
-    ];
-    const updatedModels = [];
-    for (const model of models) {
-      const existingModel = nonGoogleModels.find((m) => m.name === model.name);
-      if (existingModel) {
-        updatedModels.push({ ...existingModel, ...model });
-      } else {
-        updatedModels.push(model);
+    ].map((model) => {
+      const existing = existingGoogleModels.find((m) => m.name === model.name);
+      if (existing) {
+        return {
+          ...model,
+          digest: existing.digest || "",
+          usage: existing.usage || model.usage,
+          details: { ...model.details, ...existing.details },
+        };
       }
-    }
-    const mergedModels = [...nonGoogleModels, ...updatedModels];
+      return model;
+    });
+
+    const mergedModels = [...otherModels, ...models];
     await UpdateSettings({ models: mergedModels });
   }
 }
