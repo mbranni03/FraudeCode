@@ -12,6 +12,10 @@ export default function InteractiveServerView({
 }: InteractiveServerViewProps) {
   const [stopped, setStopped] = useState(false);
 
+  // Retrieve the router instance to get details (like port)
+  const router = BunApiRouter.getRouter(routerId);
+  const port = router?.port || 3000;
+
   useInput((input, key) => {
     if (stopped) return;
 
@@ -24,19 +28,34 @@ export default function InteractiveServerView({
   if (stopped) {
     return (
       <Box borderStyle="round" borderColor={THEME.dim} paddingX={1}>
-        <Text color={THEME.dim}>Server stopped.</Text>
+        <Text color={THEME.dim}>● </Text>
+        <Text color={THEME.dim}>Server stopped</Text>
       </Box>
     );
   }
 
   return (
-    <Box borderStyle="round" borderColor={THEME.primary} paddingX={1}>
-      <Text color={THEME.primary}>Server running... </Text>
-      <Text color={THEME.text}>Press </Text>
-      <Text color={THEME.warning} bold>
-        q
-      </Text>
-      <Text color={THEME.text}> to stop.</Text>
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor="white"
+      paddingX={1}
+    >
+      <Box>
+        <Text color={THEME.success}>● </Text>
+        <Text bold color={THEME.text}>
+          API Server Running{" "}
+        </Text>
+        <Text color={THEME.dim}>on </Text>
+        <Text color={THEME.primary} underline>
+          http://localhost:{port}
+        </Text>
+      </Box>
+      <Box marginTop={1}>
+        <Text color={THEME.dim} italic>
+          Press 'q' to stop server
+        </Text>
+      </Box>
     </Box>
   );
 }

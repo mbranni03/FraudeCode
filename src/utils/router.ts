@@ -13,7 +13,12 @@ interface Route {
 
 export class BunApiRouter {
   private static routers = new Map<string, BunApiRouter>();
+
+  public static getRouter(id: string): BunApiRouter | undefined {
+    return this.routers.get(id);
+  }
   private id: string = crypto.randomUUID();
+  public port: number = 3000;
   private routes: Route[] = [];
   private server: Server<any> | null = null;
   private resolveServicePromise: (() => void) | null = null;
@@ -41,7 +46,7 @@ export class BunApiRouter {
    * @param port Port to listen on (default: 3000)
    */
   public async serve(port: number = 3000): Promise<void> {
-    updateOutput("log", `Starting BunApiRouter on port ${port}...`);
+    this.port = port;
 
     // Create a promise that we can manually resolve to "unblock" the caller
     const servicePromise = new Promise<void>((resolve) => {
@@ -76,8 +81,6 @@ export class BunApiRouter {
       },
     });
 
-    updateOutput("log", `Server listening on http://localhost:${port}`);
-
     // Register this router instance
     BunApiRouter.routers.set(this.id, this);
 
@@ -90,7 +93,6 @@ export class BunApiRouter {
     // Cleanup
     if (this.server) {
       this.server.stop();
-      updateOutput("log", "Server stopped.");
     }
 
     BunApiRouter.routers.delete(this.id);
