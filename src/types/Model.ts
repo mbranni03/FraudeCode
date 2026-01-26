@@ -1,17 +1,7 @@
 import { z } from "zod";
 
-export const ProviderTypes = [
-  "groq",
-  "openrouter",
-  "ollama",
-  "mistral",
-  "cerebras",
-  "google",
-] as const;
-export type ProviderType = (typeof ProviderTypes)[number];
-
 export const ModelSchema = z.object({
-  type: z.enum(ProviderTypes).default("ollama"),
+  type: z.string().default("ollama"),
   name: z.string(),
   modified_at: z.string().optional().default(new Date().toISOString()),
   size: z.number().optional(),
@@ -56,7 +46,7 @@ export function getModelDisplayId(model: Model): string {
 /**
  * Creates a display identifier from name and type
  */
-export function createModelDisplayId(name: string, type: ProviderType): string {
+export function createModelDisplayId(name: string, type: string): string {
   return `${name} (${type})`;
 }
 
@@ -66,7 +56,7 @@ export function createModelDisplayId(name: string, type: ProviderType): string {
  */
 export function parseModelDisplayId(
   displayId: string,
-): { name: string; type: ProviderType } | null {
+): { name: string; type: string } | null {
   // Match pattern: "name (provider)"
   const match = displayId.match(/^(.+)\s+\((\w+)\)$/);
   if (!match || !match[1] || !match[2]) {
@@ -76,12 +66,7 @@ export function parseModelDisplayId(
   const name = match[1];
   const type = match[2];
 
-  // Validate the provider type
-  if (!ProviderTypes.includes(type as ProviderType)) {
-    return null;
-  }
-
-  return { name, type: type as ProviderType };
+  return { name, type };
 }
 
 /**
@@ -97,16 +82,13 @@ export function getModelUniqueId(model: Model): string {
  */
 export function parseModelUniqueId(
   uniqueId: string,
-): { name: string; type: ProviderType } | null {
+): { name: string; type: string } | null {
   const parts = uniqueId.split("|");
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
     return null;
   }
 
   const [name, type] = parts;
-  if (!ProviderTypes.includes(type as ProviderType)) {
-    return null;
-  }
 
-  return { name, type: type as ProviderType };
+  return { name, type };
 }

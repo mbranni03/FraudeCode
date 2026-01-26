@@ -1,10 +1,6 @@
 import { Box, Text } from "ink";
 import { useEffect, useMemo } from "react";
-import {
-  type Model,
-  parseModelUniqueId,
-  type ProviderType,
-} from "@/types/Model";
+import { type Model, parseModelUniqueId } from "@/types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 
 import { THEME as SHARED_THEME } from "@/theme";
