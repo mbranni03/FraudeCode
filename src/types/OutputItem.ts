@@ -12,7 +12,8 @@ export type OutputItemType =
   | "interrupted"
   | "toolCall"
   | "agentText"
-  | "modelSelect";
+  | "modelSelect"
+  | "interactive-server";
 
 export interface OutputItem {
   id: string;

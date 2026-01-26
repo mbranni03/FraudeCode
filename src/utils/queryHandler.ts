@@ -141,7 +141,13 @@ export default async function QueryHandler(query: string) {
   }
   updateOutput("command", query);
   if (query.startsWith("/")) {
+    useFraudeStore.setState({
+      status: 2,
+    });
     await CommandCenter.processCommand(query);
+    useFraudeStore.setState({
+      status: 0,
+    });
     return;
   }
   log(`User Query: ${query}`);

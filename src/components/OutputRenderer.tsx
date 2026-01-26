@@ -14,6 +14,8 @@ import ConfirmationView from "./output/ConfirmationView";
 import ModelSelectView from "./output/ModelSelectView";
 import { THEME } from "../theme";
 
+import InteractiveServerView from "./output/InteractiveServerView";
+
 function renderItem(item: OutputItem) {
   switch (item.type) {
     case "log":
@@ -56,6 +58,8 @@ function renderItem(item: OutputItem) {
       return <ConfirmationView />;
     case "modelSelect":
       return <ModelSelectView />;
+    case "interactive-server":
+      return <InteractiveServerView routerId={item.content} />;
     default:
       return null;
   }
