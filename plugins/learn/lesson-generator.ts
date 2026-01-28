@@ -30,6 +30,11 @@ export interface GeneratedLesson {
   generatedAt: string;
 }
 
+export interface UserContext {
+  recentErrors?: string[];
+  masteryLevel?: number; // 0-1
+}
+
 /**
  * System prompt for the lesson generation agent.
  * Follows prompt engineering best practices:
@@ -147,6 +152,7 @@ The learner must THINK and WRITE the solution. Your job is to create the conditi
 export async function generateLesson(
   concept: Concept,
   model?: string,
+  context?: UserContext,
 ): Promise<GeneratedLesson> {
   // Use provided model, or fall back to user's primary model from settings
   const selectedModel = model ?? Settings.getInstance().get("primaryModel");
@@ -166,7 +172,7 @@ export async function generateLesson(
     useIsolatedContext: true,
   });
 
-  const userPrompt = buildLessonPrompt(concept);
+  const userPrompt = buildLessonPrompt(concept, context);
   const response = await agent.chat(userPrompt);
 
   const lesson: GeneratedLesson = {
@@ -186,7 +192,7 @@ export async function generateLesson(
 /**
  * Build the user prompt for a specific concept
  */
-function buildLessonPrompt(concept: Concept): string {
+function buildLessonPrompt(concept: Concept, context?: UserContext): string {
   const parts: string[] = [
     `Create a lesson for the Rust concept: **${concept.label}** (ID: ${concept.id})`,
     "",
@@ -199,6 +205,18 @@ function buildLessonPrompt(concept: Concept): string {
     parts.push(`**Project Context:** ${concept.metadata.project_context}`);
     parts.push(
       "Use this context to make the examples and verification task relevant.",
+    );
+  }
+
+  // Add contextual information about user struggles
+  if (context?.recentErrors && context.recentErrors.length > 0) {
+    parts.push("");
+    parts.push("## Adaptive Learning Context");
+    parts.push(
+      `The user has recently struggled with these Rust errors: ${context.recentErrors.join(", ")}.`,
+    );
+    parts.push(
+      "If relevant to this concept, briefly reinforce how to avoid these specific errors in the 'Common Mistakes' or 'Concept Explanation' sections.",
     );
   }
 

@@ -277,6 +277,12 @@ const command = {
           attempts: attemptNumber,
         });
 
+        // Determine next lesson if mastered
+        let nextConcept = null;
+        if (masteryUpdate.mastered) {
+          nextConcept = kg.getNextLesson(userId);
+        }
+
         log(
           `📝 Submission: user=${userId} concept=${conceptId} attempt=${attemptNumber} passed=${success}`,
         );
@@ -293,6 +299,7 @@ const command = {
             },
             analysis,
             masteryUpdate,
+            nextConcept,
           }),
           {
             headers: { "Content-Type": "application/json" },
@@ -317,6 +324,7 @@ const command = {
         const url = new URL(req.url);
         const conceptId = url.pathname.split("/").pop() || "";
         const model = url.searchParams.get("model") || undefined;
+        const userId = url.searchParams.get("userId") || "default_user"; // Added userId param
 
         // Get concept from knowledge graph
         const concept = kg.getConcept(conceptId);
@@ -339,7 +347,9 @@ const command = {
         }
 
         // Generate new lesson using Agent
-        const lesson = await generateLesson(concept, model);
+        // Get user context (recent errors)
+        const recentErrors = kg.getRecentErrors(userId);
+        const lesson = await generateLesson(concept, model, { recentErrors });
         return new Response(JSON.stringify({ lesson, cached: false }), {
           headers: { "Content-Type": "application/json" },
         });
@@ -359,9 +369,15 @@ const command = {
           conceptId: string;
           model?: string;
           force?: boolean;
+          userId?: string;
         };
 
-        const { conceptId, model, force = false } = body;
+        const {
+          conceptId,
+          model,
+          force = false,
+          userId = "default_user",
+        } = body;
 
         if (!conceptId) {
           return new Response(
@@ -389,7 +405,8 @@ const command = {
           deleteLesson(conceptId);
         }
 
-        const lesson = await generateLesson(concept, model);
+        const recentErrors = kg.getRecentErrors(userId);
+        const lesson = await generateLesson(concept, model, { recentErrors });
         return new Response(JSON.stringify({ lesson, regenerated: force }), {
           headers: { "Content-Type": "application/json" },
         });
@@ -445,6 +462,42 @@ const command = {
         );
       } catch (e: any) {
         log(`❌ Error resetting learning system: ${e.message}`);
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    });
+
+    // Reset user mastery only (keep lessons)
+    router.register("POST", "/reset/mastery", async (req) => {
+      try {
+        let userId: string | undefined = undefined;
+        try {
+          const body = (await req.json()) as { userId?: string };
+          userId = body.userId;
+        } catch {
+          // No body provided, will reset all users if intended or just treat as global reset if acceptable
+          // checking query params just in case
+          const url = new URL(req.url);
+          userId = url.searchParams.get("userId") || undefined;
+        }
+
+        kg.resetUserProgress(userId);
+
+        return new Response(
+          JSON.stringify({
+            message: userId
+              ? `Progress reset for user: ${userId}`
+              : "All user progress has been reset.",
+            success: true,
+          }),
+          {
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      } catch (e: any) {
+        log(`❌ Error resetting mastery: ${e.message}`);
         return new Response(JSON.stringify({ error: e.message }), {
           status: 500,
           headers: { "Content-Type": "application/json" },

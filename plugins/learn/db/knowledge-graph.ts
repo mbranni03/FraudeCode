@@ -53,6 +53,7 @@ export class KnowledgeGraph {
   private getUserMasteryStmt!: Statement;
   private getAllConceptsStmt!: Statement;
   private getAttemptCountStmt!: Statement;
+  private getRecentErrorsStmt!: Statement;
 
   constructor(dbPath: string = "rust_tutor.db") {
     this.db = new Database(dbPath);
@@ -131,6 +132,15 @@ export class KnowledgeGraph {
       SELECT COUNT(*) as count
       FROM session_logs
       WHERE user_id = $userId AND concept_id = $conceptId
+    `);
+
+    this.getRecentErrorsStmt = this.db.prepare(`
+      SELECT DISTINCT error_code
+      FROM session_logs
+      WHERE user_id = $userId 
+      AND error_code IS NOT NULL
+      ORDER BY timestamp DESC
+      LIMIT 5
     `);
   }
 
@@ -369,6 +379,17 @@ export class KnowledgeGraph {
   }
 
   /**
+   * Get recent error codes encountered by the user
+   * Used to customize future lessons
+   */
+  getRecentErrors(userId: string): string[] {
+    const rows = this.getRecentErrorsStmt.all({ $userId: userId }) as {
+      error_code: string;
+    }[];
+    return rows.map((r) => r.error_code);
+  }
+
+  /**
    * Rust error code penalties - specific compiler errors that indicate
    * fundamental misunderstanding of key concepts
    */
@@ -492,6 +513,24 @@ export class KnowledgeGraph {
       averageMastery:
         allConcepts.length > 0 ? totalMastery / allConcepts.length : 0,
     };
+  }
+
+  /**
+   * Reset user progress (mastery and logs) without deleting concepts or lessons
+   */
+  resetUserProgress(userId?: string): void {
+    log(
+      `⚠️ Resetting progress for ${userId ? "user " + userId : "ALL users"}...`,
+    );
+    this.db.transaction(() => {
+      if (userId) {
+        this.db.run("DELETE FROM session_logs WHERE user_id = ?", [userId]);
+        this.db.run("DELETE FROM user_mastery WHERE user_id = ?", [userId]);
+      } else {
+        this.db.run("DELETE FROM session_logs");
+        this.db.run("DELETE FROM user_mastery");
+      }
+    })();
   }
 
   /**

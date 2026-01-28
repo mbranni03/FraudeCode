@@ -35,3 +35,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 qdrant_storage
 neo4j_data
 debug.log
+# SQLite
+*.db-shm
+*.db-wal
