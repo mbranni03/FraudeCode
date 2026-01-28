@@ -52,6 +52,7 @@ export class KnowledgeGraph {
   private logSessionStmt!: Statement;
   private getUserMasteryStmt!: Statement;
   private getAllConceptsStmt!: Statement;
+  private getAttemptCountStmt!: Statement;
 
   constructor(dbPath: string = "rust_tutor.db") {
     this.db = new Database(dbPath);
@@ -124,6 +125,12 @@ export class KnowledgeGraph {
       SELECT id, label, category, complexity, metadata
       FROM concepts
       ORDER BY complexity ASC
+    `);
+
+    this.getAttemptCountStmt = this.db.prepare(`
+      SELECT COUNT(*) as count
+      FROM session_logs
+      WHERE user_id = $userId AND concept_id = $conceptId
     `);
   }
 
@@ -348,6 +355,17 @@ export class KnowledgeGraph {
    */
   getUserMastery(userId: string): UserMastery[] {
     return this.getUserMasteryStmt.all({ $userId: userId }) as UserMastery[];
+  }
+
+  /**
+   * Get the number of attempts a user has made for a specific concept
+   */
+  getAttemptCount(userId: string, conceptId: string): number {
+    const result = this.getAttemptCountStmt.get({
+      $userId: userId,
+      $conceptId: conceptId,
+    }) as { count: number } | null;
+    return result?.count ?? 0;
   }
 
   /**

@@ -11,6 +11,11 @@ import {
   resetAllLessons,
   type GeneratedLesson,
 } from "./lesson-generator";
+import {
+  analyzeSubmission,
+  type SubmissionAnalysis,
+  type CompileResult,
+} from "./submission-analyzer";
 
 const DB_PATH = join(dirname(import.meta.path), "rust_tutor.db");
 
@@ -187,6 +192,114 @@ const command = {
           headers: { "Content-Type": "application/json" },
         });
       } catch (e: any) {
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    });
+
+    // ==========================================================================
+    // SUBMISSION ENDPOINT
+    // ==========================================================================
+
+    router.register("POST", "/submit", async (req) => {
+      try {
+        const body = (await req.json()) as {
+          userId: string;
+          conceptId: string;
+          code: string;
+        };
+
+        const { userId, conceptId, code } = body;
+
+        // Validate required fields
+        if (!userId || !conceptId || !code) {
+          return new Response(
+            JSON.stringify({
+              error: "userId, conceptId, and code are required",
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        // Load the lesson (must exist)
+        if (!lessonExists(conceptId)) {
+          return new Response(
+            JSON.stringify({
+              error: `Lesson not found for concept: ${conceptId}. Generate it first via GET /lesson/${conceptId}`,
+            }),
+            {
+              status: 404,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        const lesson = loadLesson(conceptId);
+
+        // Get current attempt count (computed from stored data)
+        const previousAttempts = kg.getAttemptCount(userId, conceptId);
+        const attemptNumber = previousAttempts + 1;
+
+        // Compile and run the user's code
+        const target = "wasm32-wasip1";
+        const compiler = new Compiler(
+          "cargo",
+          ["build", "--target", target],
+          "rust",
+          code,
+        );
+        const compileResult: CompileResult = await compiler.execute();
+
+        // Analyze the submission with LLM
+        const analysis = await analyzeSubmission(code, compileResult, lesson);
+
+        // Determine success based on analysis
+        const success = analysis.passed && compileResult.exitCode === 0;
+
+        // Extract error code from stderr if present
+        let errorCode: string | null = null;
+        if (compileResult.stderr) {
+          const errorMatch = compileResult.stderr.match(/error\[(E\d+)\]/);
+          if (errorMatch) {
+            errorCode = errorMatch[1] ?? null;
+          }
+        }
+
+        // Process result and update mastery
+        const masteryUpdate = kg.processLessonResult(userId, conceptId, {
+          success,
+          errorCode,
+          attempts: attemptNumber,
+        });
+
+        log(
+          `📝 Submission: user=${userId} concept=${conceptId} attempt=${attemptNumber} passed=${success}`,
+        );
+
+        return new Response(
+          JSON.stringify({
+            passed: success,
+            attemptNumber,
+            compileResult: {
+              exitCode: compileResult.exitCode,
+              stdout: compileResult.stdout,
+              stderr: compileResult.stderr,
+              runOutput: compileResult.runOutput,
+            },
+            analysis,
+            masteryUpdate,
+          }),
+          {
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      } catch (e: any) {
+        log(`❌ Submission error: ${e.message}`);
         return new Response(JSON.stringify({ error: e.message }), {
           status: 500,
           headers: { "Content-Type": "application/json" },
