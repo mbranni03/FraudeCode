@@ -1,0 +1,22 @@
+{
+  "lessonId": "001_rust.basics.install",
+  "lessonNumber": 1,
+  "conceptId": "rust.basics.install",
+  "title": "Hello World",
+  "markdown": "---\n# Hello, World! in Rust\n\n## Learning Objectives\n- Understand the basic structure of a Rust program\n- Learn how to use the `println!` macro to print output\n- Familiarize yourself with the Rust toolchain and compilation process\n\n## Concept Explanation\nThe \"Hello, World!\" program is the traditional first step in learning any programming language. In Rust, this involves using the `println!` macro, which is a fundamental way to output text to the console. Macros in Rust are powerful tools that allow for metacoding (writing code that writes code) and are denoted by the `!` at the end of their names.\n\nRust programs are compiled, meaning you'll use the `rustc` compiler to turn your source code into an executable. This lesson will also introduce you to the basic structure of a Rust file, including the `main` function, which is the entry point of every Rust program.\n\n## Code Examples\n\n### Example 1: Basic\n```rust\nfn main() {\n    println!(\"Hello, World!\");\n}\n```\n\n### Example 2: Applied\n```rust\nfn main() {\n    let greeting = \"Hello, World!\";\n    println!(\"{}\", greeting);\n}\n```\n\n## Verification Task\n\n**YOUR MISSION:**\nCreate a Rust program that prints \"Hello, World!\" to the console using the `println!` macro. Compile and run your program to verify it works correctly.\n\n**Starter Files:**\n\n**file: main.rs**\n```rust\nfn main() {\n    todo!(\"Print 'Hello, World!' to the console\")\n}\n```\n\n**Hints:**\n- Use the `println!` macro to print text to the console.\n- Remember to include the `!` at the end of `println`.\n- Compile your program using `rustc main.rs` and run it with `./main` (or `main.exe` on Windows).\n\n**Expected Output:**\n```\nHello, World!\n```\n\n**Success Criteria:**\n- [ ] The program compiles without errors.\n- [ ] The program prints \"Hello, World!\" to the console.\n- [ ] The program uses the `println!` macro correctly.\n\n## Common Mistakes\n1. **Forgetting the `!` in `println`**: Ensure you use `println!` and not `println`. The `!` indicates that it's a macro, not a regular function.\n2. **Missing the `main` function**: Every Rust program must have a `main` function as its entry point.\n3. **Incorrect file extension**: Make sure your file is named with the `.rs` extension, indicating it's a Rust source file.\n\n## Summary\nIn this lesson, you've learned the basic structure of a Rust program and how to use the `println!` macro to print output to the console. You've also familiarized yourself with the Rust toolchain by compiling and running your first Rust program. This is the first step in your journey to mastering Rust!",
+  "verificationTask": {
+    "description": "Create a Rust program that prints \"Hello, World!\" to the console using the `println!` macro. Compile and run your program to verify it works correctly.",
+    "expectedOutput": "Hello, World!",
+    "validationCriteria": [
+      "Code compiles successfully",
+      "Expected output matches"
+    ],
+    "starterFiles": [
+      {
+        "path": "main.rs",
+        "content": "fn main() {\n    todo!(\"Print 'Hello, World!' to the console\")\n}"
+      }
+    ]
+  },
+  "generatedAt": "2026-01-28T18:18:38.771Z"
+}

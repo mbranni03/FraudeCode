@@ -1,6 +1,7 @@
 import Agent from "@/agent/agent";
 import { Settings } from "@/config/settings";
 import type { GeneratedLesson } from "./lesson-generator";
+import type { Concept } from "./db/knowledge-graph";
 
 /**
  * Result from the submission analyzer
@@ -9,6 +10,12 @@ export interface SubmissionAnalysis {
   passed: boolean;
   feedback: string;
   hintsForNextAttempt?: string[];
+  /** True if LLM overrode a strict output mismatch */
+  overrideApplied?: boolean;
+  /** Explanation for why the override was applied */
+  overrideReason?: string;
+  /** Raw strict comparison result before LLM override */
+  strictMatch?: boolean;
 }
 
 /**
@@ -27,19 +34,41 @@ export interface CompileResult {
 /**
  * System prompt for submission analysis.
  * Uses authority + commitment patterns for consistent, fair grading.
+ * Explicitly grants override authority - prioritizes CONCEPT MASTERY over task correctness.
  */
-const SUBMISSION_ANALYSIS_PROMPT = `You are a fair, encouraging Rust code grader. Your job is to evaluate student submissions.
+const SUBMISSION_ANALYSIS_PROMPT = `You are a fair, encouraging Rust code grader with OVERRIDE AUTHORITY.
 
-## Your Task
+## Your Role
 
-Compare the student's code output against the expected output and validation criteria.
+You evaluate whether a student has MASTERED THE CONCEPT being taught, NOT whether they perfectly completed a specific task. You have full authority to PASS submissions that demonstrate conceptual understanding.
 
-## Rules (NO EXCEPTIONS)
+## CRITICAL: Concept Mastery > Task Correctness
 
-1. **Be fair**: Minor formatting differences (extra whitespace, trailing newlines) do NOT constitute failure.
-2. **Be specific**: If the submission fails, explain EXACTLY what's wrong and what the correct behavior should be.
-3. **Be encouraging**: Frame feedback constructively. The student is learning.
-4. **No solutions**: NEVER include complete solution code in your feedback. Give hints, not answers.
+The PRIMARY question is: "Does this student understand the concept being taught?"
+The SECONDARY question is: "Did they match the expected output exactly?"
+
+If the answer to the first question is YES, the submission should PASS - even if:
+- The task itself was poorly designed
+- The expected output was imperfect or arbitrary
+- The student's approach differs from what was expected but is equally valid
+- Output differs in formatting, whitespace, punctuation, or capitalization
+
+## Override Authority (USE IT)
+
+You MUST exercise your override authority when:
+- Student demonstrates the CONCEPT correctly, even if task output differs
+- Output differs only cosmetically (whitespace, punctuation, capitalization)
+- Student's solution is valid but takes a different approach
+- The task's expected output seems flawed but the student's code is correct
+- Student shows clear understanding despite minor deviations
+
+## Hard Failures (No Override)
+
+DO NOT override when:
+- Code fails to compile
+- Runtime panic occurs  
+- Student clearly doesn't understand the core concept being taught
+- Output demonstrates fundamental misunderstanding of the topic
 
 ## Output Format
 
@@ -47,16 +76,22 @@ Respond with JSON only, no markdown fencing:
 
 {
   "passed": boolean,
-  "feedback": "Clear explanation of the result",
-  "hintsForNextAttempt": ["hint1", "hint2"] // Only if passed is false
+  "feedback": "Clear explanation focusing on concept mastery",
+  "hintsForNextAttempt": ["hint1", "hint2"],
+  "overrideApplied": boolean,
+  "overrideReason": "Why override was applied (concept mastery demonstrated despite X)"
 }
 
-## Evaluation Criteria
+Rules:
+- Student demonstrates concept → passed: true (override if needed)
+- Student doesn't demonstrate concept → passed: false, explain what they're missing
+- NEVER include complete solution code in feedback
 
-- **Compilation**: Code must compile without errors
-- **Runtime**: Code must execute without panicking
-- **Output**: Actual output must match expected output (be lenient on whitespace)
-- **Criteria**: All validation criteria from the lesson must be satisfied`;
+## Evaluation Priority
+
+1. Does the code compile and run? (Hard requirement)
+2. Does the student demonstrate understanding of THE CONCEPT? (PRIMARY check)
+3. Does the output match exactly? (SECONDARY, can be overridden)`;
 
 /**
  * Analyze a user's code submission using LLM
@@ -65,18 +100,28 @@ export async function analyzeSubmission(
   code: string,
   compileResult: CompileResult,
   lesson: GeneratedLesson,
+  concept?: Concept | null,
   model?: string,
 ): Promise<SubmissionAnalysis> {
   const selectedModel = model ?? Settings.getInstance().get("primaryModel");
 
-  // Fast-path: compilation failed
+  // Fast-path: compilation failed - no override possible
   if (compileResult.exitCode !== 0) {
     return {
       passed: false,
       feedback: `Compilation failed. Please fix the errors and try again.\n\nCompiler output:\n${compileResult.stderr}`,
       hintsForNextAttempt: extractHintsFromStderr(compileResult.stderr),
+      overrideApplied: false,
+      strictMatch: false,
     };
   }
+
+  const actualOutput = compileResult.runOutput?.stdout ?? "";
+  const { verificationTask } = lesson;
+  const expectedOutput = verificationTask.expectedOutput;
+
+  // Compute strict match before LLM call
+  const strictMatch = actualOutput.trim() === expectedOutput.trim();
 
   const agent = new Agent({
     model: selectedModel,
@@ -86,9 +131,6 @@ export async function analyzeSubmission(
     maxSteps: 1,
     useIsolatedContext: true,
   });
-
-  const actualOutput = compileResult.runOutput?.stdout ?? "";
-  const { verificationTask } = lesson;
 
   const userPrompt = `## Student Code
 
@@ -105,18 +147,28 @@ ${actualOutput}
 ## Expected Output
 
 \`\`\`
-${verificationTask.expectedOutput}
+${expectedOutput}
 \`\`\`
 
-## Validation Criteria
+## Strict Match Result
+
+${strictMatch ? "✅ Output matches exactly (after trim)" : "❌ Output does NOT match exactly - USE YOUR OVERRIDE AUTHORITY if the submission demonstrates concept mastery"}
+
+## CONCEPT BEING TAUGHT
+
+${concept ? `**Concept:** ${concept.label}\n**Category:** ${concept.category || "general"}\n**Complexity:** ${concept.complexity} (0=beginner, 1=expert)` : "(Concept info not available)"}
+
+THIS IS THE PRIMARY EVALUATION CRITERIA: Does the student's code demonstrate understanding of "${concept?.label || "the concept"}"?
+
+## Validation Criteria (Secondary)
 
 ${verificationTask.validationCriteria.map((c, i) => `${i + 1}. ${c}`).join("\n")}
 
-## Task Description
+## Task Description (Secondary)
 
 ${verificationTask.description}
 
-Evaluate this submission.`;
+Evaluate this submission. PRIORITIZE CONCEPT MASTERY over strict task completion. If the student demonstrates understanding of "${concept?.label || "the concept"}", they should PASS even if the output doesn't match exactly.`;
 
   const response = await agent.chat(userPrompt);
 
@@ -135,6 +187,9 @@ Evaluate this submission.`;
       passed: Boolean(analysis.passed),
       feedback: analysis.feedback || "Analysis complete.",
       hintsForNextAttempt: analysis.hintsForNextAttempt,
+      overrideApplied: Boolean(analysis.overrideApplied),
+      overrideReason: analysis.overrideReason,
+      strictMatch,
     };
   } catch {
     // Fallback if LLM doesn't return valid JSON
@@ -142,6 +197,8 @@ Evaluate this submission.`;
     return {
       passed,
       feedback: response.text,
+      overrideApplied: false,
+      strictMatch,
     };
   }
 }

@@ -15,6 +15,8 @@ if (!existsSync(LESSONS_DIR)) {
  * Structured lesson format returned by the agent
  */
 export interface GeneratedLesson {
+  lessonId: string; // generated from conceptId + lessonNumber
+  lessonNumber: number;
   conceptId: string;
   title: string;
   markdown: string;
@@ -33,118 +35,257 @@ export interface GeneratedLesson {
 export interface UserContext {
   recentErrors?: string[];
   masteryLevel?: number; // 0-1
+  masteredConcepts?: Concept[]; // Concepts user has already learned
 }
 
 /**
  * System prompt for the lesson generation agent.
- * Follows prompt engineering best practices:
- * - Authority: Clear, imperative instructions
- * - Commitment: Required structural elements
- * - Scarcity: Specific format requirements
+ * Optimized for token usage and clarity.
  */
-const LESSON_SYSTEM_PROMPT = `You are a Rust instructor. Your role is to TEACH, not to give answers.
+const LESSON_SYSTEM_PROMPT = `You are an expert Rust tutor. Your goal is to TEACH concepts through discovery, not to provide answers.
 
-## Critical Rules (NO EXCEPTIONS)
-
-- **NEVER include solution code** in starter files. Starter code = scaffolding + TODO comments only.
-- **Guide through hints**, not implementations. The learner must write the core logic themselves.
-- **Starter files must compile** but be functionally incomplete (e.g., return placeholder values, panic with todo!()).
+## Critical Rules
+1. **NO SOLUTIONS**: Starter code must be scaffolding only (signatures, structs, todo!()).
+2. **GUIDANCE OVER ANSWERS**: Explain the *why* and *how*, let the user implement the *what*.
+3. **COMPILABLE**: Starter files must compile (use placeholders if needed).
+4. **EXACT FORMAT**: You must strictly follow the output format below.
+5. **CONCEPT SCOPE**: You MUST only use concepts from the "Already Learned" list + the current lesson's concept.
+   - If you need a technique not yet taught: (a) include it in a demonstration example, and (b) explain it briefly inline.
+   - NEVER assume prior knowledge of concepts not in the "Already Learned" list.
+   - This is CRITICAL for proper pedagogical sequencing.
 
 ## Output Format
-
-Respond with markdown in this exact structure:
+Response must be a single markdown block with this structure:
 
 ---
 # [Concept Title]
 
 ## Learning Objectives
-- [3-5 measurable objectives using action verbs]
-
-## Prerequisites
-- [Concepts the learner should already know]
+- [Objective 1]
+- [Objective 2]
 
 ## Concept Explanation
-[Explain the concept. Include:
-- Key terminology
-- Why it matters in Rust
-- Common pitfalls]
+[Clear, concise explanation. Key terms, relevance, common pitfalls.]
 
 ## Code Examples
 
-### Example 1: Basic Usage
+### Example 1: Basic
 \`\`\`rust
-// Annotated example demonstrating the concept
+// Simple example
 \`\`\`
 
-### Example 2: Applied Context
+### Example 2: Applied
 \`\`\`rust
-// Real-world usage scenario
+// Real-world scenario
 \`\`\`
 
 ## Verification Task
 
 **YOUR MISSION:**
-[Specific, actionable task description. Be clear about WHAT to build, not HOW.]
+[Actionable task description]
 
 **Starter Files:**
-For each file, use this format:
+For each file (use exact format):
 
-**file: [relative/path/to/file]**
+**file: [path]**
 \`\`\`rust
-// Scaffolding only. Include:
-// - Function signatures with todo!() bodies
-// - Struct definitions if needed
-// - TODO comments explaining what each part should do
-// - NO solution logic
+// Scaffolding only.
+// NO completion logic.
+fn example() {
+    todo!("User implements this")
+}
 \`\`\`
 
 **Hints:**
-- [Nudge toward the right approach without revealing it]
-- [Point to relevant concepts from the explanation]
-- [Suggest what to think about, not what to type]
-
-**Expected Behavior:**
-[Describe what happens when the code is correct]
-
-**Success Criteria:**
-- [ ] [Verifiable criterion 1]
-- [ ] [Verifiable criterion 2]
-- [ ] [Verifiable criterion 3]
+- [Hint 1]
+- [Hint 2]
 
 **Expected Output:**
 \`\`\`
-[Exact expected console output, or use [placeholder] for variable values]
+[Expected console output]
 \`\`\`
+
+**Success Criteria:**
+- [ ] [Criterion 1]
+- [ ] [Criterion 2]
 
 ## Common Mistakes
-1. **[Mistake]**: [Why it happens and how to fix it]
-2. **[Mistake]**: [Why it happens and how to fix it]
+1. **[Mistake]**: [Fix/Prevention]
 
 ## Summary
-[2-3 sentences capturing key takeaways]
-
+[Key takeaways]
 ---
+`;
 
-## Starter Code Guidelines
-
-Your starter files MUST follow this pattern:
-
-✅ GOOD (teaches):
-\`\`\`rust
-fn calculate_area(width: u32, height: u32) -> u32 {
-    // TODO: Multiply width and height to get the area
-    todo!("Implement area calculation")
+/**
+ * Get the file path for a lesson with a global sequence number
+ * Format: 001_concept_id.json
+ */
+function getLessonPath(conceptId: string, globalLessonNumber: number): string {
+  const safeId = conceptId.replace(/\./g, "_");
+  // Pad number with zeros for sorting, e.g., 001, 002
+  const paddedNumber = globalLessonNumber.toString().padStart(3, "0");
+  const filename = `${paddedNumber}_${safeId}.json`;
+  return join(LESSONS_DIR, filename);
 }
-\`\`\`
 
-❌ BAD (gives answer away):
-\`\`\`rust
-fn calculate_area(width: u32, height: u32) -> u32 {
-    width * height
+/**
+ * Get the next available global lesson number by scanning the directory.
+ */
+export function getNextGlobalLessonNumber(): number {
+  if (!existsSync(LESSONS_DIR)) return 1;
+
+  const files = require("fs").readdirSync(LESSONS_DIR);
+  let maxNum = 0;
+
+  for (const file of files) {
+    if (file.endsWith(".json")) {
+      const match = file.match(/^(\d+)_/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+  }
+
+  return maxNum + 1;
 }
-\`\`\`
 
-The learner must THINK and WRITE the solution. Your job is to create the conditions for that learning, not to do it for them.`;
+/**
+ * Find the latest lesson file for a specific concept
+ */
+export function getLatestLessonForConcept(
+  conceptId: string,
+): GeneratedLesson | null {
+  if (!existsSync(LESSONS_DIR)) return null;
+
+  const safeId = conceptId.replace(/\./g, "_");
+  const files = require("fs").readdirSync(LESSONS_DIR);
+
+  // Filter for files ending in _{safeId}.json
+  // And Sort by the leading number descending
+  const matchingFiles = files
+    .filter((f: string) => f.includes(`_${safeId}.json`) && /^\d+_/.test(f))
+    .sort((a: string, b: string) => {
+      const partA = a.split("_")[0];
+      const partB = b.split("_")[0];
+      const numA = parseInt(partA || "0", 10);
+      const numB = parseInt(partB || "0", 10);
+      return numB - numA; // Descending
+    });
+
+  if (matchingFiles.length === 0) return null;
+
+  const content = readFileSync(join(LESSONS_DIR, matchingFiles[0]), "utf-8");
+  return JSON.parse(content);
+}
+
+/**
+ * Save a lesson to disk
+ */
+function saveLesson(lesson: GeneratedLesson): void {
+  const path = getLessonPath(lesson.conceptId, lesson.lessonNumber);
+  writeFileSync(path, JSON.stringify(lesson, null, 2));
+}
+
+/**
+ * Load a lesson from specific global number
+ */
+export function loadLesson(
+  conceptId: string,
+  lessonNumber: number,
+): GeneratedLesson {
+  const path = getLessonPath(conceptId, lessonNumber);
+  const content = readFileSync(path, "utf-8");
+  return JSON.parse(content);
+}
+
+/**
+ * Check if a specific lesson file exists
+ */
+export function lessonExists(conceptId: string, lessonNumber: number): boolean {
+  return existsSync(getLessonPath(conceptId, lessonNumber));
+}
+
+/**
+ * Load a lesson by its unique lessonId (e.g., "001_rust.basics")
+ */
+export function loadLessonById(lessonId: string): GeneratedLesson | null {
+  // Filename strategy: dots in ID become underscores
+  const safeName = lessonId.replace(/\./g, "_");
+  const path = join(LESSONS_DIR, `${safeName}.json`);
+
+  if (!existsSync(path)) return null;
+
+  try {
+    const content = readFileSync(path, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Delete a specific lesson file
+ */
+export function deleteLesson(conceptId: string, lessonNumber: number): boolean {
+  const path = getLessonPath(conceptId, lessonNumber);
+  if (existsSync(path)) {
+    const fs = require("fs");
+    fs.unlinkSync(path);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Reset all cached lessons
+ */
+export function resetAllLessons(): void {
+  const fs = require("fs");
+  if (existsSync(LESSONS_DIR)) {
+    const files = fs.readdirSync(LESSONS_DIR);
+    for (const file of files) {
+      if (file.endsWith(".json")) {
+        fs.unlinkSync(join(LESSONS_DIR, file));
+      }
+    }
+  }
+}
+
+/**
+ * Get all lessons for a specific language
+ * Lessons are identified by their conceptId prefix (e.g., "rust.basics.variables" -> language is "rust")
+ * Returns lessons sorted by lesson number ascending
+ */
+export function getLessonsForLanguage(language: string): GeneratedLesson[] {
+  if (!existsSync(LESSONS_DIR)) return [];
+
+  const fs = require("fs");
+  const files = fs.readdirSync(LESSONS_DIR);
+  const lessons: GeneratedLesson[] = [];
+
+  for (const file of files) {
+    if (!file.endsWith(".json")) continue;
+
+    try {
+      const content = readFileSync(join(LESSONS_DIR, file), "utf-8");
+      const lesson: GeneratedLesson = JSON.parse(content);
+
+      // Check if the conceptId starts with the language
+      // e.g., "rust.basics.variables" starts with "rust"
+      if (lesson.conceptId.toLowerCase().startsWith(language.toLowerCase())) {
+        lessons.push(lesson);
+      }
+    } catch {
+      // Skip invalid JSON files
+      continue;
+    }
+  }
+
+  // Sort by lesson number ascending
+  return lessons.sort((a, b) => a.lessonNumber - b.lessonNumber);
+}
 
 /**
  * Generate a lesson for a specific concept using the Agent
@@ -153,15 +294,18 @@ export async function generateLesson(
   concept: Concept,
   model?: string,
   context?: UserContext,
+  // We no longer accept specific sequence request usually, we default to next global
+  // But if provided, we honor it (e.g. overwriting)
+  forcedLessonNumber?: number,
 ): Promise<GeneratedLesson> {
   // Use provided model, or fall back to user's primary model from settings
   const selectedModel = model ?? Settings.getInstance().get("primaryModel");
 
-  // Check if lesson already exists
-  const lessonPath = getLessonPath(concept.id);
-  if (existsSync(lessonPath)) {
-    return loadLesson(concept.id);
-  }
+  // Determine the sequence number: Forced OR Next Global
+  const lessonNumber = forcedLessonNumber ?? getNextGlobalLessonNumber();
+
+  // If forced number exists, we might overwrite (client responsibility) which is fine.
+  // If auto number exists, it means race condition or directory mess, but getNextGlobal ensures valid next.
 
   const agent = new Agent({
     model: selectedModel,
@@ -172,10 +316,12 @@ export async function generateLesson(
     useIsolatedContext: true,
   });
 
-  const userPrompt = buildLessonPrompt(concept, context);
+  const userPrompt = buildLessonPrompt(concept, context, lessonNumber);
   const response = await agent.chat(userPrompt);
 
   const lesson: GeneratedLesson = {
+    lessonId: `${lessonNumber.toString().padStart(3, "0")}_${concept.id}`,
+    lessonNumber, // This is now the Global Course Lesson Number
     conceptId: concept.id,
     title: concept.label,
     markdown: response.text,
@@ -192,13 +338,62 @@ export async function generateLesson(
 /**
  * Build the user prompt for a specific concept
  */
-function buildLessonPrompt(concept: Concept, context?: UserContext): string {
+function buildLessonPrompt(
+  concept: Concept,
+  context?: UserContext,
+  lessonNumber: number = 1,
+): string {
   const parts: string[] = [
     `Create a lesson for the Rust concept: **${concept.label}** (ID: ${concept.id})`,
     "",
-    `**Complexity Level:** ${concept.complexity} (0.0 = beginner, 1.0 = expert)`,
+    `**Course Context:** This is **Lesson #${lessonNumber}** in the user's overall learning journey.`,
+    `**Concept Complexity:** ${concept.complexity} (0.0=beginner, 1.0=expert)`,
     `**Category:** ${concept.category || "general"}`,
   ];
+
+  // Add the list of already-learned concepts (critical for proper scoping)
+  parts.push("");
+  parts.push("## Already Learned Concepts");
+  if (context?.masteredConcepts && context.masteredConcepts.length > 0) {
+    parts.push(
+      "The user has ALREADY MASTERED these concepts. You may freely use them:",
+    );
+    for (const mastered of context.masteredConcepts) {
+      parts.push(`- **${mastered.label}** (${mastered.id})`);
+    }
+  } else {
+    parts.push(
+      "This is the user's FIRST lesson. They have no prior Rust knowledge.",
+    );
+    parts.push(
+      "You must explain EVERYTHING from scratch, including basic syntax.",
+    );
+  }
+  parts.push("");
+  parts.push(
+    "⚠️ CRITICAL: Do NOT use any Rust concepts NOT listed above without demonstrating and explaining them inline first.",
+  );
+
+  // If the user has errors, this is a targeted remediation lesson
+  if (context?.recentErrors && context.recentErrors.length > 0) {
+    parts.push("");
+    parts.push("## Adaptive Remediation");
+    parts.push(
+      `The user is struggling with these specific errors: ${context.recentErrors.join(", ")}.`,
+    );
+    parts.push(
+      "You MUST focus the explanation and examples on resolving these misunderstandings.",
+    );
+    parts.push(
+      "Provide a **fresh perspective** different from standard documentation.",
+    );
+  } else {
+    // Standard progression
+    parts.push("");
+    parts.push(
+      "The user is progressing through the course. Keep the tone encouraging and focused on mastery.",
+    );
+  }
 
   if (concept.metadata?.project_context) {
     parts.push("");
@@ -208,24 +403,9 @@ function buildLessonPrompt(concept: Concept, context?: UserContext): string {
     );
   }
 
-  // Add contextual information about user struggles
-  if (context?.recentErrors && context.recentErrors.length > 0) {
-    parts.push("");
-    parts.push("## Adaptive Learning Context");
-    parts.push(
-      `The user has recently struggled with these Rust errors: ${context.recentErrors.join(", ")}.`,
-    );
-    parts.push(
-      "If relevant to this concept, briefly reinforce how to avoid these specific errors in the 'Common Mistakes' or 'Concept Explanation' sections.",
-    );
-  }
-
   parts.push("");
   parts.push(
-    "Generate a complete lesson following the exact format specified.",
-  );
-  parts.push(
-    "The Verification Task should directly test understanding of this concept.",
+    "Generate a complete lesson following the EXACT format specified in the system prompt.",
   );
 
   return parts.join("\n");
@@ -282,64 +462,4 @@ function extractVerificationTask(
         : ["Code compiles successfully", "Expected output matches"],
     starterFiles,
   };
-}
-
-/**
- * Get the file path for a lesson
- */
-function getLessonPath(conceptId: string): string {
-  const filename = conceptId.replace(/\./g, "_") + ".json";
-  return join(LESSONS_DIR, filename);
-}
-
-/**
- * Save a lesson to disk
- */
-function saveLesson(lesson: GeneratedLesson): void {
-  const path = getLessonPath(lesson.conceptId);
-  writeFileSync(path, JSON.stringify(lesson, null, 2));
-}
-
-/**
- * Load a lesson from disk
- */
-export function loadLesson(conceptId: string): GeneratedLesson {
-  const path = getLessonPath(conceptId);
-  const content = readFileSync(path, "utf-8");
-  return JSON.parse(content);
-}
-
-/**
- * Check if a lesson exists
- */
-export function lessonExists(conceptId: string): boolean {
-  return existsSync(getLessonPath(conceptId));
-}
-
-/**
- * Delete a lesson (for regeneration)
- */
-export function deleteLesson(conceptId: string): boolean {
-  const path = getLessonPath(conceptId);
-  if (existsSync(path)) {
-    const fs = require("fs");
-    fs.unlinkSync(path);
-    return true;
-  }
-  return false;
-}
-
-/**
- * Reset all cached lessons
- */
-export function resetAllLessons(): void {
-  const fs = require("fs");
-  if (existsSync(LESSONS_DIR)) {
-    const files = fs.readdirSync(LESSONS_DIR);
-    for (const file of files) {
-      if (file.endsWith(".json")) {
-        fs.unlinkSync(join(LESSONS_DIR, file));
-      }
-    }
-  }
 }

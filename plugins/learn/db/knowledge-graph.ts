@@ -390,6 +390,42 @@ export class KnowledgeGraph {
   }
 
   /**
+   * Get all prerequisite concepts for a given concept
+   * Recursively retrieves the full dependency tree
+   */
+  getConceptPrerequisites(conceptId: string): Concept[] {
+    // Recursive CTE to get all ancestors (prerequisites) of a concept
+    const rows = this.db
+      .query(
+        `
+        WITH RECURSIVE prereqs AS (
+          -- Base case: direct parents
+          SELECT parent_id as id
+          FROM dependencies
+          WHERE child_id = $conceptId
+          
+          UNION
+          
+          -- Recursive case: parents of parents
+          SELECT d.parent_id as id
+          FROM dependencies d
+          JOIN prereqs p ON d.child_id = p.id
+        )
+        SELECT c.id, c.label, c.category, c.complexity, c.metadata
+        FROM concepts c
+        JOIN prereqs p ON c.id = p.id
+        ORDER BY c.complexity ASC
+      `,
+      )
+      .all({ $conceptId: conceptId }) as any[];
+
+    return rows.map((row) => ({
+      ...row,
+      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    }));
+  }
+
+  /**
    * Rust error code penalties - specific compiler errors that indicate
    * fundamental misunderstanding of key concepts
    */
@@ -415,8 +451,26 @@ export class KnowledgeGraph {
       attempts: number;
     },
   ): { previousScore: number; newScore: number; mastered: boolean } {
+    // Get concept complexity to factor into mastery calculation
+    const concept = this.getConcept(conceptId);
+    const complexity = concept?.complexity ?? 0.5;
+
     // Base score change
-    let scoreChange = result.success ? 0.3 : -0.1;
+    // Formula: Lower difficulty + single attempt = immediate mastery (>0.8)
+    let scoreChange = 0;
+
+    if (result.success) {
+      // Scale gain based on complexity (easier = higher gain)
+      // Range: ~0.9 for easy (0.1) to ~0.6 for hard (0.9)
+      const baseGain = Math.max(0.2, 1.0 - 0.4 * complexity);
+
+      // Decay gain based on attempts (more attempts = less proof of mastery)
+      const attemptFactor = 1.0 / Math.max(1, result.attempts);
+
+      scoreChange = baseGain * attemptFactor;
+    } else {
+      scoreChange = -0.1;
+    }
 
     // Penalize specific Rust errors more heavily
     if (result.errorCode) {

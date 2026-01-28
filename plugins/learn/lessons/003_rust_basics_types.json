@@ -1,0 +1,22 @@
+{
+  "lessonId": "003_rust.basics.types",
+  "lessonNumber": 3,
+  "conceptId": "rust.basics.types",
+  "title": "Scalar & Compound Types",
+  "markdown": "---\n# Scalar & Compound Types in Rust\n\n## Learning Objectives\n- Understand the difference between scalar and compound types in Rust\n- Learn how to use tuples as compound types to group related data\n- Practice type annotations and pattern matching with tuples\n\n## Concept Explanation\nIn Rust, types are categorized into **scalar** (single values) and **compound** (grouped values). Scalar types include integers, floats, booleans, and characters. Compound types like tuples allow you to combine multiple values into a single type.\n\n**Key Terms:**\n- **Scalar Types**: Basic, single-value types (`i32`, `f64`, `bool`, `char`).\n- **Compound Types**: Group multiple values (`tuples`, `arrays`).\n- **Pattern Matching**: Destructure tuples to access their elements.\n\n**Relevance:**\nTuples are useful for returning multiple values from functions or grouping related data (e.g., stock market data like ticker, price, and volume).\n\n**Common Pitfalls:**\n- Forgetting that tuples are fixed-size and heterogeneous (unlike arrays).\n- Misusing tuples when a `struct` would be more readable for complex data.\n\n## Code Examples\n\n### Example 1: Basic Scalar Types\n```rust\nlet price: f64 = 150.25;  // Scalar: float\nlet volume: u32 = 1000;   // Scalar: unsigned integer\nlet is_active: bool = true; // Scalar: boolean\n```\n\n### Example 2: Compound Type (Tuple)\n```rust\n// Tuple representing (Ticker, Price, Volume)\nlet stock_data: (&str, f64, u32) = (\"AAPL\", 150.25, 1000);\n\n// Destructure the tuple\nlet (ticker, price, volume) = stock_data;\nprintln!(\"{} @ {} (Volume: {})\", ticker, price, volume);\n```\n\n## Verification Task\n\n**YOUR MISSION:**\nCreate a function `analyze_stock` that takes a tuple `(ticker: &str, price: f64, volume: u32)` and returns a formatted string with the stock details. Use pattern matching to destructure the tuple.\n\n**Starter Files:**\n\n**file: src/main.rs**\n```rust\nfn analyze_stock(stock: (&str, f64, u32)) -> String {\n    todo!(\"Destructure the tuple and return a formatted string\")\n}\n\nfn main() {\n    let stock = (\"TSLA\", 720.50, 5000);\n    println!(\"{}\", analyze_stock(stock));\n}\n```\n\n**Hints:**\n- Use `let (ticker, price, volume) = stock;` to destructure the tuple.\n- Format the output as: `\"Ticker: TSLA, Price: 720.50, Volume: 5000\"`.\n\n**Expected Output:**\n```\nTicker: TSLA, Price: 720.50, Volume: 5000\n```\n\n**Success Criteria:**\n- [ ] The function correctly destructures the tuple.\n- [ ] The output matches the expected format.\n- [ ] The code compiles without warnings.\n\n## Common Mistakes\n1. **Forgetting to destructure**: Accessing tuple elements with `.0`, `.1`, etc., instead of pattern matching.\n   *Fix*: Use `let (a, b, c) = tuple;` for clarity.\n\n## Summary\n- Scalar types hold single values; compound types group values.\n- Tuples are fixed-size and heterogeneous, ideal for simple groupings.\n- Pattern matching makes tuple destructuring clean and readable.\n- For complex data, consider `struct` for better readability.\n---",
+  "verificationTask": {
+    "description": "Create a function `analyze_stock` that takes a tuple `(ticker: &str, price: f64, volume: u32)` and returns a formatted string with the stock details. Use pattern matching to destructure the tuple.",
+    "expectedOutput": "Ticker: TSLA, Price: 720.50, Volume: 5000",
+    "validationCriteria": [
+      "Code compiles successfully",
+      "Expected output matches"
+    ],
+    "starterFiles": [
+      {
+        "path": "src/main.rs",
+        "content": "fn analyze_stock(stock: (&str, f64, u32)) -> String {\n    todo!(\"Destructure the tuple and return a formatted string\")\n}\n\nfn main() {\n    let stock = (\"TSLA\", 720.50, 5000);\n    println!(\"{}\", analyze_stock(stock));\n}"
+      }
+    ]
+  },
+  "generatedAt": "2026-01-28T18:42:09.320Z"
+}
