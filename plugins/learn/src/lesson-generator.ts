@@ -4,7 +4,7 @@ import { join, dirname } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import { Settings } from "@/config/settings";
 
-const LESSONS_DIR = join(dirname(import.meta.path), "lessons");
+const LESSONS_DIR = join(dirname(import.meta.path), "..", "data", "lessons");
 
 // Ensure lessons directory exists
 if (!existsSync(LESSONS_DIR)) {

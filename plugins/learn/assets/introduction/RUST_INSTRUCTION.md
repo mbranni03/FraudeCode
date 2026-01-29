@@ -16,7 +16,11 @@ Popular use cases for Rust include building high-performance web services, syste
 
 ## Getting Started
 
-To follow along with the exercises and compile the code, you need to have Rust and the appropriate WASM target installed on your machine.
+To follow along with the exercises and compile the code, you need to have **Rust**, the appropriate **WASM target**, and **Bun** installed on your machine.
+
+- **Rust**: The primary compiler for building your applications.
+- **WASM Target**: Allows us to compile Rust into a portable format that runs in our environment.
+- **Bun**: Used to execute the compiled WebAssembly modules.
 
 ### 1. Install Rust
 
@@ -28,18 +32,26 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 ### 2. Add WASM Target
 
-We will be targeting `wasm32-wasip1` (formerly `wasm32-wasi`) to ensure our code can run in a variety of environments. Install it using rustup:
+We will be targeting `wasm32-wasip1` to ensure our code can run in a variety of environments. Install it using rustup:
 
 ```bash
 rustup target add wasm32-wasip1
 ```
 
-### 3. Verify Installation
+### 3. Install Bun
 
-Ensure `cargo` is in your PATH. You can verify the target is installed by running:
+If you don't have Bun installed, follow the instructions at [bun.sh](https://bun.sh/):
 
 ```bash
-rustup target list --installed
+curl -fsSL https://bun.sh/install | bash
 ```
 
-You should see `wasm32-wasip1` in the list.
+### 4. Verify Installation
+
+Ensure all tools are in your PATH. You can verify the installation by running:
+
+```bash
+rustc --version
+bun --version
+rustup target list --installed | grep wasm32-wasip1
+```

@@ -205,7 +205,14 @@ export class KnowledgeGraph {
       .query("SELECT COUNT(*) as count FROM concepts")
       .get() as { count: number };
     if (count.count === 0) {
-      const jsonPath = join(dirname(import.meta.path), "..", "kg", "rust.json");
+      const jsonPath = join(
+        dirname(import.meta.path),
+        "..",
+        "..",
+        "assets",
+        "kg",
+        "rust.json",
+      );
       this.seedFromJson(jsonPath);
     }
   }
@@ -427,11 +434,18 @@ export class KnowledgeGraph {
    * Optionally includes user mastery coloring
    */
   getMermaidGraph(userId?: string, language?: string): string {
-    const edges = this.db
+    const concepts = this.getAllConcepts(language);
+    const conceptIds = new Set(concepts.map((c) => c.id));
+
+    // Get all edges and filter by the concepts we have
+    const allEdges = this.db
       .query("SELECT parent_id, child_id FROM dependencies")
       .all() as { parent_id: string; child_id: string }[];
 
-    const concepts = this.getAllConcepts(language);
+    const edges = allEdges.filter(
+      (e) => conceptIds.has(e.parent_id) && conceptIds.has(e.child_id),
+    );
+
     const masteryMap = userId
       ? new Map(
           this.getUserMastery(userId).map((m) => [
@@ -441,6 +455,10 @@ export class KnowledgeGraph {
         )
       : null;
 
+    // Identify the "next" concept to show as in progress if nothing has been started
+    const nextConcept =
+      userId && language ? this.getNextLesson(userId, language) : null;
+
     let mermaid = "graph TD;\n";
 
     // Add node definitions with labels
@@ -448,12 +466,15 @@ export class KnowledgeGraph {
       const shortId = concept.id.replace(/\./g, "_");
       const score = masteryMap?.get(concept.id) ?? 0;
 
-      // Color based on mastery: green (≥0.8), yellow (>0), gray (0)
+      // Color based on mastery: green (≥0.8), yellow (>0 or is next), gray (0)
       let style = "";
       if (masteryMap) {
         if (score >= 0.8) {
           style = `:::mastered`;
-        } else if (score > 0) {
+        } else if (
+          score > 0 ||
+          (nextConcept && nextConcept.id === concept.id)
+        ) {
           style = `:::inProgress`;
         }
       }

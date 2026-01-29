@@ -1,0 +1,22 @@
+{
+  "lessonId": "004_python.basics.user_input",
+  "lessonNumber": 4,
+  "conceptId": "python.basics.user_input",
+  "title": "Interacting with Users: Input and Output",
+  "markdown": "---\n# Interacting with Users: Input and Output\n\n## Learning Objectives\n- Use the `input()` function to receive user input\n- Combine variables and user input for dynamic output\n- Understand the difference between static and dynamic programs\n\n## Concept Explanation\nPrograms become more powerful when they can interact with users. In Python, we use `input()` to get data from the user and `print()` to display output. This allows programs to respond to different inputs dynamically, making them more flexible and useful.\n\n## Code Examples\n\n### Example 1: Basic Input\n```python\n# This program asks for the user's name and greets them\nname = input(\"What is your name? \")\nprint(\"Hello, \" + name + \"!\")\n```\n\n### Example 2: Dynamic Calculation\n```python\n# This program calculates the area of a rectangle based on user input\nlength = input(\"Enter the length: \")\nwidth = input(\"Enter the width: \")\narea = int(length) * int(width)  # Converting input to integers for calculation\nprint(\"The area is:\", area)\n```\n\n## Verification Task\n\n**YOUR MISSION:**\nCreate a program that asks the user for their favorite color and then prints a message incorporating that color.\n\n**Starter Files:**\n\n**file: user_input.py**\n```python\n# Ask the user for their favorite color\ncolor = input(\"What is your favorite color? \")\n\n# Print a message using the color\nprint(\"Your favorite color is \" + color + \"!\")\n```\n\n**Hints:**\n- Use the `input()` function to get the user's favorite color\n- Combine the input with a string using the `+` operator for output\n\n**Expected Output:**\n```\nWhat is your favorite color? blue\nYour favorite color is blue!\n```\n\n**Success Criteria:**\n- [ ] The program asks the user for their favorite color\n- [ ] The program prints a message that includes the user's input\n\n## Common Mistakes\n1. **Forgetting to convert input types**: If you need to perform calculations, remember that `input()` returns a string. Use `int()` or `float()` to convert to numbers.\n2. **Missing the input prompt**: Always include a clear prompt inside `input()` to guide the user.\n\n## Summary\nBy using `input()` and `print()`, you can create programs that interact with users dynamically. This makes your programs more engaging and adaptable to different scenarios.",
+  "verificationTask": {
+    "description": "Create a program that asks the user for their favorite color and then prints a message incorporating that color.",
+    "expectedOutput": "What is your favorite color? blue\nYour favorite color is blue!",
+    "validationCriteria": [
+      "Code compiles successfully",
+      "Expected output matches"
+    ],
+    "starterFiles": [
+      {
+        "path": "user_input.py",
+        "content": "# Ask the user for their favorite color\ncolor = input(\"What is your favorite color? \")\n\n# Print a message using the color\nprint(\"Your favorite color is \" + color + \"!\")"
+      }
+    ]
+  },
+  "generatedAt": "2026-01-29T16:04:19.027Z"
+}

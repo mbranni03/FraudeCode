@@ -1,0 +1,22 @@
+{
+  "lessonId": "003_python.basics.variables",
+  "lessonNumber": 3,
+  "conceptId": "python.basics.variables",
+  "title": "Storing Data: Variables and Data Types",
+  "markdown": "---\n# Storing Data: Variables and Data Types\n\n## Learning Objectives\n- Understand what variables are and how to create them\n- Learn about basic data types in Python (integers, floats, strings)\n- Practice assigning values to variables and using them in expressions\n\n## Concept Explanation\nVariables are like containers that store data in your program. They have names (like `age` or `name`) and can hold different types of data. In Python, you don't need to declare a variable's type - Python figures it out automatically based on the value you assign.\n\nKey data types we'll work with:\n- **Integers**: Whole numbers (e.g., 5, -3, 100)\n- **Floats**: Decimal numbers (e.g., 3.14, -0.5, 2.0)\n- **Strings**: Text (e.g., \"Hello\", \"Python\")\n\n## Code Examples\n\n### Example 1: Creating Variables\n```python\n# This creates variables to store different types of data\nname = \"Alice\"  # String\nage = 25        # Integer\nheight = 5.9    # Float\n```\n\n### Example 2: Using Variables in Expressions\n```python\n# Variables can be used in calculations and operations\nx = 10\ny = 3\nsum_result = x + y\nproduct = x * y\ngreeting = \"Hello, \" + name\n```\n\n## Verification Task\n\n**YOUR MISSION:**\nCreate a program that:\n1. Stores your name, age, and favorite number in variables\n2. Calculates what your age will be in 10 years\n3. Prints all this information in a friendly message\n\n**Starter Files:**\n\n**file: variables_practice.py**\n```python\n# Store your personal information in variables\n# Calculate your future age\n# Print a message with all the information\n```\n\n**Hints:**\n- Use the `+` operator to concatenate (join) strings\n- Remember that numbers and strings can't be directly added together\n- Think about what data type each piece of information should be\n\n**Expected Output:**\n```\nHello! My name is [Your Name], I'm [Your Age] years old.\nIn 10 years, I'll be [Future Age] years old.\nMy favorite number is [Favorite Number].\n```\n\n**Success Criteria:**\n- [ ] Program runs without errors\n- [ ] All required information is stored in variables\n- [ ] Future age is calculated correctly\n- [ ] Output matches the expected format\n\n## Common Mistakes\n1. **Forgetting quotes around strings**: `name = Alice` instead of `name = \"Alice\"` will cause an error because Python thinks Alice is a variable name.\n2. **Mixing data types in operations**: You can't directly add a number to a string. Convert numbers to strings first if needed.\n3. **Using reserved words as variable names**: Don't name variables things like `print`, `if`, or `for` as these have special meanings in Python.\n\n## Summary\nVariables are fundamental building blocks in programming. They allow you to store and manipulate data throughout your program. Remember that Python automatically determines the data type based on the value you assign. As you practice, you'll get more comfortable with how different data types behave and interact with each other.",
+  "verificationTask": {
+    "description": "Create a program that:\n1. Stores your name, age, and favorite number in variables\n2. Calculates what your age will be in 10 years\n3. Prints all this information in a friendly message",
+    "expectedOutput": "Hello! My name is [Your Name], I'm [Your Age] years old.\nIn 10 years, I'll be [Future Age] years old.\nMy favorite number is [Favorite Number].",
+    "validationCriteria": [
+      "Code compiles successfully",
+      "Expected output matches"
+    ],
+    "starterFiles": [
+      {
+        "path": "variables_practice.py",
+        "content": "# Store your personal information in variables\n# Calculate your future age\n# Print a message with all the information"
+      }
+    ]
+  },
+  "generatedAt": "2026-01-29T16:02:11.406Z"
+}

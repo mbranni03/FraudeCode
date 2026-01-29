@@ -1,7 +1,7 @@
 import log from "@/utils/logger";
 import { BunApiRouter } from "@/utils/router";
-import { Compiler } from "./compiler";
-import { getKnowledgeGraph } from "./db/knowledge-graph";
+import { Compiler } from "./src/compiler";
+import { getKnowledgeGraph } from "./src/db/knowledge-graph";
 import { join, dirname } from "path";
 import { readFileSync, existsSync } from "fs";
 import {
@@ -16,16 +16,16 @@ import {
   generateNewConcepts,
   type GeneratedLesson,
   type UserContext, // Import UserContext
-} from "./lesson-generator";
+} from "./src/lesson-generator";
 import Agent from "@/agent/agent";
 import { Settings } from "@/config/settings";
 import {
   analyzeSubmission,
   type SubmissionAnalysis,
   type CompiledResult,
-} from "./submission-analyzer";
+} from "./src/submission-analyzer";
 
-const DB_PATH = join(dirname(import.meta.path), "learning.db");
+const DB_PATH = join(dirname(import.meta.path), "data", "learning.db");
 
 const command = {
   name: "learn",
@@ -45,7 +45,8 @@ const command = {
     router.register("GET", "/visualize", (req) => {
       const url = new URL(req.url);
       const userId = url.searchParams.get("userId") || undefined;
-      const mermaid = kg.getMermaidGraph(userId);
+      const language = url.searchParams.get("language") || "rust";
+      const mermaid = kg.getMermaidGraph(userId, language);
       return new Response(mermaid, {
         headers: { "Content-Type": "text/plain" },
       });
@@ -141,6 +142,7 @@ const command = {
 
       const introPath = join(
         dirname(import.meta.path),
+        "assets",
         "introduction",
         `${language.toUpperCase()}_INSTRUCTION.md`,
       );

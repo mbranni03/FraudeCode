@@ -16,9 +16,10 @@ Popular use cases for Python include data science, machine learning, web backend
 
 ## Getting Started
 
-To follow along with the exercises, you need to have **Bun** installed on your system.
+To follow along with the exercises, you need to have both **Bun** and **Python 3** installed on your system.
 
-**Note**: You do **not** need to install Python locally! Our environment uses a specialized runner that executes Python code within a JavaScript runtime, ensuring a consistent experience regardless of your local Python version.
+- **Bun**: Used as the primary runtime for our training environment and to execute non-interactive Python code via an isolated runner.
+- **Python 3**: Required for interactive coding sessions where you need to provide real-time input.
 
 ### 1. Install Bun
 
@@ -28,10 +29,23 @@ If you don't have Bun installed, follow the instructions at [bun.sh](https://bun
 curl -fsSL https://bun.sh/install | bash
 ```
 
-### 2. Verify Installation
+### 2. Install Python 3
 
-Ensure `bun` is in your PATH. You can verify the installation by running:
+Most systems come with Python installed. Ensure you have `python3` available in your PATH:
+
+```bash
+# On macOS
+brew install python
+
+# On Ubuntu/Debian
+sudo apt update && sudo apt install python3
+```
+
+### 3. Verify Installation
+
+You can verify the installations by running:
 
 ```bash
 bun --version
+python3 --version
 ```

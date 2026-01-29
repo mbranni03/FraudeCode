@@ -1,0 +1,22 @@
+{
+  "lessonId": "002_python.basics.hello_world",
+  "lessonNumber": 2,
+  "conceptId": "python.basics.hello_world",
+  "title": "Writing Your First Program: Hello World",
+  "markdown": "---\n# Writing Your First Program: Hello World\n\n## Learning Objectives\n- Understand what a Python program is\n- Learn how to write and run a basic Python program\n- Discover the purpose of the `print()` function\n\n## Concept Explanation\nA Python program is a sequence of instructions that the computer executes. The simplest program we can write is one that displays a message on the screen. In Python, we use the `print()` function to output text. This is your first step in programming - creating a \"Hello World\" program, which is a tradition in programming education.\n\n## Code Examples\n\n### Example 1: Basic Hello World\n```python\n# This is a simple Python program\nprint(\"Hello World\")\n```\n\n### Example 2: Printing Multiple Lines\n```python\n# Printing multiple lines of text\nprint(\"Hello\")\nprint(\"World\")\n```\n\n## Verification Task\n\n**YOUR MISSION:**\nCreate a Python program that prints \"Hello World\" to verify your Python installation and understand basic program execution.\n\n**Starter Files:**\n\n**file: hello_world.py**\n```python\n# This is your first Python program\n# TODO: Add code to print \"Hello World\"\npass\n```\n\n**Hints:**\n- Use the `print()` function to display text\n- Remember to put your message inside quotation marks\n- Save the file with a `.py` extension\n\n**Expected Output:**\n```\nHello World\n```\n\n**Success Criteria:**\n- [ ] The program runs without errors\n- [ ] The output matches exactly \"Hello World\"\n- [ ] The file is saved with the correct extension\n\n## Common Mistakes\n1. **Forgetting quotation marks**: Always enclose your text in quotes (either single or double)\n2. **Misspelling print**: Python is case-sensitive, so `Print` or `PRINT` won't work\n3. **Not saving the file**: Make sure to save your file before running it\n\n## Summary\nYou've just written your first Python program! This simple \"Hello World\" program verifies that:\n1. Python is properly installed on your computer\n2. You can write and run Python code\n3. You understand the basic structure of a Python program\n\nThe `print()` function is your first tool in Python - it allows you to communicate with the user by displaying information. As you progress, you'll learn how to make your programs more interactive and powerful.",
+  "verificationTask": {
+    "description": "Create a Python program that prints \"Hello World\" to verify your Python installation and understand basic program execution.",
+    "expectedOutput": "Hello World",
+    "validationCriteria": [
+      "Code compiles successfully",
+      "Expected output matches"
+    ],
+    "starterFiles": [
+      {
+        "path": "hello_world.py",
+        "content": "# This is your first Python program\n# TODO: Add code to print \"Hello World\"\npass"
+      }
+    ]
+  },
+  "generatedAt": "2026-01-29T16:01:24.335Z"
+}

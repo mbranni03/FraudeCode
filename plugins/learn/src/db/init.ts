@@ -7,8 +7,21 @@
 import { join, dirname } from "path";
 import { KnowledgeGraph } from "./knowledge-graph";
 
-const DB_PATH = join(dirname(import.meta.path), "..", "learning.db");
-const RUST_JSON_PATH = join(dirname(import.meta.path), "..", "kg", "rust.json");
+const DB_PATH = join(
+  dirname(import.meta.path),
+  "..",
+  "..",
+  "data",
+  "learning.db",
+);
+const RUST_JSON_PATH = join(
+  dirname(import.meta.path),
+  "..",
+  "..",
+  "assets",
+  "kg",
+  "rust.json",
+);
 
 async function main() {
   console.log("🚀 Initializing Rust Learning Knowledge Graph...\n");
