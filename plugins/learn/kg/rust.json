@@ -6,7 +6,7 @@
       "comment": "--- TIER 1: THE ABSOLUTE FUNDAMENTALS ---"
     },
     {
-      "id": "rust.basics.install",
+      "id": "rust.basics.helloworld",
       "label": "Hello World",
       "dependencies": [],
       "complexity": 0.1,

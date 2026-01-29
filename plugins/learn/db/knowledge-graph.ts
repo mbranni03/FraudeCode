@@ -30,6 +30,7 @@ export interface SessionLog {
   success: boolean;
   error_code: string | null;
   attempts: number;
+  duration_ms?: number;
   timestamp?: string;
 }
 
@@ -54,6 +55,8 @@ export class KnowledgeGraph {
   private getAllConceptsStmt!: Statement;
   private getAttemptCountStmt!: Statement;
   private getRecentErrorsStmt!: Statement;
+  private getTotalDurationStmt!: Statement;
+  private getBestPerformanceStmt!: Statement;
 
   constructor(dbPath: string = "rust_tutor.db") {
     this.db = new Database(dbPath);
@@ -112,8 +115,8 @@ export class KnowledgeGraph {
     `);
 
     this.logSessionStmt = this.db.prepare(`
-      INSERT INTO session_logs (user_id, concept_id, success, error_code, attempts)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO session_logs (user_id, concept_id, success, error_code, attempts, duration_ms)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
 
     this.getUserMasteryStmt = this.db.prepare(`
@@ -141,6 +144,19 @@ export class KnowledgeGraph {
       AND error_code IS NOT NULL
       ORDER BY timestamp DESC
       LIMIT 5
+    `);
+
+    this.getTotalDurationStmt = this.db.prepare(`
+      SELECT SUM(COALESCE(duration_ms, 0)) as total_duration
+      FROM session_logs
+      WHERE user_id = $userId
+    `);
+
+    this.getBestPerformanceStmt = this.db.prepare(`
+      SELECT concept_id, MIN(attempts) as best_attempts, MIN(duration_ms) as best_duration
+      FROM session_logs 
+      WHERE user_id = $userId AND success = 1
+      GROUP BY concept_id
     `);
   }
 
@@ -291,13 +307,14 @@ export class KnowledgeGraph {
    * Log a practice session
    */
   logSession(session: SessionLog): void {
-    this.logSessionStmt.run({
-      $userId: session.user_id,
-      $conceptId: session.concept_id,
-      $success: session.success ? 1 : 0,
-      $errorCode: session.error_code,
-      $attempts: session.attempts,
-    });
+    this.logSessionStmt.run(
+      session.user_id,
+      session.concept_id,
+      session.success ? 1 : 0,
+      session.error_code,
+      session.attempts,
+      session.duration_ms ?? 0,
+    );
   }
 
   /**
@@ -439,6 +456,16 @@ export class KnowledgeGraph {
   };
 
   /**
+   * Map complexity to level 1-4
+   */
+  private complexityToLevel(comp: number): number {
+    if (comp >= 0.75) return 4;
+    if (comp >= 0.5) return 3;
+    if (comp >= 0.25) return 2;
+    return 1;
+  }
+
+  /**
    * Process a lesson result and update mastery score
    * Uses transactional updates for consistency
    */
@@ -449,25 +476,52 @@ export class KnowledgeGraph {
       success: boolean;
       errorCode?: string | null;
       attempts: number;
+      duration?: number;
     },
-  ): { previousScore: number; newScore: number; mastered: boolean } {
+  ): {
+    previousScore: number;
+    newScore: number;
+    mastered: boolean;
+    previousLevel: number;
+    newLevel: number;
+  } {
     // Get concept complexity to factor into mastery calculation
     const concept = this.getConcept(conceptId);
-    const complexity = concept?.complexity ?? 0.5;
+    if (!concept) {
+      throw new Error(`Concept not found: ${conceptId}`);
+    }
+    const complexity = concept.complexity || 0.5;
+    const category = concept.category || "general";
+
+    // Get current progress to find previous level
+    const progress = this.getUserProgress(userId);
+    const previousLevel = progress.topicLevels[category] || 1;
 
     // Base score change
-    // Formula: Lower difficulty + single attempt = immediate mastery (>0.8)
+    // Formula: Scale gain based on complexity and performance
     let scoreChange = 0;
 
     if (result.success) {
-      // Scale gain based on complexity (easier = higher gain)
-      // Range: ~0.9 for easy (0.1) to ~0.6 for hard (0.9)
-      const baseGain = Math.max(0.2, 1.0 - 0.4 * complexity);
+      // Base gain: 0.25 to 0.6 depending on complexity
+      const baseGain = Math.max(0.25, 1.0 - 0.4 * complexity);
 
-      // Decay gain based on attempts (more attempts = less proof of mastery)
-      const attemptFactor = 1.0 / Math.max(1, result.attempts);
+      // Attempt Factor: 1.0 for 1st, 0.9 for 2nd, 0.8 for 3rd, floor at 0.6
+      const attemptFactor = Math.max(0.6, 1.1 - 0.1 * result.attempts);
 
-      scoreChange = baseGain * attemptFactor;
+      // Duration factor: "not too harsh"
+      // Benchmark: 1 min to 5 mins depending on complexity
+      const benchmarkMs = 60000 + complexity * 240000;
+      let durationFactor = 1.0;
+
+      if (result.duration && result.duration > benchmarkMs * 2) {
+        // Only start penalizing after 2x the benchmark
+        // Small penalty: 0.05 for every extra multiple of benchmark, floor at 0.85
+        const extraMultiples =
+          (result.duration - benchmarkMs * 2) / benchmarkMs;
+        durationFactor = Math.max(0.85, 1.0 - extraMultiples * 0.05);
+      }
+
+      scoreChange = baseGain * attemptFactor * durationFactor;
     } else {
       scoreChange = -0.1;
     }
@@ -501,13 +555,20 @@ export class KnowledgeGraph {
         result.success ? 1 : 0,
         result.errorCode || null,
         result.attempts,
+        result.duration ?? 0,
       );
     })();
+
+    // Get new progress to find new level
+    const newProgress = this.getUserProgress(userId);
+    const newLevel = newProgress.topicLevels[category] || 1;
 
     return {
       previousScore: currentScore,
       newScore,
       mastered: newScore >= 0.8,
+      previousLevel,
+      newLevel,
     };
   }
 
@@ -534,6 +595,9 @@ export class KnowledgeGraph {
     inProgress: number;
     notStarted: number;
     averageMastery: number;
+    totalTime: number;
+    topicLevels: Record<string, number>;
+    overallLevel: number;
   } {
     const allConcepts = this.getAllConcepts();
     const userMastery = this.getUserMastery(userId);
@@ -546,17 +610,81 @@ export class KnowledgeGraph {
     let notStarted = 0;
     let totalMastery = 0;
 
+    // Get performance stats from logs to adjust effective complexity for level calc
+    const performanceRows = this.getBestPerformanceStmt.all({
+      $userId: userId,
+    }) as {
+      concept_id: string;
+      best_attempts: number;
+      best_duration: number;
+    }[];
+
+    const performanceMap = new Map(
+      performanceRows.map((r) => [r.concept_id, r]),
+    );
+
+    // Track max complexity mastered per category
+    const maxComplexityPerCategory: Record<string, number> = {};
+    let overallMaxComplexityMastered = 0;
+
     for (const concept of allConcepts) {
       const score = masteryMap.get(concept.id) || 0;
+      const isMastered = score >= 0.8;
       totalMastery += score;
 
-      if (score >= 0.8) {
+      if (isMastered) {
         mastered++;
+        const cat = concept.category || "general";
+
+        // Performance adjustment for level calculation
+        const perf = performanceMap.get(concept.id);
+        let performanceMultiplier = 1.0;
+
+        if (perf) {
+          // Attempt penalty: 1-2 attempts is perfect (1.0).
+          // 3: 0.95, 4: 0.9, 5: 0.85, ..., 10+: 0.5
+          const aMult = Math.max(0.5, 1.05 - 0.05 * perf.best_attempts);
+
+          // Duration penalty
+          const benchmark = 60000 + concept.complexity * 240000;
+          let dMult = 1.0;
+          if (perf.best_duration > benchmark * 3) {
+            // Only penalize if >3x benchmark
+            dMult = Math.max(0.9, 1.0 - perf.best_duration / (benchmark * 50));
+          }
+          performanceMultiplier = aMult * dMult;
+        }
+
+        const effectiveComplexity = concept.complexity * performanceMultiplier;
+
+        maxComplexityPerCategory[cat] = Math.max(
+          maxComplexityPerCategory[cat] || 0,
+          effectiveComplexity,
+        );
+        overallMaxComplexityMastered = Math.max(
+          overallMaxComplexityMastered,
+          effectiveComplexity,
+        );
       } else if (score > 0) {
         inProgress++;
       } else {
         notStarted++;
       }
+    }
+
+    const totalDurationResult = this.getTotalDurationStmt.get({
+      $userId: userId,
+    }) as { total_duration: number } | null;
+
+    const totalTime = totalDurationResult?.total_duration ?? 0;
+
+    const topicLevels: Record<string, number> = {};
+    // Ensure all categories present in the graph are represented
+    const categories = new Set(allConcepts.map((c) => c.category || "general"));
+    for (const cat of categories) {
+      topicLevels[cat] = this.complexityToLevel(
+        maxComplexityPerCategory[cat] || 0,
+      );
     }
 
     return {
@@ -566,6 +694,9 @@ export class KnowledgeGraph {
       notStarted,
       averageMastery:
         allConcepts.length > 0 ? totalMastery / allConcepts.length : 0,
+      totalTime,
+      topicLevels,
+      overallLevel: this.complexityToLevel(overallMaxComplexityMastered),
     };
   }
 

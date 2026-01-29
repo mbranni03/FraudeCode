@@ -39,48 +39,6 @@ const command = {
       });
     });
 
-    // Get the next recommended lesson
-    router.register("GET", "/next/:userId", (req) => {
-      const url = new URL(req.url);
-      const pathParts = url.pathname.split("/");
-      const userId = pathParts[pathParts.length - 1] || "default_user";
-      const category = url.searchParams.get("category") || undefined;
-
-      const nextLesson = kg.getNextLesson(userId, category);
-
-      if (!nextLesson) {
-        return new Response(
-          JSON.stringify({
-            message: "No available lessons! (Or you mastered everything!)",
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      }
-
-      return new Response(
-        JSON.stringify({
-          lesson: nextLesson,
-          context: nextLesson.metadata?.project_context || null,
-        }),
-        {
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    });
-
-    // Get user progress
-    router.register("GET", "/progress/:userId", (req) => {
-      const url = new URL(req.url);
-      const userId = url.pathname.split("/").pop() || "default_user";
-      const progress = kg.getUserProgress(userId);
-      return new Response(JSON.stringify(progress), {
-        headers: { "Content-Type": "application/json" },
-      });
-    });
-
     // Visualize knowledge graph as Mermaid diagram
     router.register("GET", "/visualize", (req) => {
       const url = new URL(req.url);
@@ -89,47 +47,6 @@ const command = {
       return new Response(mermaid, {
         headers: { "Content-Type": "text/plain" },
       });
-    });
-
-    // Update mastery after a lesson
-    router.register("POST", "/mastery", async (req) => {
-      try {
-        const body = (await req.json()) as {
-          userId: string;
-          conceptId: string;
-          success: boolean;
-          attempts: number;
-          errorCode?: string;
-        };
-
-        const { userId, conceptId, success, attempts, errorCode } = body;
-
-        if (!userId || !conceptId) {
-          return new Response(
-            JSON.stringify({ error: "userId and conceptId are required" }),
-            {
-              status: 400,
-              headers: { "Content-Type": "application/json" },
-            },
-          );
-        }
-
-        // Process lesson result with analytics loop
-        const result = kg.processLessonResult(userId, conceptId, {
-          success,
-          errorCode: errorCode || null,
-          attempts,
-        });
-
-        return new Response(JSON.stringify(result), {
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ error: e.message }), {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
     });
 
     // Get a specific lesson by lessonId
@@ -284,6 +201,16 @@ const command = {
       }
     });
 
+    // Get user progress
+    router.register("GET", "/progress/:userId", (req) => {
+      const url = new URL(req.url);
+      const userId = url.pathname.split("/").pop() || "default_user";
+      const progress = kg.getUserProgress(userId);
+      return new Response(JSON.stringify(progress), {
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
     // ==========================================================================
     // CHATBOT ENDPOINT
     // ==========================================================================
@@ -386,9 +313,10 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
           conceptId: string;
           code: string;
           lessonNumber?: number; // Optional: specify which lesson version
+          timeSpent?: number;
         };
 
-        const { userId, conceptId, code, lessonNumber } = body;
+        const { userId, conceptId, code, lessonNumber, timeSpent } = body;
 
         // Validate required fields
         if (!userId || !conceptId || !code) {
@@ -471,6 +399,7 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
           success,
           errorCode,
           attempts: attemptNumber,
+          duration: timeSpent,
         });
 
         log(
@@ -508,85 +437,21 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
     // LESSON GENERATION ENDPOINTS
     // ==========================================================================
 
-    // Get or generate a lesson for a concept
-    router.register("GET", "/lesson/:conceptId", async (req) => {
-      try {
-        const url = new URL(req.url);
-        const conceptId = url.pathname.split("/").pop() || "";
-        const model = url.searchParams.get("model") || undefined;
-        const userId = url.searchParams.get("userId") || "default_user";
-
-        // Optional: Request a specific lesson number
-        const lessonNumberParam = url.searchParams.get("lessonNumber");
-        const requestedLessonNumber = lessonNumberParam
-          ? parseInt(lessonNumberParam)
-          : undefined;
-
-        // Get concept from knowledge graph
-        const concept = kg.getConcept(conceptId);
-        if (!concept) {
-          return new Response(
-            JSON.stringify({ error: `Concept not found: ${conceptId}` }),
-            {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            },
-          );
-        }
-
-        // Attempt to retrieval existing lesson
-        let lesson: GeneratedLesson | null = null;
-
-        if (requestedLessonNumber) {
-          // Try specific number
-          if (lessonExists(conceptId, requestedLessonNumber)) {
-            lesson = loadLesson(conceptId, requestedLessonNumber);
-          }
-        } else {
-          // Try latest
-          lesson = getLatestLessonForConcept(conceptId);
-        }
-
-        if (lesson) {
-          return new Response(JSON.stringify({ lesson, cached: true }), {
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
-        // Generate new lesson using Agent (Global Sequence)
-        // Get user context (recent errors)
-        const recentErrors = kg.getRecentErrors(userId);
-
-        // If we are here, it means no existing lesson was found or requested.
-        // We trigger generation.
-        const newLesson = await generateLesson(concept, model, {
-          recentErrors,
-          masteredConcepts: kg.getConceptPrerequisites(concept.id),
-        });
-
-        return new Response(
-          JSON.stringify({ lesson: newLesson, cached: false }),
-          {
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      } catch (e: any) {
-        log(`Error generating lesson: ${e.message}`);
-        return new Response(JSON.stringify({ error: e.message }), {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-    });
-
     // Get the next lesson content (Generate if needed)
     router.register("POST", "/lesson/next", async (req) => {
       try {
-        const body = (await req.json()) as {
-          userId: string;
-          currentConceptId?: string;
-        };
-        const { userId, currentConceptId } = body;
+        let body: any = {};
+        try {
+          body = (await req.json()) as {
+            userId?: string;
+            currentConceptId?: string;
+          };
+        } catch (e) {
+          // Handle cases where no body is provided or it is not valid JSON
+        }
+
+        const userId = body.userId || "default_user";
+        const currentConceptId = body.currentConceptId;
 
         const nextConcept = kg.getNextLesson(userId);
 
@@ -603,10 +468,6 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
           );
         }
 
-        // Determine if we need to force a new lesson (Retry scenario)
-        // If the user is requesting "next" but the knowledge graph says the "next" concept
-        // is the SAME as the one they just did (currentConceptId), it means they haven't mastered it yet.
-        // In this case, we should generate a FRESH lesson (new exercises) instead of returning the cached one.
         const isRetry =
           !!currentConceptId && nextConcept.id === currentConceptId;
 
@@ -617,22 +478,24 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
           lesson = getLatestLessonForConcept(nextConcept.id);
         }
 
-        if (lesson) {
-          return new Response(JSON.stringify({ lesson, cached: true }), {
-            headers: { "Content-Type": "application/json" },
+        // If not found (or retry), generate one
+        if (!lesson) {
+          const recentErrors = kg.getRecentErrors(userId);
+          lesson = await generateLesson(nextConcept, undefined, {
+            recentErrors,
+            masteredConcepts: kg.getConceptPrerequisites(nextConcept.id),
           });
         }
 
-        // If not, generate one
-        const recentErrors = kg.getRecentErrors(userId);
-        lesson = await generateLesson(nextConcept, undefined, {
-          recentErrors,
-          masteredConcepts: kg.getConceptPrerequisites(nextConcept.id),
-        });
-
-        return new Response(JSON.stringify({ lesson, cached: false }), {
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            lesson,
+            cached: !isRetry && !!getLatestLessonForConcept(nextConcept.id),
+          }),
+          {
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       } catch (e: any) {
         log(`Error getting next lesson: ${e.message}`);
         return new Response(JSON.stringify({ error: e.message }), {
@@ -725,45 +588,6 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
           headers: { "Content-Type": "application/json" },
         });
       }
-    });
-
-    // Delete a cached lesson
-    router.register("DELETE", "/lesson/:conceptId", async (req) => {
-      const url = new URL(req.url);
-      const conceptId = url.pathname.split("/").pop() || "";
-      const lessonNumber = parseInt(
-        url.searchParams.get("lessonNumber") || "0",
-      );
-
-      if (lessonNumber === 0) {
-        return new Response(
-          JSON.stringify({
-            error:
-              "Must override lessonNumber query param to delete specific global lesson.",
-          }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      }
-
-      if (deleteLesson(conceptId, lessonNumber)) {
-        return new Response(
-          JSON.stringify({ deleted: true, conceptId, lessonNumber }),
-          {
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ error: "Lesson not found or already deleted" }),
-        {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
     });
 
     // Reset everything for learning

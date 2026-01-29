@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS session_logs (
     success BOOLEAN,
     error_code TEXT, -- e.g., 'E0382' (Borrow Checker Error)
     attempts INTEGER,
+    duration_ms INTEGER DEFAULT 0,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(concept_id) REFERENCES concepts(id)
 );
