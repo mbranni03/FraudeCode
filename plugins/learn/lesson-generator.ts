@@ -53,7 +53,7 @@ function getLessonSystemPrompt(language: string = "Rust"): string {
   return `You are an expert ${langTitle} tutor. Your goal is to TEACH concepts through discovery, not to provide answers.
 
 ## Critical Rules
-1. **NO SOLUTIONS**: Starter code must be scaffolding only (signatures, structs, pass [python], todo!() [rust], etc).
+1. **NO SOLUTIONS**: Starter code must be scaffolding only (EXAMPLES OF ALLOWED CODE: main function, comments, pass [python], todo!() [rust]).
 2. **GUIDANCE OVER ANSWERS**: Explain the *why* and *how*, let the user implement the *what*.
 3. **COMPILABLE**: Starter files must compile/run (use placeholders if needed).
 4. **EXACT FORMAT**: You must strictly follow the output format below.
@@ -83,16 +83,15 @@ print("Hello World")
 ## Verification Task
 **YOUR MISSION:** Update the starter code to print your name.
 
-**Starter Files:**
-**file: main.<file extension>**
-\`\`\`${language.toLowerCase()}
-    ${comment} IMPLEMENTATION STUB
+**Starter Files:** (example is in rust, adjust for the language)
+**file: main.rs**
+\`\`\`rust
     todo!("User implements this")
 \`\`\`
 
 **Expected Output:**
 \`\`\`
-Hello, Bob
+[expected output]
 \`\`\`
 ---
 
