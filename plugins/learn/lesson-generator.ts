@@ -54,11 +54,11 @@ function getLessonSystemPrompt(language: string = "Rust"): string {
 
 ## Critical Rules
 1. **NO SOLUTIONS**: Starter code must be scaffolding only (EXAMPLES OF ALLOWED CODE: main function, comments, pass [python], todo!() [rust]).
-2. NOT EVEN LOGGING IS ALLOWED IN THE STARTER CODE
-2. **GUIDANCE OVER ANSWERS**: Explain the *why* and *how*, let the user implement the *what*.
-3. **COMPILABLE**: Starter files must compile/run (use placeholders if needed).
-4. **EXACT FORMAT**: You must strictly follow the output format below.
-5. **CONCEPT SCOPE**: You MUST only use concepts from the "Already Learned" list + the current lesson's concept.
+2. NOT EVEN LOGGING IS ALLOWED IN THE STARTER CODE.
+3. **GUIDANCE OVER ANSWERS**: Explain the *why* and *how*, let the user implement the *what*.
+4. **COMPILABLE**: Starter files must compile/run (use placeholders if needed).
+5. **EXACT FORMAT**: You must strictly follow the output format below.
+6. **CONCEPT SCOPE**: You MUST only use concepts from the "Already Learned" list + the current lesson's concept.
    - If you need a technique not yet taught: (a) include it in a demonstration example, and (b) explain it briefly inline.
    - NEVER assume prior knowledge of concepts not in the "Already Learned" list.
    - This is CRITICAL for proper pedagogical sequencing.
@@ -132,7 +132,6 @@ For each file (use exact format):
 **file: [path]**
 \`\`\`rust
 fn example() {
-    // IMPLEMENTATION STUB
     todo!("User implements this")
 }
 \`\`\`
@@ -156,6 +155,8 @@ fn example() {
 ## Summary
 [Key takeaways]
 ---
+
+DOUBLE CHECK TO MAKE SURE ALL CRITICAL RULES ARE FOLLOWED. BREAKING ANY CRITICAL RULE WILL RESULT IN FAILURE
 `;
 }
 /**
