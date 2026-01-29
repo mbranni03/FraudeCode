@@ -54,6 +54,7 @@ function getLessonSystemPrompt(language: string = "Rust"): string {
 
 ## Critical Rules
 1. **NO SOLUTIONS**: Starter code must be scaffolding only (EXAMPLES OF ALLOWED CODE: main function, comments, pass [python], todo!() [rust]).
+2. NOT EVEN LOGGING IS ALLOWED IN THE STARTER CODE
 2. **GUIDANCE OVER ANSWERS**: Explain the *why* and *how*, let the user implement the *what*.
 3. **COMPILABLE**: Starter files must compile/run (use placeholders if needed).
 4. **EXACT FORMAT**: You must strictly follow the output format below.
