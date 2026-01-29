@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS user_mastery (
     user_id TEXT,
     concept_id TEXT,
     mastery_score REAL DEFAULT 0.0, -- 0.0 to 1.0
+    last_code TEXT, -- Store the user's last code submission
     last_practiced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, concept_id),
     FOREIGN KEY(concept_id) REFERENCES concepts(id)

@@ -54,6 +54,7 @@ const command = {
     // Get a specific lesson by lessonId
     router.register("GET", "/lesson/:lessonId", (req) => {
       const url = new URL(req.url);
+      const userId = url.searchParams.get("userId") || undefined;
       const pathParts = url.pathname.split("/");
       const lessonId = pathParts[pathParts.length - 1] || "";
 
@@ -73,7 +74,16 @@ const command = {
         });
       }
 
-      return new Response(JSON.stringify({ lesson }), {
+      let lastCode = null;
+      if (userId) {
+        const userMasteries = kg.getUserMastery(userId);
+        const mastery = userMasteries.find(
+          (m) => m.concept_id === lesson.conceptId,
+        );
+        lastCode = mastery?.last_code || null;
+      }
+
+      return new Response(JSON.stringify({ lesson, lastCode }), {
         headers: { "Content-Type": "application/json" },
       });
     });
@@ -473,6 +483,7 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
           errorCode,
           attempts: attemptNumber,
           duration: timeSpent,
+          code, // Store the code
         });
 
         log(

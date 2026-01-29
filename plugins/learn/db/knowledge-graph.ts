@@ -21,6 +21,7 @@ export interface UserMastery {
   user_id: string;
   concept_id: string;
   mastery_score: number;
+  last_code?: string | null;
   last_practiced_at: string;
 }
 
@@ -69,6 +70,13 @@ export class KnowledgeGraph {
     // Initialize schema
     this.initSchema();
 
+    // Migration: Add last_code to user_mastery if it doesn't exist
+    try {
+      this.db.run("ALTER TABLE user_mastery ADD COLUMN last_code TEXT;");
+    } catch (e) {
+      // Column already exists or table doesn't exist yet
+    }
+
     // Prepare statements
     this.prepareStatements();
   }
@@ -114,10 +122,11 @@ export class KnowledgeGraph {
     `);
 
     this.updateMasteryStmt = this.db.prepare(`
-      INSERT INTO user_mastery (user_id, concept_id, mastery_score, last_practiced_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      INSERT INTO user_mastery (user_id, concept_id, mastery_score, last_code, last_practiced_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(user_id, concept_id) DO UPDATE SET
         mastery_score = excluded.mastery_score,
+        last_code = excluded.last_code,
         last_practiced_at = CURRENT_TIMESTAMP
     `);
 
@@ -127,7 +136,7 @@ export class KnowledgeGraph {
     `);
 
     this.getUserMasteryStmt = this.db.prepare(`
-      SELECT user_id, concept_id, mastery_score, last_practiced_at
+      SELECT user_id, concept_id, mastery_score, last_code, last_practiced_at
       FROM user_mastery
       WHERE user_id = $userId
     `);
@@ -573,6 +582,7 @@ export class KnowledgeGraph {
       errorCode?: string | null;
       attempts: number;
       duration?: number;
+      code?: string;
     },
   ): {
     previousScore: number;
@@ -644,7 +654,12 @@ export class KnowledgeGraph {
 
     // Run updates transactionally
     this.db.transaction(() => {
-      this.updateMasteryStmt.run(userId, conceptId, newScore);
+      this.updateMasteryStmt.run(
+        userId,
+        conceptId,
+        newScore,
+        result.code || null,
+      );
       this.logSessionStmt.run(
         userId,
         conceptId,
