@@ -11,6 +11,12 @@ interface Route {
   handler: Handler;
 }
 
+export interface WebSocketHandler {
+  open?: (ws: any) => void;
+  message: (ws: any, message: string) => void;
+  close?: (ws: any) => void;
+}
+
 export class BunApiRouter {
   private static routers = new Map<string, BunApiRouter>();
 
@@ -20,6 +26,7 @@ export class BunApiRouter {
   private id: string = crypto.randomUUID();
   public port: number = 3000;
   private routes: Route[] = [];
+  private wsRoutes: { path: string; handler: WebSocketHandler }[] = [];
   private server: Server<any> | null = null;
   private resolveServicePromise: (() => void) | null = null;
 
@@ -64,6 +71,15 @@ export class BunApiRouter {
   }
 
   /**
+   * Register a WebSocket endpoint
+   * @param path URL path
+   * @param handler WebSocket event handlers
+   */
+  public registerWebSocket(path: string, handler: WebSocketHandler) {
+    this.wsRoutes.push({ path, handler });
+  }
+
+  /**
    * Start the server and block until interrupted.
    * @param port Port to listen on (default: 3000)
    */
@@ -78,8 +94,20 @@ export class BunApiRouter {
     this.server = Bun.serve({
       port,
       idleTimeout: 180,
-      fetch: async (req) => {
+      fetch: async (req, server) => {
         const url = new URL(req.url);
+
+        // Check for WebSocket upgrade
+        const wsRoute = this.wsRoutes.find((r) =>
+          this.matchRoute(r.path, url.pathname),
+        );
+
+        if (
+          wsRoute &&
+          server.upgrade(req, { data: { handler: wsRoute.handler } })
+        ) {
+          return undefined;
+        }
 
         // CORS support
         const corsHeaders = {
@@ -130,6 +158,26 @@ export class BunApiRouter {
           status: 404,
           headers: corsHeaders,
         });
+      },
+      websocket: {
+        open(ws) {
+          if (ws.data?.handler?.open) {
+            ws.data.handler.open(ws);
+          }
+        },
+        message(ws, message) {
+          if (ws.data?.handler?.message) {
+            ws.data.handler.message(
+              ws,
+              typeof message === "string" ? message : message.toString(),
+            );
+          }
+        },
+        close(ws) {
+          if (ws.data?.handler?.close) {
+            ws.data.handler.close(ws);
+          }
+        },
       },
     });
 

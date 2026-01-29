@@ -22,7 +22,7 @@ import { Settings } from "@/config/settings";
 import {
   analyzeSubmission,
   type SubmissionAnalysis,
-  type CompileResult,
+  type CompiledResult,
 } from "./submission-analyzer";
 
 const DB_PATH = join(dirname(import.meta.path), "learning.db");
@@ -178,8 +178,12 @@ const command = {
 
     router.register("POST", "/compile", async (req) => {
       try {
-        const body = (await req.json()) as { language?: string; code?: string };
-        const { language, code } = body;
+        const body = (await req.json()) as {
+          language?: string;
+          code?: string;
+          inputs?: string;
+        };
+        const { language, code, inputs } = body;
 
         if (!language || !code) {
           return new Response(
@@ -199,22 +203,23 @@ const command = {
           compiler = new Compiler(language, code, {
             tool: "cargo",
             args: ["build", "--target", target],
+            inputs,
           });
         } else if (
           language.toLowerCase() === "python" ||
           language.toLowerCase() === "python3"
         ) {
-          compiler = new Compiler("python", code);
+          compiler = new Compiler("python", code, { inputs });
         } else if (
           language.toLowerCase() === "javascript" ||
           language.toLowerCase() === "js"
         ) {
-          compiler = new Compiler("javascript", code);
+          compiler = new Compiler("javascript", code, { inputs });
         } else if (
           language.toLowerCase() === "typescript" ||
           language.toLowerCase() === "ts"
         ) {
-          compiler = new Compiler("typescript", code);
+          compiler = new Compiler("typescript", code, { inputs });
         } else {
           return new Response(
             JSON.stringify({ error: `Unsupported language: ${language}` }),
@@ -227,14 +232,6 @@ const command = {
 
         const output = await compiler.execute();
 
-        // Adapt output for interpreted languages (where stdout IS the run output)
-        if (language.toLowerCase() !== "rust" && output.exitCode === 0) {
-          output.runOutput = {
-            stdout: output.stdout,
-            stderr: output.stderr,
-          };
-        }
-
         return new Response(JSON.stringify(output), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -245,6 +242,67 @@ const command = {
           headers: { "Content-Type": "application/json" },
         });
       }
+    });
+
+    // WebSocket Interactive Compilation
+    router.registerWebSocket("/compile/ws", {
+      message: async (ws, message) => {
+        try {
+          const data = JSON.parse(message);
+
+          if (data.type === "init") {
+            const { language, code } = data;
+            if (!language || !code) {
+              ws.send(
+                JSON.stringify({
+                  type: "error",
+                  error: "Missing language or code",
+                }),
+              );
+              return;
+            }
+
+            const compiler = new Compiler(language, code);
+
+            // Start interactive session
+            try {
+              const session = await compiler.executeInteractive(
+                (stdout) =>
+                  ws.send(JSON.stringify({ type: "stdout", data: stdout })),
+                (stderr) =>
+                  ws.send(JSON.stringify({ type: "stderr", data: stderr })),
+              );
+
+              // Store session in WS data
+              ws.data = { ...ws.data, session };
+
+              // Wait for exit
+              session.exit.then((code) => {
+                ws.send(JSON.stringify({ type: "exit", code }));
+                ws.close();
+              });
+            } catch (e: any) {
+              ws.send(JSON.stringify({ type: "error", error: e.message }));
+              ws.close();
+            }
+          } else if (data.type === "stdin") {
+            if (ws.data?.session?.write) {
+              ws.data.session.write(data.data);
+            }
+          } else if (data.type === "kill") {
+            if (ws.data?.session?.kill) {
+              ws.data.session.kill();
+            }
+          }
+        } catch (e) {
+          log(`WS Error: ${e}`);
+        }
+      },
+      close: (ws) => {
+        if (ws.data?.session?.kill) {
+          ws.data.session.kill();
+        }
+      },
     });
 
     // Get user progress
@@ -358,17 +416,25 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
           userId: string;
           conceptId: string;
           code: string;
+          compiledResult: CompiledResult;
           lessonNumber?: number; // Optional: specify which lesson version
           timeSpent?: number;
         };
 
-        const { userId, conceptId, code, lessonNumber, timeSpent } = body;
+        const {
+          userId,
+          conceptId,
+          code,
+          compiledResult,
+          lessonNumber,
+          timeSpent,
+        } = body;
 
         // Validate required fields
-        if (!userId || !conceptId || !code) {
+        if (!userId || !conceptId || !code || !compiledResult) {
           return new Response(
             JSON.stringify({
-              error: "userId, conceptId, and code are required",
+              error: "userId, conceptId, code, and compiledResult are required",
             }),
             {
               status: 400,
@@ -414,64 +480,27 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
             status: 404,
           });
         }
-        const language = concept.language || "rust";
-
-        // Compile and run the user's code
-        let compiler: Compiler;
-        if (language.toLowerCase() === "rust") {
-          const target = "wasm32-wasip1";
-          compiler = new Compiler("rust", code, {
-            tool: "cargo",
-            args: ["build", "--target", target],
-          });
-        } else if (
-          language.toLowerCase() === "python" ||
-          language.toLowerCase() === "python3"
-        ) {
-          compiler = new Compiler("python", code);
-        } else if (
-          language.toLowerCase() === "javascript" ||
-          language.toLowerCase() === "js"
-        ) {
-          compiler = new Compiler("javascript", code);
-        } else if (
-          language.toLowerCase() === "typescript" ||
-          language.toLowerCase() === "ts"
-        ) {
-          compiler = new Compiler("typescript", code);
-        } else {
-          // Fallback or error
-          compiler = new Compiler("unknown", "", {
-            tool: "echo",
-            args: ["Unsupported language"],
-          });
-        }
-
-        const compileResult: CompileResult = await compiler.execute();
-
-        // Adapt result for interpreted languages
-        if (language.toLowerCase() !== "rust" && compileResult.exitCode === 0) {
-          compileResult.runOutput = {
-            stdout: compileResult.stdout,
-            stderr: compileResult.stderr,
-          };
-        }
 
         // Analyze the submission with LLM (prioritizes concept mastery over task correctness)
         const analysis = await analyzeSubmission(
           code,
-          compileResult,
+          compiledResult,
           lesson,
           concept,
         );
 
         // Determine success based on analysis
-        const success = analysis.passed && compileResult.exitCode === 0;
+        const success = analysis.passed && compiledResult.exitCode === 0;
 
         // Extract error code from stderr if present
         let errorCode: string | null = null;
-        if (compileResult.stderr) {
-          const errorMatch = compileResult.stderr.match(/error\[(E\d+)\]/);
+        const stderr = compiledResult.terminal
+          .filter((t) => t.type === "stderr")
+          .map((t) => t.data)
+          .join("");
+
+        if (stderr) {
+          const errorMatch = stderr.match(/error\[(E\d+)\]/);
           if (errorMatch) {
             errorCode = errorMatch[1] ?? null;
           }
@@ -496,10 +525,8 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
             attemptNumber,
             lessonNumber: targetLessonNumber,
             compileResult: {
-              exitCode: compileResult.exitCode,
-              stdout: compileResult.stdout,
-              stderr: compileResult.stderr,
-              runOutput: compileResult.runOutput,
+              exitCode: compiledResult.exitCode,
+              terminal: compiledResult.terminal,
             },
             analysis,
             masteryUpdate,

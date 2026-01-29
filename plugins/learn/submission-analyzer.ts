@@ -21,9 +21,12 @@ export interface SubmissionAnalysis {
 }
 
 /**
- * Compile result structure from the Compiler
+ * Compiled result structure from the client/terminal
  */
-export type CompileResult = ExecutionResult;
+export interface CompiledResult {
+  terminal: Array<{ type: "stdout" | "stdin" | "stderr"; data: string }>;
+  exitCode: number;
+}
 
 /**
  * System prompt for submission analysis.
@@ -100,35 +103,43 @@ Rules:
  */
 export async function analyzeSubmission(
   code: string,
-  compileResult: CompileResult,
+  compileResult: CompiledResult,
   lesson: GeneratedLesson,
   concept?: Concept | null,
   model?: string,
 ): Promise<SubmissionAnalysis> {
   const selectedModel = model ?? Settings.getInstance().get("primaryModel");
 
+  const stdout = compileResult.terminal
+    .filter((t) => t.type === "stdout")
+    .map((t) => t.data)
+    .join("");
+
+  const stderr = compileResult.terminal
+    .filter((t) => t.type === "stderr")
+    .map((t) => t.data)
+    .join("");
+
   // Fast-path: compilation failed - no override possible
   if (compileResult.exitCode !== 0) {
     return {
       passed: false,
-      feedback: `Compilation/Execution failed. Please fix the errors and try again.\n\nOutput:\n${compileResult.stderr || compileResult.stdout}`,
+      feedback: `Compilation/Execution failed. Please fix the errors and try again.\n\nOutput:\n${stderr || stdout}`,
       hintsForNextAttempt:
-        concept?.language === "rust"
-          ? extractHintsFromStderr(compileResult.stderr)
-          : [],
+        concept?.language === "rust" ? extractHintsFromStderr(stderr) : [],
       overrideApplied: false,
       strictMatch: false,
     };
   }
 
-  const actualOutput = compileResult.runOutput?.stdout ?? "";
+  const language = concept?.language || "rust";
+  const actualOutput = stdout;
+
   const { verificationTask } = lesson;
   const expectedOutput = verificationTask.expectedOutput;
 
   // Compute strict match before LLM call
   const strictMatch = actualOutput.trim() === expectedOutput.trim();
-
-  const language = concept?.language || "rust";
 
   const agent = new Agent({
     model: selectedModel,

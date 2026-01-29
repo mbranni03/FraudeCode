@@ -1,4 +1,4 @@
-import { spawn } from "bun";
+import { spawn, type Subprocess } from "bun";
 import { mkdir, writeFile, rm, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -7,11 +7,6 @@ export interface ExecutionResult {
   stdout: string;
   stderr: string;
   exitCode: number;
-  wasm?: string;
-  runOutput?: {
-    stdout: string;
-    stderr: string;
-  };
 }
 
 type SupportedLanguage = "rust" | "javascript" | "typescript" | "python";
@@ -22,6 +17,7 @@ export class Compiler {
   private tool: string;
   private args: string[];
   private timeout: number;
+  private inputs: string;
 
   constructor(
     language: string,
@@ -30,6 +26,7 @@ export class Compiler {
       tool?: string;
       args?: string[];
       timeout?: number;
+      inputs?: string;
     } = {},
   ) {
     this.tempDir = join(tmpdir(), `compile-${crypto.randomUUID()}`);
@@ -37,6 +34,7 @@ export class Compiler {
     this.tool = options.tool || "";
     this.args = options.args || [];
     this.timeout = options.timeout || 10000;
+    this.inputs = options.inputs || "";
   }
 
   async execute(): Promise<ExecutionResult> {
@@ -58,26 +56,159 @@ export class Compiler {
   }
 
   /**
-   * Execute JavaScript/TypeScript using 'bun run' in a separate process.
-   * This ensures isolation and reliable timeout handling.
+   * Start an interactive session.
+   * Returns methods to write to stdin and kill the process.
+   */
+  async executeInteractive(
+    onStdout: (data: string) => void,
+    onStderr: (data: string) => void,
+  ): Promise<{
+    write: (data: string) => void;
+    kill: () => void;
+    exit: Promise<number>;
+  }> {
+    await mkdir(this.tempDir, { recursive: true });
+    let proc: Subprocess;
+
+    try {
+      if (this.language === "python") {
+        // Native python3 is required for proper interactive I/O
+        // Pyodide is too complex to manage via WebSocket stream for this simple use case
+        const filename = "main.py";
+        const filePath = join(this.tempDir, filename);
+        await writeFile(filePath, this.code);
+
+        proc = spawn(["python3", "-u", filename], {
+          cwd: this.tempDir,
+          stdout: "pipe",
+          stderr: "pipe",
+          stdin: "pipe",
+          env: { ...process.env, PYTHONUNBUFFERED: "1" },
+        });
+      } else if (
+        this.language === "javascript" ||
+        this.language === "typescript"
+      ) {
+        const extension = this.language === "javascript" ? "js" : "ts";
+        const filename = `main.${extension}`;
+        const filePath = join(this.tempDir, filename);
+        await writeFile(filePath, this.code);
+
+        proc = spawn(["bun", "run", filename], {
+          cwd: this.tempDir,
+          stdout: "pipe",
+          stderr: "pipe",
+          stdin: "pipe",
+          env: { ...process.env, FORCE_COLOR: "0" },
+        });
+      } else if (this.language === "rust") {
+        // Rust compile then run
+        await mkdir(join(this.tempDir, "src"), { recursive: true });
+        const cargoToml = `[package]\nname="app"\nversion="0.1.0"\nedition="2021"\n[dependencies]`;
+        await writeFile(join(this.tempDir, "Cargo.toml"), cargoToml);
+        await writeFile(join(this.tempDir, "src", "main.rs"), this.code);
+
+        // First compile (not interactive)
+        const build = spawn(["cargo", "build", "--quiet"], {
+          cwd: this.tempDir,
+        });
+        await build.exited;
+
+        if (build.exitCode !== 0) {
+          throw new Error("Compilation failed");
+        }
+
+        // Run the binary
+        proc = spawn(["./target/debug/app"], {
+          cwd: this.tempDir,
+          stdout: "pipe",
+          stderr: "pipe",
+          stdin: "pipe",
+        });
+      } else {
+        throw new Error(`Unsupported interactive language: ${this.language}`);
+      }
+
+      // Stream handlers
+      const readStream = async (
+        stream: ReadableStream,
+        callback: (d: string) => void,
+      ) => {
+        const reader = stream.getReader();
+        const decoder = new TextDecoder();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            callback(decoder.decode(value, { stream: true }));
+          }
+        } catch (e) {
+          // Stream error or closed
+        }
+      };
+
+      if (proc.stdout && typeof proc.stdout !== "number") {
+        readStream(proc.stdout as ReadableStream, onStdout);
+      }
+      if (proc.stderr && typeof proc.stderr !== "number") {
+        readStream(proc.stderr as ReadableStream, onStderr);
+      }
+
+      return {
+        write: (data: string) => {
+          if (proc.stdin && typeof proc.stdin !== "number") {
+            const writer = (proc.stdin as any).writer
+              ? (proc.stdin as any).writer()
+              : null;
+            // Bun's FileSink usually has write.
+            // If implicit typing fails, cast.
+            (proc.stdin as any).write(data);
+            (proc.stdin as any).flush();
+          }
+        },
+        kill: () => {
+          proc.kill();
+          rm(this.tempDir, { recursive: true, force: true }).catch(() => {});
+        },
+        exit: proc.exited.then(async (code) => {
+          await rm(this.tempDir, { recursive: true, force: true }).catch(
+            () => {},
+          );
+          return code;
+        }),
+      };
+    } catch (e) {
+      await rm(this.tempDir, { recursive: true, force: true }).catch(() => {});
+      throw e;
+    }
+  }
+
+  /**
+   * Execute JavaScript/TypeScript using 'bun run'
    */
   private async executeJsTs(): Promise<ExecutionResult> {
     try {
       await mkdir(this.tempDir, { recursive: true });
 
-      // Bun handles both .js and .ts natively
       const extension = this.language === "javascript" ? "js" : "ts";
       const filename = `main.${extension}`;
       const filePath = join(this.tempDir, filename);
       await writeFile(filePath, this.code);
 
-      // Spawn 'bun run'
       const proc = spawn(["bun", "run", filename], {
         cwd: this.tempDir,
         stdout: "pipe",
         stderr: "pipe",
-        env: { ...process.env, FORCE_COLOR: "0" }, // Disable color codes
+        stdin: "pipe",
+        env: { ...process.env, FORCE_COLOR: "0" },
       });
+
+      // Write inputs if provided
+      if (this.inputs && proc.stdin) {
+        proc.stdin.write(this.inputs);
+        proc.stdin.flush();
+        proc.stdin.end();
+      }
 
       return await this.handleProcessWithTimeout(proc);
     } finally {
@@ -86,50 +217,43 @@ export class Compiler {
   }
 
   /**
-   * Execute Python using Pyodide in a SEPARATE process.
-   * Running Pyodide in the main thread (even async) can block the event loop
-   * if the user code has Infinite Loops. Spawning guarantees we can kill it.
+   * Execute Python using Pyodide (Isolated)
    */
   private async executePython(): Promise<ExecutionResult> {
     try {
       await mkdir(this.tempDir, { recursive: true });
 
       const runnerPath = join(this.tempDir, "py_runner.ts");
+      const normalizedInputs = this.inputs ? JSON.stringify(this.inputs) : "''";
 
-      // We create a runner script that loads Pyodide and executes the code
-      // This script runs in a separate Bun process
       const runnerCode = `
 import { loadPyodide } from "pyodide";
+import { stdin } from "process";
 
 async function main() {
   try {
     const pyodide = await loadPyodide();
     
-    // Capture stdout/stderr using StringIO
+    // Setup StringIO for stdin/stdout/stderr
     pyodide.runPython(\`
 import sys
 import traceback
 from io import StringIO
+
+__stdin_data = ${normalizedInputs}
+sys.stdin = StringIO(__stdin_data)
+
 __stdout = StringIO()
 __stderr = StringIO()
 sys.stdout = __stdout
 sys.stderr = __stderr
     \`);
 
-    // We wrap the user code in a try/except block to ensure we capture tracebacks
-    // into our redirected stderr.
-    // Note: This approach works for scripts. Top-level await is supported by runPythonAsync
-    // but wrapping it effectively requires care. For now, we execute the code directly
-    // and rely on pyodide's behavior, but if it fails, we try to recover the traceback.
-    
-    // Actually, a better approach for robustness: enable traceback manipulation
     const code = ${JSON.stringify(this.code)};
-    
     let exitCode = 0;
     try {
         await pyodide.runPythonAsync(code);
     } catch (err) {
-        // If an error occurs, print it to the captured stderr
         pyodide.runPython("traceback.print_exc()");
         exitCode = 1;
     }
@@ -142,7 +266,6 @@ sys.stderr = __stderr
     
     process.exit(exitCode);
   } catch (e: any) {
-    // System error (loading pyodide, etc)
     console.error(e.message || String(e));
     process.exit(1);
   }
@@ -156,6 +279,7 @@ main();
         cwd: this.tempDir,
         stdout: "pipe",
         stderr: "pipe",
+        stdin: "pipe",
       });
 
       return await this.handleProcessWithTimeout(proc);
@@ -169,14 +293,7 @@ main();
       await mkdir(this.tempDir, { recursive: true });
       await mkdir(join(this.tempDir, "src"), { recursive: true });
 
-      const cargoToml = `
-[package]
-name = "compile-project"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-`;
+      const cargoToml = `[package]\nname="compile-project"\nversion="0.1.0"\nedition="2021"\n[dependencies]\n`;
       await writeFile(join(this.tempDir, "Cargo.toml"), cargoToml);
       await writeFile(join(this.tempDir, "src", "main.rs"), this.code);
 
@@ -185,6 +302,7 @@ edition = "2021"
         cwd: this.tempDir,
         stderr: "pipe",
         stdout: "pipe",
+        stdin: "pipe",
       });
 
       const buildResult = await new Response(proc.stdout).text();
@@ -251,12 +369,18 @@ edition = "2021"
         runOutput = await this.runWasm(wasmPath);
       }
 
+      if (runOutput) {
+        return {
+          stdout: runOutput.stdout,
+          stderr: runOutput.stderr,
+          exitCode: 0,
+        };
+      }
+
       return {
         stdout: buildResult,
         stderr: buildError,
         exitCode,
-        wasm: wasmBase64,
-        runOutput,
       };
     } finally {
       await rm(this.tempDir, { recursive: true, force: true }).catch(() => {});
@@ -299,7 +423,14 @@ main().catch(console.error);
       cwd: this.tempDir,
       stdout: "pipe",
       stderr: "pipe",
+      stdin: "pipe",
     });
+
+    if (this.inputs && proc.stdin) {
+      proc.stdin.write(this.inputs);
+      proc.stdin.flush();
+      proc.stdin.end();
+    }
 
     const stdout = await new Response(proc.stdout).text();
     const stderr = await new Response(proc.stderr).text();
@@ -334,7 +465,6 @@ main().catch(console.error);
       if (timer) clearTimeout(timer);
 
       if (timedOut) {
-        // Already handled by timeoutPromise
         return { stdout: "", stderr: "", exitCode: 124 };
       }
 

@@ -1,0 +1,22 @@
+{
+  "lessonId": "004_python.basics.user_input",
+  "lessonNumber": 4,
+  "conceptId": "python.basics.user_input",
+  "title": "User Input and Output",
+  "markdown": "---\n# User Input and Output\n\n## Learning Objectives\n- Use `input()` to get user input\n- Use `print()` to display output\n- Understand how to store and use user input in variables\n\n## Concept Explanation\nIn Python, we can make programs interactive by taking input from the user and displaying output. The `input()` function waits for the user to type something and press Enter, then returns that input as a string. The `print()` function displays text or variables to the console. Combining these allows you to create programs that respond to user actions.\n\n## Code Examples\n\n### Example 1: Basic Input\n```python\n# This program asks for the user's name and greets them\nname = input(\"What is your name? \")\nprint(\"Hello, \" + name + \"!\")\n```\n\n### Example 2: Simple Calculator\n```python\n# This program adds two numbers provided by the user\nnum1 = input(\"Enter first number: \")\nnum2 = input(\"Enter second number: \")\nresult = int(num1) + int(num2)  # Convert strings to integers\nprint(\"The sum is:\", result)\n```\n\n## Verification Task\n\n**YOUR MISSION:**\nCreate a program that asks the user for their favorite color and then prints a message using that color.\n\n**Starter Files:**\n**file: main.py**\n```python\n# TODO: Ask the user for their favorite color\n# TODO: Store the input in a variable\n# TODO: Print a message using the color\npass\n```\n\n**Hints:**\n- Use `input()` to get the user's favorite color\n- Store the result in a variable (e.g., `favorite_color`)\n- Use `print()` to display a message like \"Your favorite color is [color]!\"\n\n**Expected Output:**\n```\nWhat is your favorite color? blue\nYour favorite color is blue!\n```\n\n**Success Criteria:**\n- [ ] The program asks for the user's favorite color\n- [ ] The program stores the input in a variable\n- [ ] The program prints a message using the input\n\n## Common Mistakes\n1. **Forgetting to store input in a variable**: Always assign the result of `input()` to a variable so you can use it later.\n2. **Not converting input types**: `input()` always returns a string. If you need a number, use `int()` or `float()` to convert it.\n\n## Summary\nUser input and output are essential for creating interactive programs. Use `input()` to get data from the user and `print()` to display results. Always store input in variables for later use, and remember to convert types when needed.",
+  "verificationTask": {
+    "description": "Create a program that asks the user for their favorite color and then prints a message using that color.",
+    "expectedOutput": "What is your favorite color? blue\nYour favorite color is blue!",
+    "validationCriteria": [
+      "Code compiles successfully",
+      "Expected output matches"
+    ],
+    "starterFiles": [
+      {
+        "path": "main.py",
+        "content": "# TODO: Ask the user for their favorite color\n# TODO: Store the input in a variable\n# TODO: Print a message using the color\npass"
+      }
+    ]
+  },
+  "generatedAt": "2026-01-29T03:34:16.810Z"
+}
