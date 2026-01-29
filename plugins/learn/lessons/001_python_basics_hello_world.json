@@ -1,0 +1,22 @@
+{
+  "lessonId": "001_python.basics.hello_world",
+  "lessonNumber": 1,
+  "conceptId": "python.basics.hello_world",
+  "title": "Hello World Program",
+  "markdown": "---\n# Hello World Program\n\n## Learning Objectives\n- Write your first Python program\n- Understand how to print text to the console\n- Learn basic Python syntax rules\n\n## Concept Explanation\nEvery programming journey starts with a \"Hello World\" program. This simple program teaches you how to:\n1. Write code that Python can understand\n2. Run your program\n3. See output appear on your screen\n\nIn Python, we use the `print()` function to display text. The text must be wrapped in quotes (either single `'` or double `\"`). Python will execute your code line by line from top to bottom.\n\n## Code Examples\n\n### Example 1: Basic Hello World\n```python\n# This is a comment - Python ignores this line\nprint(\"Hello World\")\n```\n\n### Example 2: Printing Multiple Lines\n```python\nprint(\"Welcome to Python!\")\nprint(\"This is your first program.\")\nprint(\"Great job!\")\n```\n\n## Verification Task\n\n**YOUR MISSION:**\nWrite a Python program that prints two lines:\n1. Your name\n2. A fun fact about yourself\n\n**Starter Files:**\n\n**file: main.py**\n```python\n# IMPLEMENTATION STUB\n# TODO: Write your Hello World program here\npass  # This is a placeholder - remove it when you add your code\n```\n\n**Hints:**\n- Use the `print()` function for each line\n- Remember to wrap your text in quotes\n- You can write multiple `print()` statements\n\n**Expected Output:**\n```\nAlice\nI love coding!\n```\n\n**Success Criteria:**\n- [ ] The program runs without errors\n- [ ] Your name appears on the first line\n- [ ] A fun fact appears on the second line\n- [ ] Both lines are printed to the console\n\n## Common Mistakes\n1. **Forgetting quotes**: `print(Hello)` will cause an error. Always use quotes around your text.\n2. **Mismatched quotes**: `print(\"Hello')` will cause an error. Use matching pairs of quotes.\n3. **Missing parentheses**: `print \"Hello\"` is Python 2 syntax and won't work in Python 3.\n\n## Summary\nYou've just written your first Python program! Key takeaways:\n- Python code is written in plain text files with `.py` extension\n- The `print()` function displays text on the screen\n- Text must be wrapped in quotes\n- Python executes code from top to bottom\n- Comments start with `#` and are ignored by Python\n\nNow you're ready to explore more Python concepts!",
+  "verificationTask": {
+    "description": "Write a Python program that prints two lines:\n1. Your name\n2. A fun fact about yourself",
+    "expectedOutput": "Alice\nI love coding!",
+    "validationCriteria": [
+      "Code compiles successfully",
+      "Expected output matches"
+    ],
+    "starterFiles": [
+      {
+        "path": "main.py",
+        "content": "# IMPLEMENTATION STUB\n# TODO: Write your Hello World program here\npass  # This is a placeholder - remove it when you add your code"
+      }
+    ]
+  },
+  "generatedAt": "2026-01-29T02:17:52.803Z"
+}

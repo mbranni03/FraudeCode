@@ -7,7 +7,7 @@
 import { join, dirname } from "path";
 import { KnowledgeGraph } from "./knowledge-graph";
 
-const DB_PATH = join(dirname(import.meta.path), "..", "rust_tutor.db");
+const DB_PATH = join(dirname(import.meta.path), "..", "learning.db");
 const RUST_JSON_PATH = join(dirname(import.meta.path), "..", "kg", "rust.json");
 
 async function main() {

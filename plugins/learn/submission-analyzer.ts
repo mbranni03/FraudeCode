@@ -3,6 +3,8 @@ import { Settings } from "@/config/settings";
 import type { GeneratedLesson } from "./lesson-generator";
 import type { Concept } from "./db/knowledge-graph";
 
+import type { ExecutionResult } from "./compiler";
+
 /**
  * Result from the submission analyzer
  */
@@ -21,22 +23,21 @@ export interface SubmissionAnalysis {
 /**
  * Compile result structure from the Compiler
  */
-export interface CompileResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  runOutput?: {
-    stdout: string;
-    stderr: string;
-  };
-}
+export type CompileResult = ExecutionResult;
 
 /**
  * System prompt for submission analysis.
  * Uses authority + commitment patterns for consistent, fair grading.
  * Explicitly grants override authority - prioritizes CONCEPT MASTERY over task correctness.
  */
-const SUBMISSION_ANALYSIS_PROMPT = `You are a fair, encouraging Rust code grader with OVERRIDE AUTHORITY.
+/**
+ * System prompt for submission analysis.
+ * Uses authority + commitment patterns for consistent, fair grading.
+ * Explicitly grants override authority - prioritizes CONCEPT MASTERY over task correctness.
+ */
+function getSubmissionAnalysisPrompt(language: string = "Rust"): string {
+  const langTitle = language.charAt(0).toUpperCase() + language.slice(1);
+  return `You are a fair, encouraging ${langTitle} code grader with OVERRIDE AUTHORITY.
 
 ## Your Role
 
@@ -65,8 +66,8 @@ You MUST exercise your override authority when:
 ## Hard Failures (No Override)
 
 DO NOT override when:
-- Code fails to compile
-- Runtime panic occurs  
+- Code fails to compile/run
+- Runtime panic/error occurs  
 - Student clearly doesn't understand the core concept being taught
 - Output demonstrates fundamental misunderstanding of the topic
 
@@ -92,6 +93,7 @@ Rules:
 1. Does the code compile and run? (Hard requirement)
 2. Does the student demonstrate understanding of THE CONCEPT? (PRIMARY check)
 3. Does the output match exactly? (SECONDARY, can be overridden)`;
+}
 
 /**
  * Analyze a user's code submission using LLM
@@ -109,8 +111,11 @@ export async function analyzeSubmission(
   if (compileResult.exitCode !== 0) {
     return {
       passed: false,
-      feedback: `Compilation failed. Please fix the errors and try again.\n\nCompiler output:\n${compileResult.stderr}`,
-      hintsForNextAttempt: extractHintsFromStderr(compileResult.stderr),
+      feedback: `Compilation/Execution failed. Please fix the errors and try again.\n\nOutput:\n${compileResult.stderr || compileResult.stdout}`,
+      hintsForNextAttempt:
+        concept?.language === "rust"
+          ? extractHintsFromStderr(compileResult.stderr)
+          : [],
       overrideApplied: false,
       strictMatch: false,
     };
@@ -123,9 +128,11 @@ export async function analyzeSubmission(
   // Compute strict match before LLM call
   const strictMatch = actualOutput.trim() === expectedOutput.trim();
 
+  const language = concept?.language || "rust";
+
   const agent = new Agent({
     model: selectedModel,
-    systemPrompt: SUBMISSION_ANALYSIS_PROMPT,
+    systemPrompt: getSubmissionAnalysisPrompt(language),
     temperature: 0.3, // Low temperature for consistent grading
     maxTokens: 1024,
     maxSteps: 1,
@@ -134,7 +141,7 @@ export async function analyzeSubmission(
 
   const userPrompt = `## Student Code
 
-\`\`\`rust
+\`\`\`${language}
 ${code}
 \`\`\`
 

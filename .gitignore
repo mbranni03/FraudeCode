@@ -38,3 +38,4 @@ debug.log
 # SQLite
 *.db-shm
 *.db-wal
+plugins/learn/learning.db

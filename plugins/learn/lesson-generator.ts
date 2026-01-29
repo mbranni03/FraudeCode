@@ -1,5 +1,5 @@
 import Agent from "@/agent/agent";
-import type { Concept } from "./db/knowledge-graph";
+import type { Concept, RawGraphNode } from "./db/knowledge-graph";
 import { join, dirname } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import { Settings } from "@/config/settings";
@@ -40,19 +40,61 @@ export interface UserContext {
 
 /**
  * System prompt for the lesson generation agent.
- * Optimized for token usage and clarity.
  */
-const LESSON_SYSTEM_PROMPT = `You are an expert Rust tutor. Your goal is to TEACH concepts through discovery, not to provide answers.
+function getLessonSystemPrompt(language: string = "Rust"): string {
+  const langTitle = language.charAt(0).toUpperCase() + language.slice(1);
+  const comment = {
+    rust: "//",
+    python: "#",
+    javascript: "//",
+    typescript: "//",
+  };
+
+  return `You are an expert ${langTitle} tutor. Your goal is to TEACH concepts through discovery, not to provide answers.
 
 ## Critical Rules
-1. **NO SOLUTIONS**: Starter code must be scaffolding only (signatures, structs, todo!()).
+1. **NO SOLUTIONS**: Starter code must be scaffolding only (signatures, structs, pass [python], todo!() [rust], etc).
 2. **GUIDANCE OVER ANSWERS**: Explain the *why* and *how*, let the user implement the *what*.
-3. **COMPILABLE**: Starter files must compile (use placeholders if needed).
+3. **COMPILABLE**: Starter files must compile/run (use placeholders if needed).
 4. **EXACT FORMAT**: You must strictly follow the output format below.
 5. **CONCEPT SCOPE**: You MUST only use concepts from the "Already Learned" list + the current lesson's concept.
    - If you need a technique not yet taught: (a) include it in a demonstration example, and (b) explain it briefly inline.
    - NEVER assume prior knowledge of concepts not in the "Already Learned" list.
    - This is CRITICAL for proper pedagogical sequencing.
+
+## Reference Example (Desired Structure)
+---
+# Console Output
+
+## Learning Objectives
+- Use the standard output function
+- Understand string literals
+
+## Concept Explanation
+In ${langTitle}, we use \`...\` to print text.
+
+## Code Examples
+### Example 1: Printing
+\`\`\`${language.toLowerCase()}
+${comment} This prints a message
+print("Hello World")
+\`\`\`
+
+## Verification Task
+**YOUR MISSION:** Update the starter code to print your name.
+
+**Starter Files:**
+**file: main.<file extension>**
+\`\`\`${language.toLowerCase()}
+    ${comment} IMPLEMENTATION STUB
+    todo!("User implements this")
+\`\`\`
+
+**Expected Output:**
+\`\`\`
+Hello, Bob
+\`\`\`
+---
 
 ## Output Format
 Response must be a single markdown block with this structure:
@@ -70,13 +112,13 @@ Response must be a single markdown block with this structure:
 ## Code Examples
 
 ### Example 1: Basic
-\`\`\`rust
-// Simple example
+\`\`\`${language.toLowerCase()}
+${comment} Simple example
 \`\`\`
 
 ### Example 2: Applied
-\`\`\`rust
-// Real-world scenario
+\`\`\`${language.toLowerCase()}
+${comment} Real-world scenario
 \`\`\`
 
 ## Verification Task
@@ -84,14 +126,13 @@ Response must be a single markdown block with this structure:
 **YOUR MISSION:**
 [Actionable task description]
 
-**Starter Files:**
+**Starter Files:** (EXAMPLE IS IN RUST, ADJUST FOR THE LANGUAGE)
 For each file (use exact format):
 
 **file: [path]**
 \`\`\`rust
-// Scaffolding only.
-// NO completion logic.
 fn example() {
+    // IMPLEMENTATION STUB
     todo!("User implements this")
 }
 \`\`\`
@@ -116,6 +157,34 @@ fn example() {
 [Key takeaways]
 ---
 `;
+}
+/**
+ * System prompt for generating new concepts (Knowledge Graph expansion)
+ */
+function getConceptGenerationSystemPrompt(language: string = "Rust"): string {
+  const langTitle = language.charAt(0).toUpperCase() + language.slice(1);
+  return `You are a curriculum designer for a ${langTitle} programming course.
+Your goal is to generate the NEXT logical concepts for a student to learn, expanding the knowledge graph.
+
+## Rules
+1. **Dependent**: New concepts must build logically on what the user has ALREADY mastered.
+2. **Granular**: Break topics down into small, learnable units (atomic concepts).
+3. **Progressive**: If the user is a beginner, start with basics. (e.g. "Hello World", variables, etc.)
+4. **Novel**: Do NOT generate concepts that already exist in the "All Known Concepts" list.
+5. **JSON Format**: Output MUST be a valid JSON array of concept objects.
+
+## Concept Object Structure
+{
+  "id": "unique.id.string", // e.g., "${language.toLowerCase()}.basics.variables"
+  "label": "Human Readable Title",
+  "category": "category_name", // e.g., "basics", "memory", "cli"
+  "language": "${language.toLowerCase()}",
+  "complexity": 0.0-1.0, // relative to existing concepts
+  "dependencies": ["parent.concept.id"], // IDs of concepts that are prerequisites
+  "project_context": "Optional short description of how this fits into a project"
+}
+`;
+}
 
 /**
  * Get the file path for a lesson with a global sequence number
@@ -309,7 +378,7 @@ export async function generateLesson(
 
   const agent = new Agent({
     model: selectedModel,
-    systemPrompt: LESSON_SYSTEM_PROMPT,
+    systemPrompt: getLessonSystemPrompt(concept.language || "Rust"),
     temperature: 0.7,
     maxTokens: 4096,
     maxSteps: 1,
@@ -336,6 +405,75 @@ export async function generateLesson(
 }
 
 /**
+ * Generate NEW concepts to extend the knowledge graph
+ */
+export async function generateNewConcepts(
+  masteredConcepts: Concept[],
+  allConcepts: Concept[],
+  language: string = "rust",
+): Promise<RawGraphNode[]> {
+  const model = Settings.getInstance().get("primaryModel");
+
+  const agent = new Agent({
+    model,
+    systemPrompt: getConceptGenerationSystemPrompt(language),
+    temperature: 0.8, // Slightly higher creativity for curriculum design
+    maxTokens: 2000,
+    maxSteps: 1,
+    useIsolatedContext: true,
+  });
+
+  let userPrompt = "The user has completed all available lessons.\n";
+
+  if (masteredConcepts.length > 0) {
+    userPrompt += "## Already Mastered Concepts (Dependencies available):\n";
+    for (const c of masteredConcepts) {
+      userPrompt += `- ${c.label} (ID: ${c.id}, Complexity: ${c.complexity})\n`;
+    }
+  } else {
+    userPrompt += "## User Status\n";
+    userPrompt +=
+      "The user has NO prior knowledge. Assume they are a complete beginner.\n";
+  }
+
+  userPrompt += "\n## Existing Concepts to Avoid (Already in Graph):\n";
+  for (const c of allConcepts) {
+    userPrompt += `- ${c.id}\n`;
+  }
+
+  userPrompt +=
+    "\n\nBased on this, generate 2-3 NEW concepts for the user to learn next.";
+  userPrompt += "\nReturn ONLY the JSON array.";
+
+  try {
+    const response = await agent.chat(userPrompt);
+    // basic cleanup to extract JSON if wrapped in backticks
+    let jsonStr = response.text.trim();
+    const jsonMatch = jsonStr.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[0];
+    } else if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```(json)?/, "").replace(/```$/, "");
+    }
+
+    try {
+      const newConcepts = JSON.parse(jsonStr) as RawGraphNode[];
+      // Ensure language is set for all new concepts
+      return newConcepts.map((c) => ({
+        ...c,
+        language: c.language || language,
+      }));
+    } catch (parseError) {
+      console.error("Failed to parse generated concepts JSON:", jsonStr);
+      return [];
+    }
+  } catch (e: any) {
+    console.error("Failed to generate new concepts:", e.message);
+    return [];
+  }
+}
+
+/**
  * Build the user prompt for a specific concept
  */
 function buildLessonPrompt(
@@ -343,8 +481,11 @@ function buildLessonPrompt(
   context?: UserContext,
   lessonNumber: number = 1,
 ): string {
+  const langTitle =
+    (concept.language || "Rust").charAt(0).toUpperCase() +
+    (concept.language || "Rust").slice(1);
   const parts: string[] = [
-    `Create a lesson for the Rust concept: **${concept.label}** (ID: ${concept.id})`,
+    `Create a lesson for the ${langTitle} concept: **${concept.label}** (ID: ${concept.id})`,
     "",
     `**Course Context:** This is **Lesson #${lessonNumber}** in the user's overall learning journey.`,
     `**Concept Complexity:** ${concept.complexity} (0.0=beginner, 1.0=expert)`,
@@ -363,15 +504,14 @@ function buildLessonPrompt(
     }
   } else {
     parts.push(
-      "This is the user's FIRST lesson. They have no prior Rust knowledge.",
+      "This is the user's FIRST lesson. They have no prior knowledge.",
     );
     parts.push(
       "You must explain EVERYTHING from scratch, including basic syntax.",
     );
   }
-  parts.push("");
   parts.push(
-    "⚠️ CRITICAL: Do NOT use any Rust concepts NOT listed above without demonstrating and explaining them inline first.",
+    `⚠️ CRITICAL: Do NOT use any ${langTitle} concepts NOT listed above without demonstrating and explaining them inline first.`,
   );
 
   // If the user has errors, this is a targeted remediation lesson

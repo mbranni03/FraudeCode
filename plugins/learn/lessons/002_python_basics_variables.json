@@ -1,0 +1,22 @@
+{
+  "lessonId": "002_python.basics.variables",
+  "lessonNumber": 2,
+  "conceptId": "python.basics.variables",
+  "title": "Variables and Data Types",
+  "markdown": "---\n# Variables and Data Types\n\n## Learning Objectives\n- Understand what variables are and how to use them\n- Learn about basic data types in Python (integers, floats, strings)\n- Practice assigning values to variables and printing them\n\n## Concept Explanation\nVariables are like containers that store data in your program. They have names (like `age` or `name`) and can hold different types of data. In Python, you don't need to declare the type of a variable—Python figures it out automatically based on the value you assign.\n\nCommon data types you'll use:\n- **Integers**: Whole numbers (e.g., `5`, `-3`, `100`)\n- **Floats**: Decimal numbers (e.g., `3.14`, `-0.5`, `2.0`)\n- **Strings**: Text (e.g., `\"Hello\"`, `\"Python\"`)\n\n## Code Examples\n\n### Example 1: Basic Variable Assignment\n```python\n# Assigning values to variables\nage = 25\nname = \"Alice\"\nheight = 5.9\n```\n\n### Example 2: Printing Variables\n```python\n# Printing variables\nprint(\"Name:\", name)\nprint(\"Age:\", age)\nprint(\"Height:\", height)\n```\n\n### Example 3: Changing Variable Values\n```python\n# Variables can be updated\nage = 26  # Updating the age\nprint(\"Updated Age:\", age)\n```\n\n## Verification Task\n\n**YOUR MISSION:**\nCreate a program that stores your personal information (name, age, and favorite number) in variables and prints them in a sentence.\n\n**Starter Files:**\n\n**file: main.py**\n```python\n# IMPLEMENTATION STUB\n# TODO: Assign your name, age, and favorite number to variables\nname = None\nage = None\nfavorite_number = None\n\n# TODO: Print a sentence using these variables\nprint(\"Hello, my name is\", name, \"and I am\", age, \"years old. My favorite number is\", favorite_number)\n```\n\n**Hints:**\n- Use `=` to assign values to variables.\n- Strings should be enclosed in quotes (`\"` or `'`).\n- Numbers (integers/floats) should not be in quotes.\n\n**Expected Output:**\n```\nHello, my name is Bob and I am 30 years old. My favorite number is 7\n```\n\n**Success Criteria:**\n- [ ] Variables `name`, `age`, and `favorite_number` are correctly assigned.\n- [ ] The output matches the expected format.\n- [ ] The program runs without errors.\n\n## Common Mistakes\n1. **Forgetting quotes for strings**: Always enclose text in quotes (e.g., `\"Bob\"` not `Bob`).\n2. **Mismatched data types**: Ensure numbers are not in quotes (e.g., `30` not `\"30\"` for age).\n3. **Typo in variable names**: Python is case-sensitive, so `Name` and `name` are different.\n\n## Summary\nVariables are fundamental in programming—they let you store and manipulate data. Python makes it easy by automatically handling data types. Practice using variables to build a strong foundation for more complex programs!",
+  "verificationTask": {
+    "description": "Create a program that stores your personal information (name, age, and favorite number) in variables and prints them in a sentence.",
+    "expectedOutput": "Hello, my name is Bob and I am 30 years old. My favorite number is 7",
+    "validationCriteria": [
+      "Code compiles successfully",
+      "Expected output matches"
+    ],
+    "starterFiles": [
+      {
+        "path": "main.py",
+        "content": "# IMPLEMENTATION STUB\n# TODO: Assign your name, age, and favorite number to variables\nname = None\nage = None\nfavorite_number = None\n\n# TODO: Print a sentence using these variables\nprint(\"Hello, my name is\", name, \"and I am\", age, \"years old. My favorite number is\", favorite_number)"
+      }
+    ]
+  },
+  "generatedAt": "2026-01-29T02:19:03.658Z"
+}

@@ -8,6 +8,7 @@ export interface Concept {
   id: string;
   label: string;
   category: string | null;
+  language: string;
   complexity: number;
   metadata: Record<string, any> | null;
 }
@@ -34,13 +35,14 @@ export interface SessionLog {
   timestamp?: string;
 }
 
-// Raw JSON node from rust.json
-interface RawGraphNode {
+// Raw JSON node for adding concepts
+export interface RawGraphNode {
   id?: string;
   label?: string;
   dependencies?: string[];
   complexity?: number;
   category?: string;
+  language?: string;
   project_context?: string;
   comment?: string;
 }
@@ -57,8 +59,10 @@ export class KnowledgeGraph {
   private getRecentErrorsStmt!: Statement;
   private getTotalDurationStmt!: Statement;
   private getBestPerformanceStmt!: Statement;
+  private getMasteredConceptsStmt!: Statement;
+  private getTimePerLanguageStmt!: Statement;
 
-  constructor(dbPath: string = "rust_tutor.db") {
+  constructor(dbPath: string = "learning.db") {
     this.db = new Database(dbPath);
     this.db.run("PRAGMA journal_mode = WAL;");
 
@@ -79,12 +83,15 @@ export class KnowledgeGraph {
         c.id, 
         c.label, 
         c.category,
+        c.language,
         c.complexity,
         c.metadata,
         COALESCE(u.mastery_score, 0.0) as current_score
       FROM concepts c
       LEFT JOIN user_mastery u ON c.id = u.concept_id AND u.user_id = $userId
       WHERE 
+        c.language = $language
+      AND
         -- Criterion 1: Not yet mastered (Score < 0.8)
         COALESCE(u.mastery_score, 0.0) < 0.8
       AND 
@@ -101,7 +108,7 @@ export class KnowledgeGraph {
     `);
 
     this.getConceptStmt = this.db.prepare(`
-      SELECT id, label, category, complexity, metadata
+      SELECT id, label, category, language, complexity, metadata
       FROM concepts
       WHERE id = $conceptId
     `);
@@ -126,7 +133,7 @@ export class KnowledgeGraph {
     `);
 
     this.getAllConceptsStmt = this.db.prepare(`
-      SELECT id, label, category, complexity, metadata
+      SELECT id, label, category, language, complexity, metadata
       FROM concepts
       ORDER BY complexity ASC
     `);
@@ -157,6 +164,22 @@ export class KnowledgeGraph {
       FROM session_logs 
       WHERE user_id = $userId AND success = 1
       GROUP BY concept_id
+    `);
+
+    this.getMasteredConceptsStmt = this.db.prepare(`
+      SELECT c.id, c.label, c.category, c.language, c.complexity, c.metadata
+      FROM concepts c
+      JOIN user_mastery u ON c.id = u.concept_id
+      WHERE u.user_id = $userId AND u.mastery_score >= 0.8
+      ORDER BY c.complexity DESC
+    `);
+
+    this.getTimePerLanguageStmt = this.db.prepare(`
+      SELECT c.language, SUM(COALESCE(s.duration_ms, 0)) as total_duration
+      FROM session_logs s
+      JOIN concepts c ON s.concept_id = c.id
+      WHERE s.user_id = $userId
+      GROUP BY c.language
     `);
   }
 
@@ -194,8 +217,8 @@ export class KnowledgeGraph {
     this.db.transaction(() => {
       // Insert concepts
       const insertConcept = this.db.prepare(`
-        INSERT OR REPLACE INTO concepts (id, label, category, complexity, metadata)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO concepts (id, label, category, language, complexity, metadata)
+        VALUES (?, ?, ?, ?, ?, ?)
       `);
 
       for (const concept of concepts) {
@@ -203,6 +226,7 @@ export class KnowledgeGraph {
           concept.id,
           concept.label,
           concept.category || null,
+          (concept.language || "rust").toLowerCase(),
           concept.complexity || 0.5,
           JSON.stringify({
             project_context: concept.project_context || null,
@@ -225,7 +249,72 @@ export class KnowledgeGraph {
       }
     })();
 
-    console.log(`✅ Seeded ${concepts.length} concepts from ${jsonPath}`);
+    log(`✅ Seeded ${concepts.length} concepts from ${jsonPath}`);
+  }
+
+  /**
+   * Add a new concept to the graph
+   */
+  addConcept(concept: RawGraphNode): void {
+    if (!concept.id || !concept.label) {
+      throw new Error("Concept ID and label are required");
+    }
+
+    const id = concept.id;
+    const label = concept.label;
+    const category = concept.category || null;
+    const language = (concept.language || "rust").toLowerCase();
+    const complexity = concept.complexity || 0.5;
+    const projectContext = concept.project_context || null;
+    const dependencies = concept.dependencies || [];
+
+    log(
+      `Graph: Adding concept ${id} (${label}) for lang=${language} with deps=[${dependencies.join(", ")}]`,
+    );
+
+    this.db.transaction(() => {
+      // Insert concept
+      this.db
+        .prepare(
+          `
+        INSERT OR REPLACE INTO concepts (id, label, category, language, complexity, metadata)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `,
+        )
+        .run(
+          id,
+          label,
+          category,
+          language,
+          complexity,
+          JSON.stringify({
+            project_context: projectContext,
+          }),
+        );
+
+      // Insert dependencies
+      if (dependencies.length > 0) {
+        const insertDep = this.db.prepare(`
+          INSERT OR IGNORE INTO dependencies (child_id, parent_id)
+          VALUES (?, ?)
+        `);
+
+        for (const parentId of dependencies) {
+          insertDep.run(id, parentId);
+        }
+      }
+    })();
+  }
+
+  /**
+   * Get all concepts that are mastered by the user
+   */
+  getMasteredConcepts(userId: string): Concept[] {
+    const rows = this.getMasteredConceptsStmt.all({ $userId: userId }) as any[];
+    return rows.map((row) => ({
+      ...row,
+      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    }));
   }
 
   /**
@@ -234,8 +323,11 @@ export class KnowledgeGraph {
    * 1. Are not yet mastered (score < 0.8)
    * 2. Have all prerequisites mastered
    */
-  getFrontier(userId: string): FrontierConcept[] {
-    const rows = this.getFrontierStmt.all({ $userId: userId }) as any[];
+  getFrontier(userId: string, language: string = "rust"): FrontierConcept[] {
+    const rows = this.getFrontierStmt.all({
+      $userId: userId,
+      $language: language,
+    }) as any[];
     return rows.map((row) => ({
       ...row,
       metadata: row.metadata ? JSON.parse(row.metadata) : null,
@@ -248,9 +340,10 @@ export class KnowledgeGraph {
    */
   getNextLesson(
     userId: string,
+    language: string,
     priorityCategory?: string,
   ): FrontierConcept | null {
-    const frontier = this.getFrontier(userId);
+    const frontier = this.getFrontier(userId, language);
 
     if (frontier.length === 0) {
       return null;
@@ -283,8 +376,11 @@ export class KnowledgeGraph {
   /**
    * Get all concepts
    */
-  getAllConcepts(): Concept[] {
-    const rows = this.getAllConceptsStmt.all() as any[];
+  getAllConcepts(language?: string): Concept[] {
+    let rows = this.getAllConceptsStmt.all() as any[];
+    if (language) {
+      rows = rows.filter((r) => r.language === language);
+    }
     return rows.map((row) => ({
       ...row,
       metadata: row.metadata ? JSON.parse(row.metadata) : null,
@@ -321,12 +417,12 @@ export class KnowledgeGraph {
    * Export graph to Mermaid syntax for visualization
    * Optionally includes user mastery coloring
    */
-  getMermaidGraph(userId?: string): string {
+  getMermaidGraph(userId?: string, language?: string): string {
     const edges = this.db
       .query("SELECT parent_id, child_id FROM dependencies")
       .all() as { parent_id: string; child_id: string }[];
 
-    const concepts = this.getAllConcepts();
+    const concepts = this.getAllConcepts(language);
     const masteryMap = userId
       ? new Map(
           this.getUserMastery(userId).map((m) => [
@@ -428,7 +524,7 @@ export class KnowledgeGraph {
           FROM dependencies d
           JOIN prereqs p ON d.child_id = p.id
         )
-        SELECT c.id, c.label, c.category, c.complexity, c.metadata
+        SELECT c.id, c.label, c.category, c.language, c.complexity, c.metadata
         FROM concepts c
         JOIN prereqs p ON c.id = p.id
         ORDER BY c.complexity ASC
@@ -598,6 +694,18 @@ export class KnowledgeGraph {
     totalTime: number;
     topicLevels: Record<string, number>;
     overallLevel: number;
+    languages: Record<
+      string,
+      {
+        total: number;
+        mastered: number;
+        inProgress: number;
+        notStarted: number;
+        averageMastery: number;
+        overallLevel: number;
+        totalTime: number;
+      }
+    >;
   } {
     const allConcepts = this.getAllConcepts();
     const userMastery = this.getUserMastery(userId);
@@ -678,6 +786,94 @@ export class KnowledgeGraph {
 
     const totalTime = totalDurationResult?.total_duration ?? 0;
 
+    // Get time per language
+    const timePerLangRows = this.getTimePerLanguageStmt.all({
+      $userId: userId,
+    }) as { language: string; total_duration: number }[];
+    const timePerLangMap = new Map(
+      timePerLangRows.map((r) => [r.language, r.total_duration]),
+    );
+
+    const languages: Record<
+      string,
+      {
+        total: number;
+        mastered: number;
+        inProgress: number;
+        notStarted: number;
+        totalMastery: number;
+        maxComplexityMastered: number;
+      }
+    > = {};
+
+    for (const concept of allConcepts) {
+      const score = masteryMap.get(concept.id) || 0;
+      const isMastered = score >= 0.8;
+      totalMastery += score;
+
+      const lang = concept.language || "rust";
+      if (!languages[lang]) {
+        languages[lang] = {
+          total: 0,
+          mastered: 0,
+          inProgress: 0,
+          notStarted: 0,
+          totalMastery: 0,
+          maxComplexityMastered: 0,
+        };
+      }
+
+      languages[lang].total++;
+      languages[lang].totalMastery += score;
+
+      if (isMastered) {
+        mastered++;
+        languages[lang].mastered++;
+        const cat = concept.category || "general";
+
+        // Performance adjustment for level calculation
+        const perf = performanceMap.get(concept.id);
+        let performanceMultiplier = 1.0;
+
+        if (perf) {
+          // Attempt penalty: 1-2 attempts is perfect (1.0).
+          // 3: 0.95, 4: 0.9, 5: 0.85, ..., 10+: 0.5
+          const aMult = Math.max(0.5, 1.05 - 0.05 * perf.best_attempts);
+
+          // Duration penalty
+          const benchmark = 60000 + concept.complexity * 240000;
+          let dMult = 1.0;
+          if (perf.best_duration > benchmark * 3) {
+            // Only penalize if >3x benchmark
+            dMult = Math.max(0.9, 1.0 - perf.best_duration / (benchmark * 50));
+          }
+          performanceMultiplier = aMult * dMult;
+        }
+
+        const effectiveComplexity = concept.complexity * performanceMultiplier;
+
+        maxComplexityPerCategory[cat] = Math.max(
+          maxComplexityPerCategory[cat] || 0,
+          effectiveComplexity,
+        );
+        overallMaxComplexityMastered = Math.max(
+          overallMaxComplexityMastered,
+          effectiveComplexity,
+        );
+
+        languages[lang].maxComplexityMastered = Math.max(
+          languages[lang].maxComplexityMastered,
+          effectiveComplexity,
+        );
+      } else if (score > 0) {
+        inProgress++;
+        languages[lang].inProgress++;
+      } else {
+        notStarted++;
+        languages[lang].notStarted++;
+      }
+    }
+
     const topicLevels: Record<string, number> = {};
     // Ensure all categories present in the graph are represented
     const categories = new Set(allConcepts.map((c) => c.category || "general"));
@@ -685,6 +881,20 @@ export class KnowledgeGraph {
       topicLevels[cat] = this.complexityToLevel(
         maxComplexityPerCategory[cat] || 0,
       );
+    }
+
+    // Format language breakdown
+    const languageBreakdown: Record<string, any> = {};
+    for (const [lang, stats] of Object.entries(languages)) {
+      languageBreakdown[lang] = {
+        total: stats.total,
+        mastered: stats.mastered,
+        inProgress: stats.inProgress,
+        notStarted: stats.notStarted,
+        averageMastery: stats.total > 0 ? stats.totalMastery / stats.total : 0,
+        overallLevel: this.complexityToLevel(stats.maxComplexityMastered),
+        totalTime: timePerLangMap.get(lang) || 0,
+      };
     }
 
     return {
@@ -697,6 +907,7 @@ export class KnowledgeGraph {
       totalTime,
       topicLevels,
       overallLevel: this.complexityToLevel(overallMaxComplexityMastered),
+      languages: languageBreakdown,
     };
   }
 

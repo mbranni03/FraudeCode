@@ -13,7 +13,9 @@ import {
   getLatestLessonForConcept,
   getLessonsForLanguage,
   loadLessonById,
+  generateNewConcepts,
   type GeneratedLesson,
+  type UserContext, // Import UserContext
 } from "./lesson-generator";
 import Agent from "@/agent/agent";
 import { Settings } from "@/config/settings";
@@ -23,7 +25,7 @@ import {
   type CompileResult,
 } from "./submission-analyzer";
 
-const DB_PATH = join(dirname(import.meta.path), "rust_tutor.db");
+const DB_PATH = join(dirname(import.meta.path), "learning.db");
 
 const command = {
   name: "learn",
@@ -88,7 +90,7 @@ const command = {
     router.register("GET", "/lessons/:language", (req) => {
       const url = new URL(req.url);
       const pathParts = url.pathname.split("/");
-      const language = pathParts[pathParts.length - 1] || "";
+      const language = (pathParts[pathParts.length - 1] || "").toLowerCase();
       const userId = url.searchParams.get("userId") || undefined;
 
       if (!language) {
@@ -179,15 +181,49 @@ const command = {
           );
         }
 
-        // Use wasm32-wasip1 if wasm32-wasi is not supported by the toolchain
-        const target = "wasm32-wasip1";
-        const compile = new Compiler(
-          "cargo",
-          ["build", "--target", target],
-          language,
-          code,
-        );
-        const output = await compile.execute();
+        let compiler: Compiler;
+
+        if (language.toLowerCase() === "rust") {
+          // Use wasm32-wasip1 if wasm32-wasi is not supported by the toolchain
+          const target = "wasm32-wasip1";
+          compiler = new Compiler(language, code, {
+            tool: "cargo",
+            args: ["build", "--target", target],
+          });
+        } else if (
+          language.toLowerCase() === "python" ||
+          language.toLowerCase() === "python3"
+        ) {
+          compiler = new Compiler("python", code);
+        } else if (
+          language.toLowerCase() === "javascript" ||
+          language.toLowerCase() === "js"
+        ) {
+          compiler = new Compiler("javascript", code);
+        } else if (
+          language.toLowerCase() === "typescript" ||
+          language.toLowerCase() === "ts"
+        ) {
+          compiler = new Compiler("typescript", code);
+        } else {
+          return new Response(
+            JSON.stringify({ error: `Unsupported language: ${language}` }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        const output = await compiler.execute();
+
+        // Adapt output for interpreted languages (where stdout IS the run output)
+        if (language.toLowerCase() !== "rust" && output.exitCode === 0) {
+          output.runOutput = {
+            stdout: output.stdout,
+            stderr: output.stderr,
+          };
+        }
 
         return new Response(JSON.stringify(output), {
           status: 200,
@@ -258,7 +294,7 @@ const command = {
         }
 
         // Construct optimized prompt
-        const systemPrompt = `You are a helpful Rust tutor assistant. Your goal is to help the user understand the concept and complete the task without giving the direct solution code.
+        const systemPrompt = `You are a helpful programming tutor assistant. Your goal is to help the user understand the concept and complete the task without giving the direct solution code.
 Guide them with hints, explanations, and small examples. Be concise and encouraging.`;
 
         let userPrompt = `User Question: "${question}"\n\n`;
@@ -361,18 +397,55 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
         const previousAttempts = kg.getAttemptCount(userId, conceptId);
         const attemptNumber = previousAttempts + 1;
 
+        // Determine language from concept or request
+        const concept = kg.getConcept(conceptId);
+        if (!concept) {
+          return new Response(JSON.stringify({ error: "Concept not found" }), {
+            status: 404,
+          });
+        }
+        const language = concept.language || "rust";
+
         // Compile and run the user's code
-        const target = "wasm32-wasip1";
-        const compiler = new Compiler(
-          "cargo",
-          ["build", "--target", target],
-          "rust",
-          code,
-        );
+        let compiler: Compiler;
+        if (language.toLowerCase() === "rust") {
+          const target = "wasm32-wasip1";
+          compiler = new Compiler("rust", code, {
+            tool: "cargo",
+            args: ["build", "--target", target],
+          });
+        } else if (
+          language.toLowerCase() === "python" ||
+          language.toLowerCase() === "python3"
+        ) {
+          compiler = new Compiler("python", code);
+        } else if (
+          language.toLowerCase() === "javascript" ||
+          language.toLowerCase() === "js"
+        ) {
+          compiler = new Compiler("javascript", code);
+        } else if (
+          language.toLowerCase() === "typescript" ||
+          language.toLowerCase() === "ts"
+        ) {
+          compiler = new Compiler("typescript", code);
+        } else {
+          // Fallback or error
+          compiler = new Compiler("unknown", "", {
+            tool: "echo",
+            args: ["Unsupported language"],
+          });
+        }
+
         const compileResult: CompileResult = await compiler.execute();
 
-        // Get concept info for mastery-based evaluation
-        const concept = kg.getConcept(conceptId);
+        // Adapt result for interpreted languages
+        if (language.toLowerCase() !== "rust" && compileResult.exitCode === 0) {
+          compileResult.runOutput = {
+            stdout: compileResult.stdout,
+            stderr: compileResult.stderr,
+          };
+        }
 
         // Analyze the submission with LLM (prioritizes concept mastery over task correctness)
         const analysis = await analyzeSubmission(
@@ -452,8 +525,40 @@ Guide them with hints, explanations, and small examples. Be concise and encourag
 
         const userId = body.userId || "default_user";
         const currentConceptId = body.currentConceptId;
+        const language = (body.language || "rust").toLowerCase();
 
-        const nextConcept = kg.getNextLesson(userId);
+        let nextConcept = kg.getNextLesson(userId, language);
+
+        // If no existing lessons, try to generate new ones
+        if (!nextConcept) {
+          log("Frontier empty, attempting to generate new concepts...");
+          try {
+            const masteredConcepts = kg
+              .getMasteredConcepts(userId)
+              .filter((c) => c.language === language);
+            const allConcepts = kg.getAllConcepts(language);
+
+            const newConcepts = await generateNewConcepts(
+              masteredConcepts,
+              allConcepts,
+              language,
+            );
+
+            if (newConcepts.length > 0) {
+              log(
+                `Adding ${newConcepts.length} new generated concepts to KG: ${newConcepts.map((c) => c.id).join(", ")}`,
+              );
+              for (const c of newConcepts) {
+                kg.addConcept(c);
+              }
+
+              // Retry getting the next lesson
+              nextConcept = kg.getNextLesson(userId, language);
+            }
+          } catch (genError: any) {
+            log(`Failed to generate new concepts: ${genError.message}`);
+          }
+        }
 
         if (!nextConcept) {
           return new Response(

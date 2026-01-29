@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS concepts (
     id TEXT PRIMARY KEY,
     label TEXT NOT NULL,
     category TEXT, -- e.g., 'cli', 'agentic', 'core', 'data', 'patterns', 'architecture', 'memory', 'concurrency', 'async'
+    language TEXT DEFAULT 'rust', -- e.g. 'rust', 'python', 'javascript'
     complexity REAL DEFAULT 0.5,
     metadata JSON -- Store project ideas, keywords here
 );
