@@ -23,7 +23,7 @@ FraudeCode is a simple AI coding agent that can help you with your coding tasks.
 
 ---
 
-### Supported Providers
+## Supported Providers
 
 I went with anyone that had a free tier :|
 
@@ -36,11 +36,11 @@ I went with anyone that had a free tier :|
 - Cerebras
 - Google
 
-### Installation
+## Installation
 
 Still in dev so just clone the repo and run `bun run dev`
 
-### Plugins
+## Plugins
 
 You can use plugins to extend the functionality of FraudeCode. Check out the [plugins](./plugins) directory for more information.
 
