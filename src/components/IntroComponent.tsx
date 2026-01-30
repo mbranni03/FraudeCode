@@ -23,8 +23,8 @@ const INTRO_THEME = {
 
 export default function IntroComponent() {
   return (
-    <Box flexDirection="column" padding={1}>
-      <Box paddingX={1} marginBottom={1}>
+    <Box flexDirection="column">
+      <Box paddingX={1}>
         <Text color={INTRO_THEME.primaryDim}>
           FRAUDE CODE <Text color={INTRO_THEME.dim}>·</Text>{" "}
           <Text italic>Agentic AI Assistant</Text>
@@ -36,7 +36,7 @@ export default function IntroComponent() {
         <BigText text="Code" font="block" />
       </Gradient>
 
-      <Box marginTop={1} flexDirection="column">
+      <Box flexDirection="column">
         <Text color={INTRO_THEME.dim}>Ready to build something amazing?</Text>
         <Box marginTop={1}>
           <Text color={INTRO_THEME.dim}>
