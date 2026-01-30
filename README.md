@@ -5,6 +5,16 @@
 </p>
 <p align="center">Just another AI coding agent.</p>
 
+---
+
+## What is FraudeCode?
+
+FraudeCode is a simple AI coding agent that can help you with your coding tasks. It has 3 different modes:
+
+- Fast Mode: Fast mode is the default mode. It will conduct research, generate code, and then test it itself.
+- Planning Mode: Planning mode will create an implementation plan and tasks, using a research subagent to gather context. It will then use a worker subagent to generate code, and a reviewer subagent to review the code. This mode is recommended for larger tasks.
+- Ask Mode: Ask mode will use an agent to answer a question about a codebase without altering it.
+
 <p align="center">
     <picture>
       <img src="./assets/demo.gif" alt="FraudeCode demo" width="600">
@@ -15,7 +25,9 @@
 
 ### Supported Providers
 
-_I went with anyone that had a free tier_ :| (This is built on vercel AI SDK so its easy to add more providers)
+I went with anyone that had a free tier :|
+
+(This is built on vercel AI SDK so its easy to add more providers)
 
 - Ollama
 - Mistral
