@@ -1,5 +1,5 @@
 import { Database, Statement } from "bun:sqlite";
-import { readFileSync } from "fs";
+import { readFileSync, mkdirSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import log from "@/utils/logger";
 
@@ -64,6 +64,12 @@ export class KnowledgeGraph {
   private getTimePerLanguageStmt!: Statement;
 
   constructor(dbPath: string = "learning.db") {
+    // Ensure directory exists
+    const dbDir = dirname(dbPath);
+    if (dbDir && !existsSync(dbDir)) {
+      mkdirSync(dbDir, { recursive: true });
+    }
+
     this.db = new Database(dbPath);
     this.db.run("PRAGMA journal_mode = WAL;");
 
