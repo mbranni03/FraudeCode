@@ -1,0 +1,197 @@
+{
+  "graph_name": "Rust_Agentic_Curriculum",
+  "version": "1.0",
+  "nodes": [
+    {
+      "comment": "--- TIER 1: THE ABSOLUTE FUNDAMENTALS ---"
+    },
+    {
+      "id": "rust.basics.helloworld",
+      "label": "Hello World",
+      "dependencies": [],
+      "complexity": 0.1,
+      "category": "core",
+      "project_context": "Print 'Hello, World!' to the console using the `println!` macro."
+    },
+    {
+      "id": "rust.basics.variables",
+      "label": "Variables & Mutability",
+      "dependencies": ["rust.basics.install"],
+      "complexity": 0.1,
+      "category": "core",
+      "project_context": "Store a stock price in a variable and try to update it without `mut`."
+    },
+    {
+      "id": "rust.basics.types",
+      "label": "Scalar & Compound Types",
+      "dependencies": ["rust.basics.variables"],
+      "complexity": 0.2,
+      "category": "core",
+      "project_context": "Define a Tuple representing (Ticker, Price, Volume)."
+    },
+    {
+      "id": "rust.basics.functions",
+      "label": "Functions & Returns",
+      "dependencies": ["rust.basics.types"],
+      "complexity": 0.2,
+      "category": "core",
+      "project_context": "Write a function `calculate_moving_average` that takes inputs and returns a float."
+    },
+    {
+      "id": "rust.control.flow",
+      "label": "Control Flow (If/Loop)",
+      "dependencies": ["rust.basics.functions"],
+      "complexity": 0.2,
+      "category": "core",
+      "project_context": "Loop through an array of mock sensor data and break if a value is critical."
+    },
+
+    {
+      "comment": "--- TIER 2: THE OWNERSHIP HURDLE (The Filter) ---"
+    },
+    {
+      "id": "rust.memory.ownership",
+      "label": "Ownership Rules",
+      "dependencies": ["rust.control.flow"],
+      "complexity": 0.8,
+      "category": "core",
+      "project_context": "Pass a String to a function and observe how it becomes inaccessible in the main scope."
+    },
+    {
+      "id": "rust.memory.borrowing",
+      "label": "References & Borrowing",
+      "dependencies": ["rust.memory.ownership"],
+      "complexity": 0.9,
+      "category": "core",
+      "project_context": "Create a 'Read-Only' view of a user profile while keeping the original data intact."
+    },
+    {
+      "id": "rust.memory.slices",
+      "label": "Slices (&str)",
+      "dependencies": ["rust.memory.borrowing"],
+      "complexity": 0.5,
+      "category": "core",
+      "project_context": "Parse the first word of a command string without copying the data."
+    },
+
+    {
+      "comment": "--- TIER 3: DATA STRUCTURES (The Python Bridge) ---"
+    },
+    {
+      "id": "rust.structs.def",
+      "label": "Structs & Impl",
+      "dependencies": ["rust.memory.borrowing"],
+      "complexity": 0.4,
+      "category": "data",
+      "project_context": "Define an `Agent` struct with fields for `model_name` and `temperature`."
+    },
+    {
+      "id": "rust.enums.def",
+      "label": "Enums & Matching",
+      "dependencies": ["rust.structs.def"],
+      "complexity": 0.5,
+      "category": "data",
+      "project_context": "Create an `AgentState` enum (Idle, Thinking, responding) and match against it."
+    },
+    {
+      "id": "rust.std.collections",
+      "label": "Vectors & HashMaps",
+      "dependencies": ["rust.enums.def"],
+      "complexity": 0.4,
+      "category": "data",
+      "project_context": "Store a chat history (Vec) and a configuration cache (HashMap)."
+    },
+    {
+      "id": "rust.error.result",
+      "label": "Result & Option",
+      "dependencies": ["rust.enums.def"],
+      "complexity": 0.6,
+      "category": "patterns",
+      "project_context": "Handle a missing environment variable safely using `Option` and `match`."
+    },
+
+    {
+      "comment": "--- TIER 4: TRAITS & GENERICS (System Architecture) ---"
+    },
+    {
+      "id": "rust.traits.basics",
+      "label": "Traits (Interfaces)",
+      "dependencies": ["rust.structs.def"],
+      "complexity": 0.7,
+      "category": "architecture",
+      "project_context": "Implement a `Summarize` trait for both `NewsArticle` and `Tweet` structs."
+    },
+    {
+      "id": "rust.generics.fn",
+      "label": "Generics",
+      "dependencies": ["rust.traits.basics"],
+      "complexity": 0.7,
+      "category": "architecture",
+      "project_context": "Write a function that can process a list of *any* type that implements `Summarize`."
+    },
+    {
+      "id": "rust.io.serde",
+      "label": "Serialization (Serde)",
+      "dependencies": ["rust.traits.basics", "rust.std.collections"],
+      "complexity": 0.5,
+      "category": "agentic",
+      "project_context": "Deserialize a JSON response from an LLM API into a strongly-typed Rust struct."
+    },
+
+    {
+      "comment": "--- TIER 5: CLI & TOOLS (User Interest: CLI) ---"
+    },
+    {
+      "id": "rust.cli.clap",
+      "label": "Argument Parsing (Clap)",
+      "dependencies": ["rust.structs.def", "rust.error.result"],
+      "complexity": 0.4,
+      "category": "cli",
+      "project_context": "Build a CLI tool that accepts `--prompt` and `--model` flags."
+    },
+    {
+      "id": "rust.cli.env",
+      "label": "Environment & Files",
+      "dependencies": ["rust.error.result"],
+      "complexity": 0.3,
+      "category": "cli",
+      "project_context": "Load an `.env` file for API keys and read a local prompt template from disk."
+    },
+
+    {
+      "comment": "--- TIER 6: ASYNC & CONCURRENCY (User Interest: Agents) ---"
+    },
+    {
+      "id": "rust.smart.box",
+      "label": "Smart Pointers (Box)",
+      "dependencies": ["rust.memory.ownership", "rust.traits.basics"],
+      "complexity": 0.6,
+      "category": "memory",
+      "project_context": "Store a recursive data type (like a JSON tree) on the heap."
+    },
+    {
+      "id": "rust.smart.arc",
+      "label": "Shared State (Arc/Mutex)",
+      "dependencies": ["rust.smart.box"],
+      "complexity": 0.9,
+      "category": "concurrency",
+      "project_context": "Share a database connection handle safely across multiple threads."
+    },
+    {
+      "id": "rust.async.tokio",
+      "label": "Async/Await (Tokio)",
+      "dependencies": ["rust.smart.arc"],
+      "complexity": 0.8,
+      "category": "async",
+      "project_context": "Spawn two async tasks: one to fetch data, one to show a loading spinner."
+    },
+    {
+      "id": "rust.web.reqwest",
+      "label": "HTTP Clients (Reqwest)",
+      "dependencies": ["rust.async.tokio", "rust.io.serde"],
+      "complexity": 0.6,
+      "category": "agentic",
+      "project_context": "Build a robust API client that queries an LLM and handles rate limits."
+    }
+  ]
+}

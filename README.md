@@ -1,81 +1,47 @@
-# FraudeCode
+<p align="center">
+    <picture>
+      <img src="./assets/FraudeCode.png" alt="FraudeCode logo" width="400">
+    </picture>
+</p>
+<p align="center">Just another AI coding agent.</p>
 
-FraudeCode is a learning project designed to imitate the core functionality of **Claude Code**. It provides a terminal-based interface (TUI) for analyzing, querying, and modifying codebases using local AI models.
+---
 
-## 🚀 Overview
+## What is FraudeCode?
 
-The project leverages a combination of semantic search and structural analysis to assist in developer workflows:
+FraudeCode is a simple AI coding agent that can help you with your coding tasks. It has 3 different modes:
 
-- **Structural Analysis**: Uses **Neo4j** and **Tree-sitter** to map out function calls, class definitions, and file relationships.
-- **Semantic Search**: Uses **Qdrant** and **Ollama** embeddings to locate relevant code blocks based on natural language queries.
-- **Code Modification**: Implements a **LangGraph** workflow to plan and apply changes to files safely.
+- Fast Mode: Fast mode is the default mode. It will conduct research, generate code, and then test it itself.
+- Planning Mode: Planning mode will create an implementation plan and tasks, using a research subagent to gather context. It will then use a worker subagent to generate code, and a reviewer subagent to review the code. This mode is recommended for larger tasks.
+- Ask Mode: Ask mode will use an agent to answer a question about a codebase without altering it.
 
-## 📁 Project Structure
+<p align="center">
+    <picture>
+      <img src="./assets/demo.gif" alt="FraudeCode demo" width="600">
+    </picture>
+</p>
 
-```text
-├── scripts/             # Entry points for indexing and manual verification
-├── src/
-│   ├── components/      # Terminal UI components (Ink + React)
-│   ├── core/            # Core logic (Analysis, Modifications, LangGraph nodes)
-│   ├── hooks/           # React hooks for managing state and AI interactions
-│   ├── services/        # Service integrations (Neo4j, Qdrant, Ollama)
-│   ├── types/           # TypeScript definitions and interfaces
-│   └── utils/           # Shared utility functions
-└── sample/              # Sample project used for testing analysis logic
-```
+---
 
-## 🛠️ Getting Started
+## Supported Providers
 
-### Prerequisites
+I went with anyone that had a free tier :|
 
-You need the following services running locally via Docker:
+(This is built on vercel AI SDK so its easy to add more providers)
 
-- **Neo4j**: Graph database for structural relationships.
-- **Qdrant**: Vector database for semantic search.
-- **Ollama**: LLM engine for embeddings and code generation.
+- Ollama
+- Mistral
+- Groq
+- OpenRouter
+- Cerebras
+- Google
 
-You can start these using the provided `docker-compose.yml`:
+## Installation
 
-```bash
-docker-compose up -d
-```
+Still in dev so just clone the repo and run `bun run dev`
 
-### Installation
+## Plugins
 
-1. Install dependencies using [Bun](https://bun.sh/):
-   ```bash
-   bun install
-   ```
-2. Configure environment variables:
-   - Copy `.env.example` to `.env` and adjust settings as needed.
+You can use plugins to extend the functionality of FraudeCode. Check out the [plugins](./plugins) directory for more information.
 
-### Running
-
-1. **Index your codebase**:
-   ```bash
-   bun run scripts/analysis.ts
-   ```
-2. **Launch the CLI**:
-   ```bash
-   bun run dev
-   ```
-
-### MODELS
-
-| Model Name       | Size | Context Window | Speed (M2) | Notable Feature                    |
-| :--------------- | :--- | :------------- | :--------- | :--------------------------------- |
-| qwen2.5:0.5b     | 0.5B | 32K            | ~90 tok/s  | Lightning fast; edge-ready         |
-| qwen2.5-coder:7b | 7B   | 128K           | ~25 tok/s  | Best performance-to-speed for code |
-| llama3.1:latest  | 8B   | 128K           | ~18 tok/s  | Great balance of logic and utility |
-| mistral:latest   | 7B   | 32K            | ~22 tok/s  | Efficient for shorter interactions |
-| qwen3:8b         | 8B   | 128K           | ~15 tok/s  | Native thinking/reasoning mode     |
-| phi4:latest      | 14B  | 16K            | ~10 tok/s  | High-tier reasoning; slower on M2  |
-
-## 🧰 Tech Stack
-
-- **Runtime**: [Bun](https://bun.sh/)
-- **UI**: [Ink](https://github.com/vadimdemedes/ink) (React for CLI)
-- **Workflows**: [LangGraph](https://github.com/langchain-ai/langgraphjs)
-- **Databases**: [Neo4j](https://neo4j.com/), [Qdrant](https://qdrant.tech/)
-- **AI Infrastructure**: [Ollama](https://ollama.com/)
-- **Parsing**: [Tree-sitter](https://tree-sitter.github.io/tree-sitter/)
+I'll be building out some plugins with corresponding UIs for some more fun use cases.

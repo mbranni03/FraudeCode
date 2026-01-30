@@ -5,7 +5,7 @@ import { createCerebras } from "@ai-sdk/cerebras";
 import { createMistral } from "@ai-sdk/mistral";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import useSettingsStore from "@/store/useSettingsStore";
-import { type ProviderType, parseModelUniqueId } from "@/types/Model";
+import { parseModelUniqueId } from "@/types/Model";
 
 const getSettings = () => useSettingsStore.getState();
 
@@ -17,7 +17,7 @@ const getSettings = () => useSettingsStore.getState();
  */
 const getProviderForModel = (
   modelIdentifier: string,
-): { name: string; type: ProviderType } => {
+): { name: string; type: string } => {
   // Try parsing as unique ID (name|type format)
   const parsed = parseModelUniqueId(modelIdentifier);
   if (parsed) {

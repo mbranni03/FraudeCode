@@ -1,6 +1,6 @@
 import { Box, Text } from "ink";
 import { useMemo } from "react";
-import { type Model, type ProviderType, ProviderTypes } from "@/types/Model";
+import { type Model } from "@/types/Model";
 import useSettingsStore from "@/store/useSettingsStore";
 import log from "@/utils/logger";
 
@@ -34,7 +34,7 @@ interface ModelUsage {
 }
 
 interface ProviderUsage {
-  provider: ProviderType;
+  provider: string;
   models: ModelUsage[];
   totalTokens: number;
   percentOfTotal: number;
@@ -156,11 +156,8 @@ const TokenUsage = () => {
     let globalPrompt = 0;
     let globalCompletion = 0;
 
-    const grouped: Record<ProviderType, Model[]> = {} as Record<
-      ProviderType,
-      Model[]
-    >;
-    ProviderTypes.forEach((p) => (grouped[p] = []));
+    const grouped: Record<string, Model[]> = {} as Record<string, Model[]>;
+    Object.keys(grouped).forEach((p) => (grouped[p] = []));
 
     // Aggregate
     for (const model of models) {
@@ -179,38 +176,39 @@ const TokenUsage = () => {
     }
 
     // Process per provider
-    const providers: ProviderUsage[] = ProviderTypes.map((provider) => {
-      const pModels = grouped[provider] || [];
-      let pTotal = 0;
+    const providers: ProviderUsage[] = Object.keys(grouped)
+      .map((provider) => {
+        const pModels = grouped[provider] || [];
+        let pTotal = 0;
 
-      const mUsages: ModelUsage[] = pModels
-        .filter((m) => (m.usage?.totalTokens ?? 0) > 0)
-        .map((m) => {
-          const t = m.usage?.totalTokens ?? 0;
-          pTotal += t;
-          return {
-            name: m.name,
-            totalTokens: t,
-            promptTokens: m.usage?.promptTokens ?? 0,
-            completionTokens: m.usage?.completionTokens ?? 0,
-            percentOfProvider: 0, // Calc later
-          };
-        });
+        const mUsages: ModelUsage[] = pModels
+          .filter((m) => (m.usage?.totalTokens ?? 0) > 0)
+          .map((m) => {
+            const t = m.usage?.totalTokens ?? 0;
+            pTotal += t;
+            return {
+              name: m.name,
+              totalTokens: t,
+              promptTokens: m.usage?.promptTokens ?? 0,
+              completionTokens: m.usage?.completionTokens ?? 0,
+              percentOfProvider: 0, // Calc later
+            };
+          });
 
-      // Calc percents
-      mUsages.forEach(
-        (m) =>
-          (m.percentOfProvider =
-            pTotal > 0 ? (m.totalTokens / pTotal) * 100 : 0),
-      );
+        // Calc percents
+        mUsages.forEach(
+          (m) =>
+            (m.percentOfProvider =
+              pTotal > 0 ? (m.totalTokens / pTotal) * 100 : 0),
+        );
 
-      return {
-        provider,
-        models: mUsages,
-        totalTokens: pTotal,
-        percentOfTotal: globalTotal > 0 ? (pTotal / globalTotal) * 100 : 0,
-      };
-    })
+        return {
+          provider,
+          models: mUsages,
+          totalTokens: pTotal,
+          percentOfTotal: globalTotal > 0 ? (pTotal / globalTotal) * 100 : 0,
+        };
+      })
       .filter((p) => p.totalTokens > 0)
       .sort((a, b) => b.totalTokens - a.totalTokens);
 

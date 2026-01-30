@@ -12,6 +12,8 @@ import {
 import { getWorkerSubAgent } from "@/agent/subagents/workerSubAgent";
 import { getReviewerSubAgent } from "@/agent/subagents/reviewerSubAgent";
 import type { TodoItem } from "@/agent/tools/todoTool";
+import getFastAgent from "@/agent/subagents/fastAgent";
+import getAskAgent from "@/agent/subagents/askAgent";
 
 const { updateOutput } = useFraudeStore.getState();
 
@@ -44,12 +46,12 @@ const fastMode = async (query: string) => {
   if (!abortController) {
     throw new Error("No abort controller found");
   }
-  const response = await getManagerAgent().stream(query, {
+  const response = await getFastAgent().stream(query, {
     abortSignal: abortController.signal,
   });
   checkAbort();
 
-  log("Manager Response:");
+  log("Fast Agent Response:");
   log(JSON.stringify(response, null, 2));
 };
 
@@ -126,12 +128,12 @@ const askMode = async (query: string) => {
   if (!abortController) {
     throw new Error("No abort controller found");
   }
-  const response = await getManagerAgent().stream(query, {
+  const response = await getAskAgent().stream(query, {
     abortSignal: abortController.signal,
   });
   checkAbort();
 
-  log("Manager Response:");
+  log("Ask Agent Response:");
   log(JSON.stringify(response, null, 2));
 };
 
@@ -141,7 +143,13 @@ export default async function QueryHandler(query: string) {
   }
   updateOutput("command", query);
   if (query.startsWith("/")) {
+    useFraudeStore.setState({
+      status: 2,
+    });
     await CommandCenter.processCommand(query);
+    useFraudeStore.setState({
+      status: 0,
+    });
     return;
   }
   log(`User Query: ${query}`);
