@@ -188,36 +188,27 @@ Your goal is to generate the NEXT logical concepts for a student to learn, expan
 }
 
 /**
- * Get the file path for a lesson with a global sequence number
+ * Get the file path for a lesson with a sequence number
  * Format: 001_concept_id.json
  */
-function getLessonPath(conceptId: string, globalLessonNumber: number): string {
+function getLessonPath(conceptId: string, lessonNumber: number): string {
   const safeId = conceptId.replace(/\./g, "_");
   // Pad number with zeros for sorting, e.g., 001, 002
-  const paddedNumber = globalLessonNumber.toString().padStart(3, "0");
+  const paddedNumber = lessonNumber.toString().padStart(3, "0");
   const filename = `${paddedNumber}_${safeId}.json`;
   return join(LESSONS_DIR, filename);
 }
 
 /**
- * Get the next available global lesson number by scanning the directory.
+ * Get the next available lesson number for a specific language
+ * by counting existing lessons for that language.
  */
-export function getNextGlobalLessonNumber(): number {
-  if (!existsSync(LESSONS_DIR)) return 1;
+export function getNextLessonNumber(language: string): number {
+  const lessons = getLessonsForLanguage(language);
+  if (lessons.length === 0) return 1;
 
-  const files = require("fs").readdirSync(LESSONS_DIR);
-  let maxNum = 0;
-
-  for (const file of files) {
-    if (file.endsWith(".json")) {
-      const match = file.match(/^(\d+)_/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNum) maxNum = num;
-      }
-    }
-  }
-
+  // Find the max lesson number among existing lessons for this language
+  const maxNum = Math.max(...lessons.map((l) => l.lessonNumber), 0);
   return maxNum + 1;
 }
 
@@ -371,8 +362,9 @@ export async function generateLesson(
   // Use provided model, or fall back to user's primary model from settings
   const selectedModel = model ?? Settings.getInstance().get("primaryModel");
 
-  // Determine the sequence number: Forced OR Next Global
-  const lessonNumber = forcedLessonNumber ?? getNextGlobalLessonNumber();
+  // Determine the sequence number: Forced OR Next for Language
+  const lessonNumber =
+    forcedLessonNumber ?? getNextLessonNumber(concept.language || "rust");
 
   // If forced number exists, we might overwrite (client responsibility) which is fine.
   // If auto number exists, it means race condition or directory mess, but getNextGlobal ensures valid next.
@@ -391,7 +383,7 @@ export async function generateLesson(
 
   const lesson: GeneratedLesson = {
     lessonId: `${lessonNumber.toString().padStart(3, "0")}_${concept.id}`,
-    lessonNumber, // This is now the Global Course Lesson Number
+    lessonNumber, // This is the lesson number for this specific language
     conceptId: concept.id,
     title: concept.label,
     markdown: response.text,
@@ -488,7 +480,7 @@ function buildLessonPrompt(
   const parts: string[] = [
     `Create a lesson for the ${langTitle} concept: **${concept.label}** (ID: ${concept.id})`,
     "",
-    `**Course Context:** This is **Lesson #${lessonNumber}** in the user's overall learning journey.`,
+    `**Course Context:** This is **Lesson #${lessonNumber}** in the user's ${langTitle} learning journey.`,
     `**Concept Complexity:** ${concept.complexity} (0.0=beginner, 1.0=expert)`,
     `**Category:** ${concept.category || "general"}`,
   ];
