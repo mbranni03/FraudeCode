@@ -1,11 +1,6 @@
 # Learn Plugin
 
-The Learn plugin provides a platform for interactive code learning, including a compilation endpoint that can transform Rust code into WebAssembly (WASM).
-
-## Features
-
-- **Code Compilation**: A POST endpoint at `/compile` that compiles Rust code to WASM.
-- **Runno Integration**: Designed to return WASM files and terminal output compatible with Runno.
+The Learn plugin provides a platform for interactive code learning.
 
 ## Usage
 
@@ -16,3 +11,5 @@ Start the learn plugin from the FraudeCode interface:
 ```
 
 The API will be available at `http://localhost:3000`.
+
+Comes with a corresponding UI for learning at ["CodingSpace"](https://github.com/mbranni03/coding-space)
