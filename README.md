@@ -7,9 +7,11 @@
 
 <p align="center">
     <picture>
-      <img src="./assets/demo.gif" alt="FraudeCode demo" max-width="800">
+      <img src="./assets/demo.gif" alt="FraudeCode demo" max-width="600">
     </picture>
 </p>
+
+---
 
 ### Supported Providers
 
