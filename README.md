@@ -7,7 +7,7 @@
 
 <p align="center">
     <picture>
-      <img src="./assets/demo.gif" alt="FraudeCode demo" max-width="600">
+      <img src="./assets/demo.gif" alt="FraudeCode demo" width="600">
     </picture>
 </p>
 
