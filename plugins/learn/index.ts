@@ -56,8 +56,7 @@ const command = {
     router.register("GET", "/lesson/:lessonId", (req) => {
       const url = new URL(req.url);
       const userId = url.searchParams.get("userId") || undefined;
-      const pathParts = url.pathname.split("/");
-      const lessonId = pathParts[pathParts.length - 1] || "";
+      const lessonId = req.params.lessonId!;
 
       if (!lessonId) {
         return new Response(JSON.stringify({ error: "lessonId is required" }), {
@@ -100,8 +99,7 @@ const command = {
     // Get all existing lessons for a specific language
     router.register("GET", "/lessons/:language", (req) => {
       const url = new URL(req.url);
-      const pathParts = url.pathname.split("/");
-      const language = (pathParts[pathParts.length - 1] || "").toLowerCase();
+      const language = (req.params.language || "").toLowerCase();
       const userId = url.searchParams.get("userId") || undefined;
 
       if (!language) {
@@ -309,8 +307,7 @@ const command = {
 
     // Get user progress
     router.register("GET", "/progress/:userId", (req) => {
-      const url = new URL(req.url);
-      const userId = url.pathname.split("/").pop() || "default_user";
+      const userId = req.params.userId || "default_user";
       const progress = kg.getUserProgress(userId);
       return new Response(JSON.stringify(progress), {
         headers: { "Content-Type": "application/json" },

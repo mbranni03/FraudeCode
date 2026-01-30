@@ -6,7 +6,11 @@ import { THEME } from "../theme";
 
 const LoaderComponent = () => {
   const [i, setFrame] = useState(0);
-  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  const frames = (text: string) => [
+    `·  ${text}.  `,
+    `•  ${text}.. `,
+    `●  ${text}...`,
+  ];
 
   const { status, elapsedTime, statusText } = useFraudeStore();
 
@@ -31,12 +35,12 @@ const LoaderComponent = () => {
     };
   }, [status]);
 
-  const currentStatusText = statusText || "Agent is working";
+  const currentStatusText = statusText || "Pondering";
+  const currentFrames = frames(currentStatusText);
 
   return (
     <Box marginY={0}>
-      <Text color={THEME.primary}>{frames[i]} </Text>
-      <Text color={THEME.text}>{currentStatusText}</Text>
+      <Text color={THEME.primary}>{currentFrames[i]} </Text>
       <Box paddingLeft={1}>
         <Text color={THEME.dim}>
           ({(elapsedTime / 10).toFixed(1)}s · ESC to interrupt)

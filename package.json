@@ -23,6 +23,7 @@
     "@qdrant/js-client-rest": "^1.16.2",
     "ai": "^6.0.33",
     "diff": "^8.0.2",
+    "fast-xml-parser": "^5.3.4",
     "ignore": "^7.0.5",
     "ink-big-text": "^2.0.0",
     "ink-gradient": "^3.0.0",
