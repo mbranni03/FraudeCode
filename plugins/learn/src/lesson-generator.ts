@@ -355,19 +355,12 @@ export async function generateLesson(
   concept: Concept,
   model?: string,
   context?: UserContext,
-  // We no longer accept specific sequence request usually, we default to next global
-  // But if provided, we honor it (e.g. overwriting)
   forcedLessonNumber?: number,
 ): Promise<GeneratedLesson> {
   // Use provided model, or fall back to user's primary model from settings
   const selectedModel = model ?? Settings.getInstance().get("primaryModel");
-
-  // Determine the sequence number: Forced OR Next for Language
   const lessonNumber =
     forcedLessonNumber ?? getNextLessonNumber(concept.language || "rust");
-
-  // If forced number exists, we might overwrite (client responsibility) which is fine.
-  // If auto number exists, it means race condition or directory mess, but getNextGlobal ensures valid next.
 
   const agent = new Agent({
     model: selectedModel,
@@ -383,7 +376,7 @@ export async function generateLesson(
 
   const lesson: GeneratedLesson = {
     lessonId: `${lessonNumber.toString().padStart(3, "0")}_${concept.id}`,
-    lessonNumber, // This is the lesson number for this specific language
+    lessonNumber,
     conceptId: concept.id,
     title: concept.label,
     markdown: response.text,
