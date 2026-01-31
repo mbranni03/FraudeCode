@@ -59,14 +59,13 @@ async function main() {
   useSettingsStore.getState().syncWithSettings();
   await CommandCenter.loadPlugins();
   syncModels();
-  const { waitUntilExit } = render(<App />);
+  const { waitUntilExit } = render(<App />, { exitOnCtrlC: false });
 
   // Handle graceful exit
   const exitHandler = () => {
     process.exit(0);
   };
 
-  process.on("SIGINT", exitHandler);
   process.on("SIGTERM", exitHandler);
 
   await waitUntilExit();
