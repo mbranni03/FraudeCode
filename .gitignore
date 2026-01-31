@@ -39,3 +39,4 @@ debug.log
 *.db-shm
 *.db-wal
 plugins/learn/learning.db
+plugins/informed/data
