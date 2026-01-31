@@ -25,6 +25,7 @@
     "@openrouter/ai-sdk-provider": "^1.5.4",
     "@qdrant/js-client-rest": "^1.16.2",
     "@tavily/ai-sdk": "^0.4.1",
+    "@vscode/ripgrep": "^1.17.0",
     "ai": "^6.0.33",
     "diff": "^8.0.2",
     "fast-xml-parser": "^5.3.4",
