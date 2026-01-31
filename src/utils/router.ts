@@ -39,25 +39,35 @@ export class BunApiRouter {
   }
 
   /**
-   * Check if a route pattern matches a given pathname
+   * Check if a route pattern matches a given pathname and extract params
    * Supports dynamic segments like :userId
    */
-  private matchRoute(pattern: string, pathname: string): boolean {
+  private getParams(
+    pattern: string,
+    pathname: string,
+  ): Record<string, string> | null {
     const patternParts = pattern.split("/").filter(Boolean);
     const pathParts = pathname.split("/").filter(Boolean);
 
     if (patternParts.length !== pathParts.length) {
-      return false;
+      return null;
     }
 
-    return patternParts.every((part, i) => {
-      // Dynamic segment (starts with :)
-      if (part.startsWith(":")) {
-        return true;
+    const params: Record<string, string> = {};
+
+    for (let i = 0; i < patternParts.length; i++) {
+      const patternPart = patternParts[i]!;
+      const pathPart = pathParts[i]!;
+
+      if (patternPart.startsWith(":")) {
+        const paramName = patternPart.slice(1);
+        params[paramName] = pathPart;
+      } else if (patternPart !== pathPart) {
+        return null;
       }
-      // Static segment - must match exactly
-      return part === pathParts[i];
-    });
+    }
+
+    return params;
   }
 
   /**
@@ -66,8 +76,12 @@ export class BunApiRouter {
    * @param path URL path (e.g. "/api/v1/users" or "/users/:id")
    * @param handler Function to handle the request
    */
-  public register(method: HttpMethod, path: string, handler: Handler) {
-    this.routes.push({ method, path, handler });
+  public register(
+    method: HttpMethod,
+    path: string,
+    handler: (req: Request & { params: Record<string, string> }) => any,
+  ) {
+    this.routes.push({ method, path, handler: handler as any });
   }
 
   /**
@@ -91,20 +105,31 @@ export class BunApiRouter {
       this.resolveServicePromise = resolve;
     });
 
-    this.server = Bun.serve({
+    this.server = Bun.serve<{
+      handler: WebSocketHandler;
+      params: Record<string, string>;
+    }>({
       port,
       idleTimeout: 180,
       fetch: async (req, server) => {
         const url = new URL(req.url);
 
         // Check for WebSocket upgrade
-        const wsRoute = this.wsRoutes.find((r) =>
-          this.matchRoute(r.path, url.pathname),
-        );
+        let wsParams: Record<string, string> = {};
+        const wsRoute = this.wsRoutes.find((r) => {
+          const p = this.getParams(r.path, url.pathname);
+          if (p) {
+            wsParams = p;
+            return true;
+          }
+          return false;
+        });
 
         if (
           wsRoute &&
-          server.upgrade(req, { data: { handler: wsRoute.handler } })
+          server.upgrade(req, {
+            data: { handler: wsRoute.handler, params: wsParams },
+          })
         ) {
           return undefined;
         }
@@ -126,14 +151,22 @@ export class BunApiRouter {
           return new Response("OK", { status: 200, headers: corsHeaders });
         }
 
-        // Find matching route
-        const route = this.routes.find(
-          (r) =>
-            this.matchRoute(r.path, url.pathname) && r.method === req.method,
-        );
+        // Find matching route and extract params
+        let params: Record<string, string> = {};
+        const route = this.routes.find((r) => {
+          if (r.method !== req.method) return false;
+          const p = this.getParams(r.path, url.pathname);
+          if (p) {
+            params = p;
+            return true;
+          }
+          return false;
+        });
 
         if (route) {
           try {
+            // Attach params to request object
+            (req as any).params = params;
             const response = await route.handler(req);
             // Append CORS headers to the handler's response
             const newHeaders = new Headers(response.headers);
