@@ -1,8 +1,8 @@
 import { z } from "zod";
 import log from "../utils/logger";
 import { join } from "path";
-import { homedir, platform } from "os";
 import { rename, mkdir } from "fs/promises";
+import { getConfigDir } from "../utils/paths";
 import { ModelSchema, parseModelUniqueId } from "../types/Model";
 import type { TokenUsage } from "@/types/TokenUsage";
 import useSettingsStore from "@/store/useSettingsStore";
@@ -44,7 +44,7 @@ class Settings {
       return Settings.instance;
     }
 
-    const configDir = Settings.getConfigDir("fraude-code");
+    const configDir = getConfigDir("fraude-code");
     const config = await Settings.loadFromDisk(configDir);
     Settings.instance = new Settings(config, configDir);
     return Settings.instance;
@@ -90,31 +90,6 @@ class Settings {
       (this.settings as any)[key] = value;
     }
     await this.saveToDisk();
-  }
-
-  /**
-   * Get the platform-specific config directory.
-   */
-  private static getConfigDir(appName: string): string {
-    const osPlatform = platform();
-    const home = homedir();
-
-    switch (osPlatform) {
-      case "win32":
-        return join(
-          process.env.APPDATA || join(home, "AppData", "Roaming"),
-          appName,
-        );
-      case "darwin":
-        return join(home, "Library", "Application Support", appName);
-      case "linux":
-        return join(
-          process.env.XDG_CONFIG_HOME || join(home, ".config"),
-          appName,
-        );
-      default:
-        return join(home, `.${appName}`);
-    }
   }
 
   /**

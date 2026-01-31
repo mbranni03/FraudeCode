@@ -1,3 +1,5 @@
+#!/usr/bin/env bun
+
 import { render } from "ink";
 import App from "./components/App";
 import { resetLog } from "./utils/logger";
@@ -57,7 +59,18 @@ async function main() {
   useSettingsStore.getState().syncWithSettings();
   await CommandCenter.loadPlugins();
   syncModels();
-  render(<App />);
+  const { waitUntilExit } = render(<App />);
+
+  // Handle graceful exit
+  const exitHandler = () => {
+    process.exit(0);
+  };
+
+  process.on("SIGINT", exitHandler);
+  process.on("SIGTERM", exitHandler);
+
+  await waitUntilExit();
+  process.exit(0);
 }
 
 main();

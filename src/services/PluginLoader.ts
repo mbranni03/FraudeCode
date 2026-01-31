@@ -2,50 +2,88 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { Command } from "@/types/CommandDefinition";
 import log from "@/utils/logger";
+import { Settings } from "@/config/settings";
 
 export class PluginLoader {
-  private pluginsDir: string;
+  private pluginsDirs: string[];
 
-  constructor(pluginsDir: string = "./plugins") {
-    this.pluginsDir = path.resolve(process.cwd(), pluginsDir);
+  constructor() {
+    // Get the system-wide config directory
+    const configDir = (Settings as any).instance
+      ? Settings.getInstance().getAll()
+        ? (Settings as any).instance.settingsDir
+        : ""
+      : "";
+
+    this.pluginsDirs = [
+      path.resolve(import.meta.dir, "../../plugins"), // Plugin folder in the source/package root
+      path.resolve(process.cwd(), "./plugins"), // Local plugins in the current working directory
+    ];
+
+    if (configDir) {
+      this.pluginsDirs.push(path.join(configDir, "plugins")); // Global system config plugins
+    }
+
+    // Add any plugins folder relative to the executable if not already covered
+    const execPath = process.argv[1];
+    if (execPath) {
+      const execDir = path.dirname(execPath);
+      if (execDir !== process.cwd()) {
+        this.pluginsDirs.push(path.resolve(execDir, "./plugins"));
+      }
+    }
+
+    // De-duplicate paths
+    this.pluginsDirs = Array.from(new Set(this.pluginsDirs));
   }
 
   async loadPlugins(): Promise<Command[]> {
-    const commands: Command[] = [];
-    try {
-      await fs.access(this.pluginsDir);
-    } catch {
-      // Plugins directory doesn't exist, which is fine
-      return [];
-    }
+    const allCommands: Command[] = [];
+    const loadedPluginNames = new Set<string>();
 
-    const entries = await fs.readdir(this.pluginsDir, { withFileTypes: true });
+    for (const dir of this.pluginsDirs) {
+      try {
+        await fs.access(dir);
+      } catch {
+        continue;
+      }
 
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const pluginPath = path.join(this.pluginsDir, entry.name);
-        const entryPoint = path.join(pluginPath, "index.ts");
+      log(`Searching for plugins in: ${dir}`);
+      const entries = await fs.readdir(dir, { withFileTypes: true });
 
-        try {
-          // Check if index.ts exists
-          await fs.access(entryPoint);
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          // Avoid loading the same plugin twice if it exists in multiple search paths
+          if (loadedPluginNames.has(entry.name)) continue;
 
-          // Dynamic import
-          const pluginModule = await import(entryPoint);
+          const pluginPath = path.join(dir, entry.name);
+          const entryPoint = path.join(pluginPath, "index.ts");
 
-          // Support both default export and named exports
-          if (pluginModule.default) {
-            if (Array.isArray(pluginModule.default)) {
-              commands.push(...pluginModule.default);
-            } else {
-              commands.push(pluginModule.default);
+          try {
+            await fs.access(entryPoint);
+            const pluginModule = await import(entryPoint);
+
+            if (pluginModule.default) {
+              if (Array.isArray(pluginModule.default)) {
+                allCommands.push(...pluginModule.default);
+              } else {
+                allCommands.push(pluginModule.default);
+              }
+              loadedPluginNames.add(entry.name);
+              log(`Loaded plugin: ${entry.name} from ${dir}`);
+            }
+          } catch (e) {
+            // Only log error if index.ts exists but failed to load
+            try {
+              await fs.access(entryPoint);
+              log(`Failed to load plugin ${entry.name}:`, e);
+            } catch {
+              // index.ts doesn't exist, ignore
             }
           }
-        } catch (e) {
-          log(`Failed to load plugin ${entry.name}:`, e);
         }
       }
     }
-    return commands;
+    return allCommands;
   }
 }

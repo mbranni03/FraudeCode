@@ -2,7 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import useFraudeStore from "@/store/useFraudeStore";
 import pendingChanges from "@/agent/pendingChanges";
-import DESCRIPTION from "./descriptions/grep.txt";
+import DESCRIPTION from "./descriptions/grep.txt" with { type: "text" };
 
 const { updateOutput } = useFraudeStore.getState();
 

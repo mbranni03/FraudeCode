@@ -3,6 +3,9 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "bin": {
+    "fraude": "./src/index.tsx"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/diff": "^8.0.0",
@@ -41,7 +44,7 @@
   },
   "scripts": {
     "dev": "bun run src/index.tsx",
-    "build": "bun build src/index.tsx --outdir dist --target bun",
+    "build": "bun build src/index.tsx --target bun --compile --minify --sourcemap --outfile fraude",
     "start": "bun run dist/index.js",
     "type-check": "tsc --noEmit"
   }
