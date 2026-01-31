@@ -52,7 +52,7 @@ class CommandCenter {
         for (const sub of cmd.subcommands) {
           templates.push(sub);
         }
-      } else if (!cmd.usage.includes("<subcommand>")) {
+      } else if (cmd.usage && !cmd.usage.includes("<subcommand>")) {
         templates.push(cmd);
       }
     }

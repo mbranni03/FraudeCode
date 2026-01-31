@@ -13,7 +13,7 @@ import { getLegislativeAnalyst } from "./src/legislativeAnalyst";
 import { OverviewStorage } from "./src/services/overviewStorage";
 import { getApiKey } from "./src/utils/keys";
 import useFraudeStore from "@/store/useFraudeStore";
-const { updateOutput } = useFraudeStore();
+const { updateOutput } = useFraudeStore.getState();
 
 const authOpenFEC = async (args: string[]) => {
   const apiKey = args[0];
@@ -56,185 +56,202 @@ const authGovData = async (args: string[]) => {
 const command = {
   name: "informed",
   description: "Be Informed Plugin",
-  usage: "/informed",
-  action: async () => {
-    const router = new BunApiRouter();
-    await init();
+  usage: "/informed <subcommand>",
+  subcommands: [
+    {
+      name: "start",
+      description: "Starts the Be Informed plugin",
+      usage: "/informed start",
+      action: async () => {
+        const router = new BunApiRouter();
+        await init();
 
-    router.register("GET", "/", (req) => {
-      return new Response("Hello World", {
-        headers: { "Content-Type": "text/plain" },
-      });
-    });
-
-    // router.register("GET", "/elections", async (req) => {
-    //   const response = await fetch(
-    //     "https://www.googleapis.com/civicinfo/v2/elections?key=" +
-    //       getApiKey("GOOGLE_API_KEY"),
-    //   );
-    //   const data = await response.json();
-    //   return new Response(JSON.stringify(data), {
-    //     headers: { "Content-Type": "application/json" },
-    //   });
-    // });
-
-    router.register("POST", "/keys", async (req) => {
-      const body = await req.json();
-      UpdateSettings({
-        pluginSettings: {
-          ...Settings.getInstance().get("pluginSettings"),
-          informed: body,
-        },
-      });
-      return new Response("OK", {
-        headers: { "Content-Type": "text/plain" },
-        status: 200,
-      });
-    });
-
-    router.register("GET", "/candidates", async (req) => {
-      const data = await OpenFEC.getInstance().getAllCandidates();
-      return new Response(JSON.stringify(data), {
-        headers: { "Content-Type": "application/json" },
-      });
-    });
-
-    router.register("GET", "/candidates/:state", async (req) => {
-      const state = req.params.state!;
-      const url = new URL(req.url);
-      const office = url.searchParams.get("office") as "H" | "S" | "P" | null;
-      const district = url.searchParams.get("district");
-      const data = await OpenFEC.getInstance().getStateCandidates(
-        state,
-        office || undefined,
-        district || undefined,
-      );
-      return new Response(JSON.stringify(data), {
-        headers: { "Content-Type": "application/json" },
-      });
-    });
-
-    router.register("GET", "/candidate/overview", async (req) => {
-      const url = new URL(req.url);
-      const candidate = url.searchParams.get("candidate");
-      const state = url.searchParams.get("state");
-      const office = url.searchParams.get("office");
-      const district = url.searchParams.get("district") || undefined;
-      const bioguideId = url.searchParams.get("bioguideId");
-
-      if (!candidate || !state || !office) {
-        return new Response(
-          "Missing required query params: candidate, state, office",
-          { status: 400 },
-        );
-      }
-
-      // 1. Check Cache
-      const cachedOverview = await OverviewStorage.getStoredOverview(
-        candidate,
-        state,
-        office,
-        district,
-      );
-
-      if (cachedOverview) {
-        console.log(`Returning cached overview for ${candidate}`);
-        return new Response(cachedOverview, {
-          headers: { "Content-Type": "text/markdown" },
+        router.register("GET", "/", (req) => {
+          return new Response("Hello World", {
+            headers: { "Content-Type": "text/plain" },
+          });
         });
-      }
 
-      // 2. Fetch Legislative Data (if incumbent)
-      let legislativeSummary = "";
-      if (bioguideId && bioguideId !== "null" && bioguideId !== "undefined") {
-        console.log(`Fetching legislative data for ${bioguideId}...`);
-        try {
-          // Parallel fetch for speed
-          const [sponsorships, cosponsorships] = await Promise.all([
-            getMemberSponsoredLegislation(bioguideId),
-            getMemberCosponsoredLegislation(bioguideId),
-          ]);
+        // router.register("GET", "/elections", async (req) => {
+        //   const response = await fetch(
+        //     "https://www.googleapis.com/civicinfo/v2/elections?key=" +
+        //       getApiKey("GOOGLE_API_KEY"),
+        //   );
+        //   const data = await response.json();
+        //   return new Response(JSON.stringify(data), {
+        //     headers: { "Content-Type": "application/json" },
+        //   });
+        // });
 
-          if (sponsorships || cosponsorships) {
-            console.log("Running Legislative Analyst...");
-            const analyst = await getLegislativeAnalyst(
-              candidate,
-              sponsorships || [],
-              cosponsorships || [],
+        router.register("POST", "/keys", async (req) => {
+          const body = await req.json();
+          UpdateSettings({
+            pluginSettings: {
+              ...Settings.getInstance().get("pluginSettings"),
+              informed: body,
+            },
+          });
+          return new Response("OK", {
+            headers: { "Content-Type": "text/plain" },
+            status: 200,
+          });
+        });
+
+        router.register("GET", "/candidates", async (req) => {
+          const data = await OpenFEC.getInstance().getAllCandidates();
+          return new Response(JSON.stringify(data), {
+            headers: { "Content-Type": "application/json" },
+          });
+        });
+
+        router.register("GET", "/candidates/:state", async (req) => {
+          const state = req.params.state!;
+          const url = new URL(req.url);
+          const office = url.searchParams.get("office") as
+            | "H"
+            | "S"
+            | "P"
+            | null;
+          const district = url.searchParams.get("district");
+          const data = await OpenFEC.getInstance().getStateCandidates(
+            state,
+            office || undefined,
+            district || undefined,
+          );
+          return new Response(JSON.stringify(data), {
+            headers: { "Content-Type": "application/json" },
+          });
+        });
+
+        router.register("GET", "/candidate/overview", async (req) => {
+          const url = new URL(req.url);
+          const candidate = url.searchParams.get("candidate");
+          const state = url.searchParams.get("state");
+          const office = url.searchParams.get("office");
+          const district = url.searchParams.get("district") || undefined;
+          const bioguideId = url.searchParams.get("bioguideId");
+
+          if (!candidate || !state || !office) {
+            return new Response(
+              "Missing required query params: candidate, state, office",
+              { status: 400 },
             );
-
-            // Use chat() as Agent buffers the stream internally anyway
-            const result = await analyst.chat("Analyze this legislative data.");
-            legislativeSummary = result.text || "";
-            console.log("Legislative Analysis Complete.");
           }
-        } catch (e) {
-          console.error("Error fetching legislative data", e);
-        }
-      }
 
-      // 3. Run Main Research Agent
-      console.log(`Starting research agent for ${candidate}...`);
-      const agent = await getCandidateResearchAgent(
-        candidate,
-        state,
-        office,
-        legislativeSummary,
-        district,
-      );
-
-      // 4. Generate Report (Blocking due to Agent limitation)
-      const result = await agent.chat("Begin research.");
-      const fullText = result.text;
-
-      // 5. Save to Cache
-      try {
-        if (fullText.length > 100) {
-          await OverviewStorage.saveOverview(
+          // 1. Check Cache
+          const cachedOverview = await OverviewStorage.getStoredOverview(
             candidate,
             state,
             office,
             district,
-            fullText,
           );
-          console.log(`Saved overview cache for ${candidate}`);
-        }
-      } catch (e) {
-        console.error("Failed to save overview cache", e);
-      }
 
-      return new Response(fullText, {
-        headers: { "Content-Type": "text/markdown" },
-      });
-    });
+          if (cachedOverview) {
+            console.log(`Returning cached overview for ${candidate}`);
+            return new Response(cachedOverview, {
+              headers: { "Content-Type": "text/markdown" },
+            });
+          }
 
-    router.register("GET", "/user/district/:zip", async (req) => {
-      const zip = req.params.zip!;
-      const geocodioKey = getApiKey("GEOCODIO_API_KEY");
-      const res = await fetch(
-        `https://api.geocod.io/v1.9/geocode?q=${zip}&fields=cd&api_key=${geocodioKey}`,
-      );
-      const data: any = await res.json();
-      if (!data?.results) return new Response("", { status: 404 });
-      const districtData = {
-        state: data.results[0]?.address_components.state,
-        district:
-          data.results[0]?.fields.congressional_districts[0]?.district_number,
-        current:
-          data.results[0]?.fields.congressional_districts[0]
-            ?.current_legislators,
-      };
-      return new Response(JSON.stringify(districtData), {
-        headers: { "Content-Type": "application/json" },
-      });
-    });
+          // 2. Fetch Legislative Data (if incumbent)
+          let legislativeSummary = "";
+          if (
+            bioguideId &&
+            bioguideId !== "null" &&
+            bioguideId !== "undefined"
+          ) {
+            console.log(`Fetching legislative data for ${bioguideId}...`);
+            try {
+              // Parallel fetch for speed
+              const [sponsorships, cosponsorships] = await Promise.all([
+                getMemberSponsoredLegislation(bioguideId),
+                getMemberCosponsoredLegislation(bioguideId),
+              ]);
 
-    await router.serve(3000);
-  },
-  subcommands: [
+              if (sponsorships || cosponsorships) {
+                console.log("Running Legislative Analyst...");
+                const analyst = await getLegislativeAnalyst(
+                  candidate,
+                  sponsorships || [],
+                  cosponsorships || [],
+                );
+
+                // Use chat() as Agent buffers the stream internally anyway
+                const result = await analyst.chat(
+                  "Analyze this legislative data.",
+                );
+                legislativeSummary = result.text || "";
+                console.log("Legislative Analysis Complete.");
+              }
+            } catch (e) {
+              console.error("Error fetching legislative data", e);
+            }
+          }
+
+          // 3. Run Main Research Agent
+          console.log(`Starting research agent for ${candidate}...`);
+          const agent = await getCandidateResearchAgent(
+            candidate,
+            state,
+            office,
+            legislativeSummary,
+            district,
+          );
+
+          // 4. Generate Report (Blocking due to Agent limitation)
+          const result = await agent.chat("Begin research.");
+          const fullText = result.text;
+
+          // 5. Save to Cache
+          try {
+            if (fullText.length > 100) {
+              await OverviewStorage.saveOverview(
+                candidate,
+                state,
+                office,
+                district,
+                fullText,
+              );
+              console.log(`Saved overview cache for ${candidate}`);
+            }
+          } catch (e) {
+            console.error("Failed to save overview cache", e);
+          }
+
+          return new Response(fullText, {
+            headers: { "Content-Type": "text/markdown" },
+          });
+        });
+
+        router.register("GET", "/user/district/:zip", async (req) => {
+          const zip = req.params.zip!;
+          const geocodioKey = getApiKey("GEOCODIO_API_KEY");
+          const res = await fetch(
+            `https://api.geocod.io/v1.9/geocode?q=${zip}&fields=cd&api_key=${geocodioKey}`,
+          );
+          const data: any = await res.json();
+          if (!data?.results) return new Response("", { status: 404 });
+          const districtData = {
+            state: data.results[0]?.address_components.state,
+            district:
+              data.results[0]?.fields.congressional_districts[0]
+                ?.district_number,
+            current:
+              data.results[0]?.fields.congressional_districts[0]
+                ?.current_legislators,
+          };
+          return new Response(JSON.stringify(districtData), {
+            headers: { "Content-Type": "application/json" },
+          });
+        });
+
+        await router.serve(3000);
+      },
+    },
     {
       name: "init",
       description: "Initialize the plugin",
+      usage: "/informed init",
       action: async () => {
         await init(true);
       },
@@ -242,7 +259,7 @@ const command = {
     {
       name: "auth-gov-data",
       description: "Authenticate with GovData",
-      usage: "auth-gov-data <api_key>",
+      usage: "/informed auth-gov-data <api_key>",
       action: async (args: string[]) => {
         await authGovData(args);
       },
@@ -250,7 +267,7 @@ const command = {
     {
       name: "auth-openfec",
       description: "Authenticate with OpenFEC",
-      usage: "auth-openfec <api_key>",
+      usage: "/informed auth-openfec <api_key>",
       action: async (args: string[]) => {
         await authOpenFEC(args);
       },

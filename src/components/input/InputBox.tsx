@@ -39,7 +39,7 @@ const InputBoxComponent = () => {
   const suggestions = useMemo(() => {
     const allCommands = CommandCenter.getAllCommands();
     const suggestions = allCommands.map((s) => {
-      if (s.usage.includes("<model-name>")) {
+      if (s.usage?.includes("<model-name>")) {
         const options = [];
         for (const modelName of modelNames) {
           const renderedUsage = s.usage.replace("<model-name>", modelName);
@@ -78,7 +78,7 @@ const InputBoxComponent = () => {
           });
           return check != undefined;
         }
-        return s.usage.startsWith(currentInput);
+        return s.usage?.startsWith(currentInput) ?? false;
       })
       .slice(0, MAX_VISIBLE_SUGGESTIONS);
     return filteredTemplates;
@@ -89,7 +89,7 @@ const InputBoxComponent = () => {
       if (s.renderedOptions && s.renderedOptions.length > 0) {
         return s.renderedOptions;
       }
-      return s.usage;
+      return s.usage || "";
     });
 
     const dropdownSuggestion = dropdownSuggestions[selectedIndex];
@@ -101,7 +101,7 @@ const InputBoxComponent = () => {
           ? dropdownSuggestion.renderedOptions.find((option) =>
               option.startsWith(currentInput),
             )
-          : dropdownSuggestion.usage;
+          : dropdownSuggestion.usage || "";
       if (renderedSuggestion) {
         return [
           renderedSuggestion,
