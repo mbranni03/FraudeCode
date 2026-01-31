@@ -2,8 +2,10 @@ import path from "path";
 import log from "@/utils/logger";
 import LegislatorDict from "./legislatorDict";
 import { getMemberById } from "./congressData";
+import { getApiKey } from "../utils/keys";
 
-const API_KEY = process.env.GOV_DATA_API_KEY;
+const getOpenFecKey = () =>
+  getApiKey("GOV_DATA_API_KEY") || getApiKey("OPENFEC_API_KEY");
 
 interface OpenFECResponse {
   pagination: {
@@ -50,9 +52,10 @@ class OpenFEC {
       log(`No cached data found at ${dataPath}. Fetching fresh data...`);
     }
 
-    if (!API_KEY) {
+    const apiKey = getOpenFecKey();
+    if (!apiKey) {
       throw new Error(
-        "OPENFEC_API_KEY is not defined in environment variables",
+        "GOV_DATA_API_KEY or OPENFEC_API_KEY is not defined in settings or environment variables",
       );
     }
 
@@ -65,7 +68,7 @@ class OpenFEC {
     do {
       log(`Fetching page ${page} of ${totalPages === 1 ? "?" : totalPages}...`);
       const response = await fetch(
-        `https://api.open.fec.gov/v1/candidates/totals/?page=${page}&per_page=100&election_year=2026&has_raised_funds=true&is_active_candidate=true&api_key=${API_KEY}`,
+        `https://api.open.fec.gov/v1/candidates/totals/?page=${page}&per_page=100&election_year=2026&has_raised_funds=true&is_active_candidate=true&api_key=${apiKey}`,
       );
 
       if (!response.ok) {

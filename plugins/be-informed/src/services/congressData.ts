@@ -1,4 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
+import { getApiKey } from "../utils/keys";
+
+const getGovKey = () => getApiKey("GOV_DATA_API_KEY");
 
 interface SenatorVote {
   member_full: string;
@@ -8,7 +11,6 @@ interface SenatorVote {
   vote_cast: string;
 }
 
-// 1. The Senate XML Fetcher
 async function getSenateVote(
   congress: number,
   session: number,
@@ -51,7 +53,7 @@ async function getSenateVote(
 }
 
 export async function getMemberById(id: string) {
-  const url = `https://api.congress.gov/v3/member/${id}?format=json&api_key=${process.env.GOV_DATA_API_KEY}`;
+  const url = `https://api.congress.gov/v3/member/${id}?format=json&api_key=${getGovKey()}`;
   const res = await fetch(url);
   const data = (await res.json()) as any;
   if (!data?.member) return null;
@@ -63,4 +65,45 @@ export async function getMemberById(id: string) {
     sponsoredLegislation: data.member?.sponsoredLegislation?.count,
     cosponsoredLegislation: data.member?.cosponsoredLegislation?.count,
   };
+}
+
+export async function getMemberSponsoredLegislation(id: string) {
+  const url = `https://api.congress.gov/v3/member/${id}/sponsored-legislation?format=json&api_key=${getGovKey()}`;
+  const res = await fetch(url);
+  const data = (await res.json()) as any;
+  if (!data?.sponsoredLegislation) return null;
+  return data.sponsoredLegislation;
+}
+
+export async function getMemberCosponsoredLegislation(id: string) {
+  const url = `https://api.congress.gov/v3/member/${id}/cosponsored-legislation?format=json&api_key=${getGovKey()}`;
+  const res = await fetch(url);
+  const data = (await res.json()) as any;
+  if (!data?.cosponsoredLegislation) return null;
+  return data.cosponsoredLegislation;
+}
+
+// Bill Types
+// hr	         House Bill	House	Yes	Yes
+// s	         Senate Bill	Senate	Yes	Yes
+
+export async function getRelevantBills(congress: number, senate: boolean) {
+  const url = `https://api.congress.gov/v3/bill/${congress}/${senate ? "s" : "hr"}?format=json&api_key=${getGovKey()}`;
+  const res = await fetch(url);
+  const data = (await res.json()) as any;
+  console.log(data);
+  if (!data?.bills) return null;
+  return data.bills;
+}
+
+export async function getBillActions(
+  congress: number,
+  billType: string,
+  billNumber: number,
+) {
+  const url = `https://api.congress.gov/v3/bill/${congress}/${billType}/${billNumber}/actions?format=json&api_key=${getGovKey()}`;
+  const res = await fetch(url);
+  const data = (await res.json()) as any;
+  if (!data?.actions) return null;
+  return data.actions;
 }

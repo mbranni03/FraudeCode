@@ -1,11 +1,35 @@
 import fs from "fs/promises";
 import path from "path";
 import OpenFEC from "./services/openFEC";
+import { Settings, UpdateSettings } from "@/config/settings";
 
-async function main() {
-  return;
+async function main(force = false) {
+  const settings = Settings.getInstance().get("pluginSettings");
+  const informed = settings.informed || {};
+  const lastUpdated = informed.lastUpdated;
+  const now = new Date();
+
+  if (lastUpdated && !force) {
+    const lastDate = new Date(lastUpdated);
+    const diff = now.getTime() - lastDate.getTime();
+    const weekInMs = 7 * 24 * 60 * 60 * 1000;
+    if (diff < weekInMs) {
+      return;
+    }
+  }
+
   await getLegislatorDict();
   await OpenFEC.getInstance().getAllCandidates(true);
+
+  await UpdateSettings({
+    pluginSettings: {
+      ...settings,
+      informed: {
+        ...informed,
+        lastUpdated: now.toISOString(),
+      },
+    },
+  });
 }
 
 async function getLegislatorDict() {
